@@ -1,0 +1,818 @@
+     1→'use client';
+     2→
+     3→import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+     4→import { motion, AnimatePresence } from 'framer-motion';
+     5→import {
+     6→  Mic, MicOff, Volume2, VolumeX, Radio, Zap, Activity, X,
+     7→  Maximize2, Brain, Cpu, MemoryStick, Gauge, Loader2, Sparkles,
+     8→} from 'lucide-react';
+     9→import {
+    10→  ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Cell, Tooltip,
+    11→} from 'recharts';
+    12→import { JARVIS } from '@/lib/config';
+    13→import { cn } from '@/lib/utils';
+    14→
+    15→/* ============================================================
+    16→   Orion Shell — voice-first minimal UI overlay
+    17→   - Wake word detection ("orion" / "aria") via webkitSpeechRecognition
+    18→   - Continuous listening mode with real-time transcription
+    19→   - Voice response via speechSynthesis (TTS)
+    20→   - Animated orb (idle / listening / processing / speaking)
+    21→   - Graph + text visualization of responses
+    22→   - Command history, quick command chips, mini live metrics
+    23→   ============================================================ */
+    24→
+    25→type ShellState = 'idle' | 'listening' | 'processing' | 'speaking';
+    26→
+    27→interface VoiceTurn {
+    28→  id: string;
+    29→  prompt: string;
+    30→  response: string;
+    31→  latency?: number;
+    32→  at: number;
+    33→  graph?: { label: string; value: number }[];
+    34→}
+    35→
+    36→interface MetricsSnapshot {
+    37→  cpu: number;
+    38→  mem: number;
+    39→  latency: number;
+    40→  tokens: number;
+    41→}
+    42→
+    43→interface ChatApiResponse {
+    44→  message?: { content?: string; latency?: number; model?: string };
+    45→  content?: string;
+    46→  latencyMs?: number;
+    47→  error?: string;
+    48→}
+    49→
+    50→const QUICK_COMMANDS = [
+    51→  'Show fleet status',
+    52→  "What's the revenue?",
+    53→  'Create a task',
+    54→  'Research AI agents',
+    55→  'Summarize today',
+    56→  'Health check',
+    57→];
+    58→
+    59→const WAKE_WORDS = ['orion', 'aria', 'hey orion', 'hey aria'];
+    60→
+    61→/* ---------- parse numeric data out of a response for a mini bar chart ---------- */
+    62→function parseGraphData(text: string): { label: string; value: number }[] | null {
+    63→  // Look for patterns like "CPU 42%", "revenue: $1,234", "12 agents", "3.2k tokens"
+    64→  const matches: { label: string; value: number }[] = [];
+    65→  const lines = text.split(/\n|\.|;/);
+    66→  for (const line of lines) {
+    67→    // percent patterns "X is Y%" or "Y% X"
+    68→    const pct = line.match(/([A-Za-z][A-Za-z\s\-]{0,24}?)\s*[:\-]?\s*(\d+(?:\.\d+)?)\s*%/);
+    69→    if (pct) {
+    70→      const label = (pct[1] || 'metric').trim().slice(0, 16) || 'metric';
+    71→      matches.push({ label, value: parseFloat(pct[2]) });
+    72→      continue;
+    73→    }
+    74→    // dollar / count patterns "$1,234" or "12 agents"
+    75→    const cnt = line.match(/(\d+(?:\.\d+)?)\s*([A-Za-z][A-Za-z]{2,14})/);
+    76→    if (cnt) {
+    77→      const val = parseFloat(cnt[1]);
+    78→      const label = cnt[2].toLowerCase();
+    79→      if (val > 0 && val < 1_000_000) {
+    80→        matches.push({ label, value: val });
+    81→      }
+    82→    }
+    83→  }
+    84→  // Dedupe by label, keep first occurrence, cap at 6
+    85→  const seen = new Set<string>();
+    86→  const out: { label: string; value: number }[] = [];
+    87→  for (const m of matches) {
+    88→    const key = m.label.toLowerCase();
+    89→    if (seen.has(key)) continue;
+    90→    seen.add(key);
+    91→    out.push(m);
+    92→    if (out.length >= 6) break;
+    93→  }
+    94→  return out.length >= 2 ? out : null;
+    95→}
+    96→
+    97→/* ============================================================
+    98→   Component
+    99→   ============================================================ */
+   100→export default function OrionShell({ onClose }: { onClose: () => void }) {
+   101→  const [supported, setSupported] = useState<boolean | null>(null);
+   102→  const [continuous, setContinuous] = useState(false);
+   103→  const [wakeRequired, setWakeRequired] = useState(true);
+   104→  const [state, setState] = useState<ShellState>('idle');
+   105→  const [interim, setInterim] = useState('');
+   106→  const [muted, setMuted] = useState(false);
+   107→  const [response, setResponse] = useState<string>('');
+   108→  const [typed, setTyped] = useState('');
+   109→  const [latency, setLatency] = useState<number | null>(null);
+   110→  const [graph, setGraph] = useState<{ label: string; value: number }[] | null>(null);
+   111→  const [history, setHistory] = useState<VoiceTurn[]>([]);
+   112→  const [metrics, setMetrics] = useState<MetricsSnapshot | null>(null);
+   113→  const [error, setError] = useState<string | null>(null);
+   114→  const [awake, setAwake] = useState(false);
+   115→
+   116→  const recognitionRef = useRef<any>(null);
+   117→  const shouldListenRef = useRef(false);
+   118→  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+   119→  const awakeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+   120→  const finalBufRef = useRef('');
+   121→
+   122→  /* ---------- mount: feature-detect speech APIs ---------- */
+   123→  useEffect(() => {
+   124→    if (typeof window === 'undefined') return;
+   125→    const SR = (window as any).webkitSpeechRecognition || (window as any).SpeechRecognition;
+   126→    setSupported(!!SR);
+   127→    // mute preference
+   128→    try {
+   129→      const m = localStorage.getItem('jarvis-orion-muted');
+   130→      if (m === '1') setMuted(true);
+   131→    } catch { /* ignore */ }
+   132→    return () => {
+   133→      stopRecognition();
+   134→      if (typeof window !== 'undefined' && window.speechSynthesis) {
+   135→        window.speechSynthesis.cancel();
+   136→      }
+   137→      if (debounceRef.current) clearTimeout(debounceRef.current);
+   138→      if (awakeTimerRef.current) clearTimeout(awakeTimerRef.current);
+   139→    };
+   140→    // stopRecognition is a stable useCallback (empty deps); safe to omit from deps.
+   141→  }, []);
+   142→
+   143→  /* ---------- Escape to exit ---------- */
+   144→  useEffect(() => {
+   145→    const onKey = (e: KeyboardEvent) => {
+   146→      if (e.key === 'Escape') {
+   147→        e.preventDefault();
+   148→        e.stopPropagation();
+   149→        onClose();
+   150→      }
+   151→    };
+   152→    window.addEventListener('keydown', onKey, true);
+   153→    return () => window.removeEventListener('keydown', onKey, true);
+   154→  }, [onClose]);
+   155→
+   156→  /* ---------- live metrics poll ---------- */
+   157→  useEffect(() => {
+   158→    let alive = true;
+   159→    const pull = async () => {
+   160→      try {
+   161→        const res = await fetch('/api/metrics', { cache: 'no-store' });
+   162→        const json = await res.json();
+   163→        if (!alive) return;
+   164→        const c = json.current;
+   165→        if (c) setMetrics({ cpu: c.cpu, mem: c.mem, latency: c.latency, tokens: c.tokens });
+   166→      } catch { /* ignore */ }
+   167→    };
+   168→    pull();
+   169→    const id = setInterval(pull, 5000);
+   170→    return () => { alive = false; clearInterval(id); };
+   171→  }, []);
+   172→
+   173→  /* ---------- TTS ---------- */
+   174→  const speak = useCallback((text: string) => {
+   175→    if (typeof window === 'undefined' || !window.speechSynthesis) return;
+   176→    if (muted) return;
+   177→    window.speechSynthesis.cancel();
+   178→    const clean = text.replace(/[#*`_>]/g, '').replace(/\s+/g, ' ').trim().slice(0, 600);
+   179→    if (!clean) return;
+   180→    const u = new SpeechSynthesisUtterance(clean);
+   181→    u.rate = 1.02;
+   182→    u.pitch = 1.0;
+   183→    u.volume = 1.0;
+   184→    if (window.speechSynthesis.getVoices) {
+   185→      const voices = window.speechSynthesis.getVoices();
+   186→      const pref = voices.find((v) => /en[-_]?US/i.test(v.lang) && /female|samantha|aria|jenny|zira/i.test(v.name))
+   187→        || voices.find((v) => /en[-_]?US/i.test(v.lang))
+   188→        || voices.find((v) => /^en/i.test(v.lang));
+   189→      if (pref) u.voice = pref;
+   190→    }
+   191→    u.onstart = () => setState('speaking');
+   192→    u.onend = () => setState((s) => (s === 'speaking' ? (shouldListenRef.current ? 'listening' : 'idle') : s));
+   193→    u.onerror = () => setState((s) => (s === 'speaking' ? (shouldListenRef.current ? 'listening' : 'idle') : s));
+   194→    window.speechSynthesis.speak(u);
+   195→  }, [muted]);
+   196→
+   197→  /* ---------- typing animation for the response ---------- */
+   198→  useEffect(() => {
+   199→    if (!response) { setTyped(''); return; }
+   200→    setTyped('');
+   201→    let i = 0;
+   202→    const id = setInterval(() => {
+   203→      i += 3;
+   204→      setTyped(response.slice(0, i));
+   205→      if (i >= response.length) clearInterval(id);
+   206→    }, 16);
+   207→    return () => clearInterval(id);
+   208→  }, [response]);
+   209→
+   210→  /* ---------- send a command to /api/chat ---------- */
+   211→  const sendCommand = useCallback(async (prompt: string) => {
+   212→    const clean = prompt.trim();
+   213→    if (!clean) return;
+   214→    setError(null);
+   215→    setState('processing');
+   216→    setInterim('');
+   217→    setGraph(null);
+   218→    setResponse('');
+   219→    setLatency(null);
+   220→    const t0 = performance.now();
+   221→    try {
+   222→      const res = await fetch('/api/chat', {
+   223→        method: 'POST',
+   224→        headers: { 'Content-Type': 'application/json' },
+   225→        body: JSON.stringify({ message: clean }),
+   226→      });
+   227→      const json: ChatApiResponse = await res.json();
+   228→      if (!res.ok) throw new Error(json.error || `chat ${res.status}`);
+   229→      const content = json.message?.content ?? json.content ?? '';
+   230→      const lat = json.message?.latency ?? json.latencyMs ?? Math.round(performance.now() - t0);
+   231→      setResponse(content || '(no response)');
+   232→      setLatency(lat);
+   233→      setGraph(parseGraphData(content));
+   234→      const turn: VoiceTurn = {
+   235→        id: `t-${Date.now()}`,
+   236→        prompt: clean,
+   237→        response: content,
+   238→        latency: lat,
+   239→        at: Date.now(),
+   240→        graph: parseGraphData(content) ?? undefined,
+   241→      };
+   242→      setHistory((h) => [turn, ...h].slice(0, 12));
+   243→      if (content) speak(content);
+   244→      else setState(shouldListenRef.current ? 'listening' : 'idle');
+   245→    } catch (e) {
+   246→      const msg = e instanceof Error ? e.message : 'unknown error';
+   247→      setError(msg);
+   248→      setState(shouldListenRef.current ? 'listening' : 'idle');
+   249→    }
+   250→  }, [speak]);
+   251→
+   252→  /* ---------- speech recognition lifecycle ---------- */
+   253→  const stopRecognition = useCallback(() => {
+   254→    shouldListenRef.current = false;
+   255→    const rec = recognitionRef.current;
+   256→    if (rec) {
+   257→      try { rec.onresult = null; rec.onend = null; rec.onerror = null; rec.stop(); } catch { /* ignore */ }
+   258→      recognitionRef.current = null;
+   259→    }
+   260→    setState('idle');
+   261→    setInterim('');
+   262→    setAwake(false);
+   263→  }, []);
+   264→
+   265→  const startRecognition = useCallback(() => {
+   266→    if (typeof window === 'undefined') return;
+   267→    const SR = (window as any).webkitSpeechRecognition || (window as any).SpeechRecognition;
+   268→    if (!SR) { setSupported(false); return; }
+   269→    // stop any existing
+   270→    if (recognitionRef.current) {
+   271→      try { recognitionRef.current.stop(); } catch { /* ignore */ }
+   272→      recognitionRef.current = null;
+   273→    }
+   274→    const rec = new SR();
+   275→    rec.continuous = true;
+   276→    rec.interimResults = true;
+   277→    rec.lang = 'en-US';
+   278→
+   279→    shouldListenRef.current = true;
+   280→    finalBufRef.current = '';
+   281→    setState('listening');
+   282→
+   283→    rec.onresult = (event: any) => {
+   284→      let interimText = '';
+   285→      let finalText = '';
+   286→      for (let i = event.resultIndex; i < event.results.length; i++) {
+   287→        const r = event.results[i];
+   288→        const t = r[0].transcript;
+   289→        if (r.isFinal) finalText += t;
+   290→        else interimText += t;
+   291→      }
+   292→      setInterim(interimText || finalText);
+   293→
+   294→      if (finalText) {
+   295→        finalBufRef.current = (finalBufRef.current + ' ' + finalText).trim();
+   296→        const lower = finalBufRef.current.toLowerCase();
+   297→
+   298→        if (wakeRequired) {
+   299→          // look for a wake word; capture the remainder as the command
+   300→          let cmd: string | null = null;
+   301→          for (const w of WAKE_WORDS) {
+   302→            const idx = lower.indexOf(w);
+   303→            if (idx >= 0) {
+   304→              const after = finalBufRef.current.slice(idx + w.length).replace(/^[\s,.:!?]+/, '').trim();
+   305→              if (after) cmd = after;
+   306→              break;
+   307→            }
+   308→          }
+   309→          if (cmd) {
+   310→            setAwake(true);
+   311→            if (awakeTimerRef.current) clearTimeout(awakeTimerRef.current);
+   312→            awakeTimerRef.current = setTimeout(() => setAwake(false), 6000);
+   313→            finalBufRef.current = '';
+   314→            void sendCommand(cmd);
+   315→          } else if (WAKE_WORDS.some((w) => lower.includes(w))) {
+   316→            // wake word spoken with no command yet — enter awake mode
+   317→            setAwake(true);
+   318→            if (awakeTimerRef.current) clearTimeout(awakeTimerRef.current);
+   319→            awakeTimerRef.current = setTimeout(() => setAwake(false), 6000);
+   320→            finalBufRef.current = '';
+   321→          }
+   322→          // else: keep accumulating, will be cleared on next final
+   323→        } else {
+   324→          // continuous mode — debounce and send
+   325→          if (debounceRef.current) clearTimeout(debounceRef.current);
+   326→          const snapshot = finalBufRef.current;
+   327→          debounceRef.current = setTimeout(() => {
+   328→            if (snapshot && shouldListenRef.current) {
+   329→              finalBufRef.current = '';
+   330→              void sendCommand(snapshot);
+   331→            }
+   332→          }, 1400);
+   333→        }
+   334→      }
+   335→    };
+   336→
+   337→    rec.onerror = (e: any) => {
+   338→      const err = e?.error || 'speech-error';
+   339→      if (err === 'no-speech' || err === 'aborted') return; // benign
+   340→      if (err === 'not-allowed' || err === 'service-not-allowed') {
+   341→        setError('Microphone permission denied. Enable mic access to use voice mode.');
+   342→        setSupported(false);
+   343→      } else {
+   344→        setError(`Speech error: ${err}`);
+   345→      }
+   346→    };
+   347→
+   348→    rec.onend = () => {
+   349→      // Auto-restart if we are still supposed to be listening (continuous).
+   350→      if (shouldListenRef.current) {
+   351→        try {
+   352→          rec.start();
+   353→        } catch { /* will retry on next user action */ }
+   354→      } else {
+   355→        setState('idle');
+   356→      }
+   357→    };
+   358→
+   359→    try {
+   360→      rec.start();
+   361→      recognitionRef.current = rec;
+   362→    } catch (e) {
+   363→      // already started — restart
+   364→      try { rec.stop(); setTimeout(() => { try { rec.start(); recognitionRef.current = rec; } catch { /* ignore */ } }, 250); } catch { /* ignore */ }
+   365→    }
+   366→  }, [sendCommand, wakeRequired]);
+   367→
+   368→  /* ---------- toggle continuous listening ---------- */
+   369→  const toggleListening = useCallback(() => {
+   370→    if (continuous) {
+   371→      setContinuous(false);
+   372→      stopRecognition();
+   373→    } else {
+   374→      setContinuous(true);
+   375→      startRecognition();
+   376→    }
+   377→  }, [continuous, startRecognition, stopRecognition]);
+   378→
+   379→  /* ---------- single-shot push-to-talk ---------- */
+   380→  const pushToTalk = useCallback(() => {
+   381→    // one-shot: start recognition for a single command without wake word
+   382→    if (!supported) return;
+   383→    if (recognitionRef.current) {
+   384→      stopRecognition();
+   385→    }
+   386→    // temporarily disable wake requirement for one-shot
+   387→    const prevWake = wakeRequired;
+   388→    setWakeRequired(false);
+   389→    startRecognition();
+   390→    // auto-stop after 8s if nothing heard
+   391→    setTimeout(() => {
+   392→      if (!finalBufRef.current) {
+   393→        stopRecognition();
+   394→      }
+   395→    }, 8000);
+   396→    // restore wake pref after the one-shot is consumed by onresult send
+   397→    setTimeout(() => setWakeRequired(prevWake), 8500);
+   398→  }, [supported, wakeRequired, startRecognition, stopRecognition]);
+   399→
+   400→  /* ---------- persist mute ---------- */
+   401→  useEffect(() => {
+   402→    try { localStorage.setItem('jarvis-orion-muted', muted ? '1' : '0'); } catch { /* ignore */ }
+   403→  }, [muted]);
+   404→
+   405→  /* ---------- orb visual config ---------- */
+   406→  const orbConfig = useMemo(() => {
+   407→    switch (state) {
+   408→      case 'listening':
+   409→        return { color: JARVIS.colors.cyan, glow: 0.55, scale: 1.06, dur: 1.1, label: 'LISTENING' };
+   410→      case 'processing':
+   411→        return { color: JARVIS.colors.violet, glow: 0.7, scale: 1.1, dur: 1.6, label: 'PROCESSING' };
+   412→      case 'speaking':
+   413→        return { color: JARVIS.colors.green, glow: 0.6, scale: 1.04, dur: 0.45, label: 'SPEAKING' };
+   414→      default:
+   415→        return { color: JARVIS.colors.cyan, glow: 0.18, scale: 1.0, dur: 3.2, label: 'STANDBY' };
+   416→    }
+   417→  }, [state]);
+   418→
+   419→  /* ============================================================
+   420→     Render
+   421→     ============================================================ */
+   422→  return (
+   423→    <motion.div
+   424→      className="fixed inset-0 z-[60] flex flex-col"
+   425→      initial={{ opacity: 0 }}
+   426→      animate={{ opacity: 1 }}
+   427→      exit={{ opacity: 0 }}
+   428→      transition={{ duration: 0.25 }}
+   429→      style={{ background: 'rgba(4,5,8,0.96)', backdropFilter: 'blur(18px)' }}
+   430→    >
+   431→      {/* subtle radial backdrop */}
+   432→      <div
+   433→        className="pointer-events-none absolute inset-0"
+   434→        style={{ background: `radial-gradient(circle at 50% 42%, ${orbConfig.color}14, transparent 55%)` }}
+   435→      />
+   436→
+   437→      {/* ---------------- Top bar ---------------- */}
+   438→      <header className="relative z-10 flex items-center justify-between px-4 lg:px-6 h-14 border-b border-[var(--j-border)] bg-[rgba(8,10,14,0.6)]">
+   439→        <div className="flex items-center gap-2.5">
+   440→          <div className="flex h-8 w-8 items-center justify-center rounded-md jarvis-btn-accent">
+   441→            <Brain className="h-4 w-4" />
+   442→          </div>
+   443→          <div className="leading-none">
+   444→            <div className="text-sm font-bold tracking-tight jarvis-text-gradient">ORION SHELL</div>
+   445→            <div className="jarvis-mono text-[9px] uppercase text-[var(--j-text-mute)]">
+   446→              voice-first · {supported === false ? 'unsupported' : awake ? 'awake' : 'standby'}
+   447→            </div>
+   448→          </div>
+   449→        </div>
+   450→
+   451→        {/* mini metrics */}
+   452→        <div className="hidden md:flex items-center gap-4">
+   453→          <MiniMetric icon={Cpu} label="CPU" value={metrics ? `${Math.round(metrics.cpu)}%` : '—'} color={JARVIS.colors.cyan} />
+   454→          <MiniMetric icon={MemoryStick} label="MEM" value={metrics ? `${Math.round(metrics.mem)}%` : '—'} color={JARVIS.colors.violet} />
+   455→          <MiniMetric icon={Gauge} label="LAT" value={metrics ? `${metrics.latency}ms` : '—'} color={JARVIS.colors.amber} />
+   456→        </div>
+   457→
+   458→        <div className="flex items-center gap-2">
+   459→          <button
+   460→            onClick={() => setMuted((m) => !m)}
+   461→            className="flex h-8 w-8 items-center justify-center rounded-md border border-[var(--j-border)] bg-[var(--j-panel-soft)] text-[var(--j-text-dim)] hover:text-[var(--j-cyan)] hover:border-[var(--j-cyan)] transition-colors"
+   462→            aria-label={muted ? 'Unmute voice' : 'Mute voice'}
+   463→            title={muted ? 'Unmute voice' : 'Mute voice'}
+   464→          >
+   465→            {muted ? <VolumeX className="h-3.5 w-3.5" /> : <Volume2 className="h-3.5 w-3.5" />}
+   466→          </button>
+   467→          <button
+   468→            onClick={onClose}
+   469→            className="flex h-8 w-8 items-center justify-center rounded-md border border-[var(--j-border)] bg-[var(--j-panel-soft)] text-[var(--j-text-dim)] hover:text-[var(--j-red)] hover:border-[var(--j-red)] transition-colors"
+   470→            aria-label="Exit Orion mode"
+   471→            title="Exit Orion mode (Ctrl+Shift+O)"
+   472→          >
+   473→            <X className="h-4 w-4" />
+   474→          </button>
+   475→        </div>
+   476→      </header>
+   477→
+   478→      {/* ---------------- Main stage ---------------- */}
+   479→      <div className="relative z-10 flex-1 min-h-0 grid grid-cols-1 lg:grid-cols-[1fr_320px]">
+   480→        {/* Center: orb + transcript + response */}
+   481→        <section className="flex flex-col items-center justify-center px-4 py-6 lg:py-10 overflow-y-auto jarvis-scroll min-h-0">
+   482→          {/* Orb */}
+   483→          <div className="relative flex items-center justify-center mb-6" style={{ width: 240, height: 240 }}>
+   484→            {/* outer rings */}
+   485→            {[0, 1, 2].map((i) => (
+   486→              <motion.div
+   487→                key={i}
+   488→                className="absolute rounded-full"
+   489→                style={{ border: `1px solid ${orbConfig.color}33` }}
+   490→                animate={{
+   491→                  scale: state === 'listening' ? [1, 1.35 + i * 0.18, 1] : [1, 1.08 + i * 0.06, 1],
+   492→                  opacity: state === 'listening' ? [0.5, 0, 0.5] : [0.35, 0.12, 0.35],
+   493→                }}
+   494→                transition={{
+   495→                  duration: orbConfig.dur,
+   496→                  repeat: Infinity,
+   497→                  delay: i * 0.18,
+   498→                  ease: 'easeInOut',
+   499→                }}
+   500→              />
+   501→            ))}
+   502→
+   503→            {/* glow halo */}
+   504→            <motion.div
+   505→              className="absolute rounded-full"
+   506→              style={{ width: 200, height: 200 }}
+   507→              animate={{
+   508→                boxShadow: `0 0 ${60 + orbConfig.glow * 80}px ${orbConfig.glow * 30}px ${orbConfig.color}40, inset 0 0 ${40 + orbConfig.glow * 40}px ${orbConfig.color}30`,
+   509→                background: `radial-gradient(circle, ${orbConfig.color}22, transparent 70%)`,
+   510→              }}
+   511→              transition={{ duration: 0.6 }}
+   512→            />
+   513→
+   514→            {/* core orb */}
+   515→            <motion.div
+   516→              className="relative rounded-full flex items-center justify-center"
+   517→              style={{
+   518→                width: 140,
+   519→                height: 140,
+   520→                background: `radial-gradient(circle at 35% 30%, ${orbConfig.color}cc, ${orbConfig.color}33 55%, transparent 80%)`,
+   521→                border: `1.5px solid ${orbConfig.color}aa`,
+   522→                boxShadow: `0 0 30px ${orbConfig.color}80, inset 0 0 25px ${orbConfig.color}40`,
+   523→              }}
+   524→              animate={{
+   525→                scale: state === 'speaking'
+   526→                  ? [1, 1.08, 0.96, 1.05, 1]
+   527→                  : [1, orbConfig.scale, 1],
+   528→              }}
+   529→              transition={{
+   530→                duration: orbConfig.dur,
+   531→                repeat: Infinity,
+   532→                ease: 'easeInOut',
+   533→              }}
+   534→            >
+   535→              {/* speaking waveform bars */}
+   536→              {state === 'speaking' && (
+   537→                <div className="flex items-center gap-1">
+   538→                  {[0, 1, 2, 3, 4].map((i) => (
+   539→                    <motion.div
+   540→                      key={i}
+   541→                      style={{ width: 3, background: JARVIS.colors.green, borderRadius: 2 }}
+   542→                      animate={{ height: [8, 32, 14, 38, 10] }}
+   543→                      transition={{ duration: 0.55, repeat: Infinity, delay: i * 0.06, ease: 'easeInOut' }}
+   544→                    />
+   545→                  ))}
+   546→                </div>
+   547→              )}
+   548→              {state !== 'speaking' && (
+   549→                <motion.div
+   550→                  animate={{ rotate: state === 'processing' ? 360 : 0 }}
+   551→                  transition={{ duration: state === 'processing' ? 2 : 0, repeat: state === 'processing' ? Infinity : 0, ease: 'linear' }}
+   552→                >
+   553→                  {state === 'processing' ? (
+   554→                    <Loader2 className="h-10 w-10" style={{ color: orbConfig.color }} />
+   555→                  ) : continuous ? (
+   556→                    <Radio className="h-9 w-9" style={{ color: orbConfig.color }} />
+   557→                  ) : (
+   558→                    <Mic className="h-9 w-9" style={{ color: orbConfig.color }} />
+   559→                  )}
+   560→                </motion.div>
+   561→              )}
+   562→            </motion.div>
+   563→
+   564→            {/* awake badge */}
+   565→            <AnimatePresence>
+   566→              {awake && (
+   567→                <motion.div
+   568→                  initial={{ opacity: 0, y: 6 }}
+   569→                  animate={{ opacity: 1, y: 0 }}
+   570→                  exit={{ opacity: 0, y: 6 }}
+   571→                  className="absolute -bottom-1 jarvis-mono text-[9px] uppercase px-2 py-0.5 rounded-full"
+   572→                  style={{ background: `${JARVIS.colors.green}1a`, border: `1px solid ${JARVIS.colors.green}55`, color: JARVIS.colors.green }}
+   573→                >
+   574→                  awake · speak your command
+   575→                </motion.div>
+   576→              )}
+   577→            </AnimatePresence>
+   578→          </div>
+   579→
+   580→          {/* state label */}
+   581→          <div className="flex items-center gap-2 mb-3">
+   582→            <span className="h-1.5 w-1.5 rounded-full jarvis-blink" style={{ background: orbConfig.color }} />
+   583→            <span className="jarvis-mono text-[10px] uppercase tracking-widest" style={{ color: orbConfig.color }}>
+   584→              {orbConfig.label}
+   585→            </span>
+   586→            {latency !== null && (
+   587→              <span className="jarvis-mono text-[9px] uppercase text-[var(--j-text-mute)]">· {latency}ms</span>
+   588→            )}
+   589→          </div>
+   590→
+   591→          {/* interim transcript */}
+   592→          <div className="w-full max-w-2xl min-h-[2.5rem] text-center mb-4">
+   593→            {interim ? (
+   594→              <motion.p
+   595→                key={interim.slice(0, 16)}
+   596→                initial={{ opacity: 0.4 }}
+   597→                animate={{ opacity: 1 }}
+   598→                className="text-lg lg:text-xl text-[var(--j-text-dim)] italic"
+   599→              >
+   600→                “{interim}”
+   601→              </motion.p>
+   602→            ) : (
+   603→              <p className="text-sm text-[var(--j-text-mute)] jarvis-mono uppercase tracking-widest">
+   604→                {supported === false
+   605→                  ? 'voice not supported in this browser'
+   606→                  : continuous
+   607→                    ? wakeRequired
+   608→                      ? 'say “orion” or “aria” followed by your command'
+   609→                      : 'speak — your words become commands'
+   610→                    : 'tap the mic to begin'}
+   611→              </p>
+   612→            )}
+   613→          </div>
+   614→
+   615→          {/* response card */}
+   616→          <AnimatePresence>
+   617→            {(response || error) && (
+   618→              <motion.div
+   619→                initial={{ opacity: 0, y: 12 }}
+   620→                animate={{ opacity: 1, y: 0 }}
+   621→                exit={{ opacity: 0, y: -8 }}
+   622→                className="w-full max-w-2xl jarvis-panel p-4 lg:p-5"
+   623→              >
+   624→                {error ? (
+   625→                  <div className="flex items-start gap-2 text-sm" style={{ color: JARVIS.colors.red }}>
+   626→                    <X className="h-4 w-4 mt-0.5 shrink-0" />
+   627→                    <span>{error}</span>
+   628→                  </div>
+   629→                ) : (
+   630→                  <div className="grid grid-cols-1 gap-4" style={{ gridTemplateColumns: graph ? '1fr 200px' : '1fr' }}>
+   631→                    {/* text */}
+   632→                    <div className="min-w-0">
+   633→                      <div className="jarvis-mono text-[9px] uppercase text-[var(--j-text-mute)] mb-1.5 flex items-center gap-1.5">
+   634→                        <Sparkles className="h-3 w-3" style={{ color: JARVIS.colors.cyan }} /> orion response
+   635→                      </div>
+   636→                      <div className="text-sm text-[var(--j-text)] whitespace-pre-wrap leading-relaxed">
+   637→                        {typed}
+   638→                        {typed.length < response.length && (
+   639→                          <span className="inline-block w-1.5 h-4 ml-0.5 align-middle jarvis-blink" style={{ background: JARVIS.colors.cyan }} />
+   640→                        )}
+   641→                      </div>
+   642→                    </div>
+   643→                    {/* graph */}
+   644→                    {graph && (
+   645→                      <div className="border-l border-[var(--j-border-soft)] pl-3">
+   646→                        <div className="jarvis-mono text-[9px] uppercase text-[var(--j-text-mute)] mb-1">data</div>
+   647→                        <div style={{ width: '100%', height: 140 }}>
+   648→                          <ResponsiveContainer width="100%" height="100%">
+   649→                            <BarChart data={graph} margin={{ top: 4, right: 4, bottom: 0, left: -22 }}>
+   650→                              <XAxis dataKey="label" tick={{ fontSize: 8, fill: 'var(--j-text-mute)' }} interval={0} angle={-30} textAnchor="end" height={28} />
+   651→                              <YAxis tick={{ fontSize: 8, fill: 'var(--j-text-mute)' }} width={32} />
+   652→                              <Tooltip
+   653→                                cursor={{ fill: 'rgba(125,211,252,0.08)' }}
+   654→                                contentStyle={{ background: 'var(--j-panel)', border: '1px solid var(--j-border)', borderRadius: 6, fontSize: 11 }}
+   655→                                labelStyle={{ color: 'var(--j-text-dim)' }}
+   656→                              />
+   657→                              <Bar dataKey="value" radius={[3, 3, 0, 0]}>
+   658→                                {graph.map((g, i) => (
+   659→                                  <Cell key={i} fill={[JARVIS.colors.cyan, JARVIS.colors.green, JARVIS.colors.violet, JARVIS.colors.amber][i % 4]} />
+   660→                                ))}
+   661→                              </Bar>
+   662→                            </BarChart>
+   663→                          </ResponsiveContainer>
+   664→                        </div>
+   665→                      </div>
+   666→                    )}
+   667→                  </div>
+   668→                )}
+   669→              </motion.div>
+   670→            )}
+   671→          </AnimatePresence>
+   672→
+   673→          {/* quick commands */}
+   674→          <div className="w-full max-w-2xl mt-5">
+   675→            <div className="jarvis-mono text-[9px] uppercase text-[var(--j-text-mute)] mb-2 text-center">quick commands</div>
+   676→            <div className="flex flex-wrap justify-center gap-2">
+   677→              {QUICK_COMMANDS.map((q) => (
+   678→                <button
+   679→                  key={q}
+   680→                  onClick={() => { setAwake(true); void sendCommand(q); }}
+   681→                  className="jarvis-mono text-[10px] uppercase px-2.5 py-1.5 rounded-md border border-[var(--j-border)] bg-[var(--j-panel-soft)] text-[var(--j-text-dim)] hover:text-[var(--j-cyan)] hover:border-[var(--j-cyan)] transition-colors"
+   682→                >
+   683→                  {q}
+   684→                </button>
+   685→              ))}
+   686→            </div>
+   687→          </div>
+   688→        </section>
+   689→
+   690→        {/* Right rail: controls + history */}
+   691→        <aside className="border-t lg:border-t-0 lg:border-l border-[var(--j-border)] bg-[rgba(8,10,14,0.55)] flex flex-col min-h-0 max-h-[40vh] lg:max-h-none">
+   692→          {/* controls */}
+   693→          <div className="p-4 border-b border-[var(--j-border)] space-y-3">
+   694→            <button
+   695→              onClick={toggleListening}
+   696→              disabled={supported === false}
+   697→              className={cn(
+   698→                'w-full flex items-center justify-center gap-2 h-10 rounded-md border transition-colors disabled:opacity-40 disabled:cursor-not-allowed',
+   699→                continuous
+   700→                  ? 'border-[var(--j-green)] bg-[var(--j-green)]/10 text-[var(--j-green)] hover:bg-[var(--j-green)]/20'
+   701→                  : 'border-[var(--j-cyan)] bg-[var(--j-cyan)]/10 text-[var(--j-cyan)] hover:bg-[var(--j-cyan)]/20',
+   702→              )}
+   703→            >
+   704→              {continuous ? <MicOff className="h-4 w-4" /> : <Mic className="h-4 w-4" />}
+   705→              <span className="jarvis-mono text-[11px] uppercase tracking-wider">
+   706→                {continuous ? 'stop listening' : 'start listening'}
+   707→              </span>
+   708→            </button>
+   709→
+   710→            <button
+   711→              onClick={pushToTalk}
+   712→              disabled={supported === false}
+   713→              className="w-full flex items-center justify-center gap-2 h-9 rounded-md border border-[var(--j-border)] bg-[var(--j-panel-soft)] text-[var(--j-text-dim)] hover:text-[var(--j-violet)] hover:border-[var(--j-violet)] transition-colors disabled:opacity-40"
+   714→            >
+   715→              <Zap className="h-3.5 w-3.5" />
+   716→              <span className="jarvis-mono text-[10px] uppercase tracking-wider">push to talk</span>
+   717→            </button>
+   718→
+   719→            <label className="flex items-center justify-between gap-2 cursor-pointer select-none">
+   720→              <span className="jarvis-mono text-[10px] uppercase text-[var(--j-text-dim)] flex items-center gap-1.5">
+   721→                <Radio className="h-3 w-3" /> wake word required
+   722→              </span>
+   723→              <button
+   724→                onClick={() => setWakeRequired((w) => !w)}
+   725→                className={cn(
+   726→                  'relative h-5 w-9 rounded-full transition-colors',
+   727→                  wakeRequired ? 'bg-[var(--j-cyan)]/70' : 'bg-[var(--j-border)]',
+   728→                )}
+   729→                role="switch"
+   730→                aria-checked={wakeRequired}
+   731→                aria-label="Toggle wake word requirement"
+   732→              >
+   733→                <motion.span
+   734→                  className="absolute top-0.5 h-4 w-4 rounded-full bg-white"
+   735→                  animate={{ left: wakeRequired ? 18 : 2 }}
+   736→                  transition={{ type: 'spring', stiffness: 500, damping: 30 }}
+   737→                />
+   738→              </button>
+   739→            </label>
+   740→
+   741→            {supported === false && (
+   742→              <div className="text-[11px] text-[var(--j-amber)] leading-snug jarvis-panel p-2.5" style={{ borderColor: 'var(--j-amber)' }}>
+   743→                Web Speech API is unavailable in this browser. Try Chrome or Edge for full voice features.
+   744→              </div>
+   745→            )}
+   746→          </div>
+   747→
+   748→          {/* history */}
+   749→          <div className="flex-1 min-h-0 flex flex-col">
+   750→            <div className="px-4 py-2 border-b border-[var(--j-border)] flex items-center justify-between">
+   751→              <span className="jarvis-mono text-[9px] uppercase text-[var(--j-text-mute)] flex items-center gap-1.5">
+   752→                <Activity className="h-3 w-3" /> command history
+   753→              </span>
+   754→              {history.length > 0 && (
+   755→                <button
+   756→                  onClick={() => setHistory([])}
+   757→                  className="jarvis-mono text-[9px] uppercase text-[var(--j-text-mute)] hover:text-[var(--j-red)]"
+   758→                >
+   759→                  clear
+   760→                </button>
+   761→              )}
+   762→            </div>
+   763→            <div className="flex-1 overflow-y-auto jarvis-scroll p-2 space-y-1.5">
+   764→              {history.length === 0 ? (
+   765→                <div className="px-3 py-8 text-center jarvis-mono text-[10px] uppercase text-[var(--j-text-mute)]">
+   766→                  no commands yet
+   767→                </div>
+   768→              ) : (
+   769→                history.map((h) => (
+   770→                  <button
+   771→                    key={h.id}
+   772→                    onClick={() => { setResponse(h.response); setGraph(h.graph ?? null); setLatency(h.latency ?? null); speak(h.response); }}
+   773→                    className="w-full text-left p-2 rounded-md border border-[var(--j-border-soft)] bg-[var(--j-panel-soft)]/50 hover:border-[var(--j-cyan)] hover:bg-[var(--j-panel-soft)] transition-colors"
+   774→                  >
+   775→                    <div className="flex items-center gap-1.5 mb-0.5">
+   776→                      <Mic className="h-2.5 w-2.5 text-[var(--j-cyan)] shrink-0" />
+   777→                      <span className="text-[11px] text-[var(--j-text)] truncate">{h.prompt}</span>
+   778→                    </div>
+   779→                    <div className="text-[10px] text-[var(--j-text-dim)] line-clamp-2">{h.response.slice(0, 120)}</div>
+   780→                    {h.latency !== undefined && (
+   781→                      <div className="jarvis-mono text-[8px] uppercase text-[var(--j-text-mute)] mt-0.5">{h.latency}ms · {new Date(h.at).toLocaleTimeString()}</div>
+   782→                    )}
+   783→                  </button>
+   784→                ))
+   785→              )}
+   786→            </div>
+   787→          </div>
+   788→        </aside>
+   789→      </div>
+   790→
+   791→      {/* ---------------- Footer hint ---------------- */}
+   792→      <footer className="relative z-10 border-t border-[var(--j-border)] bg-[rgba(8,10,14,0.6)] px-4 lg:px-6 h-9 flex items-center justify-between jarvis-mono text-[10px] uppercase text-[var(--j-text-mute)]">
+   793→        <div className="flex items-center gap-3">
+   794→          <span className="flex items-center gap-1.5">
+   795→            <Maximize2 className="h-3 w-3" /> orion mode
+   796→          </span>
+   797→          <span className="hidden sm:inline">ctrl+shift+o to exit</span>
+   798→        </div>
+   799→        <div className="flex items-center gap-3">
+   800→          {metrics && <span>tok {metrics.tokens.toLocaleString()}</span>}
+   801→          <span>{JARVIS.codename} v{JARVIS.version}</span>
+   802→        </div>
+   803→      </footer>
+   804→    </motion.div>
+   805→  );
+   806→}
+   807→
+   808→/* ---------- small inline metric ---------- */
+   809→function MiniMetric({ icon: Icon, label, value, color }: { icon: typeof Cpu; label: string; value: string; color: string }) {
+   810→  return (
+   811→    <div className="flex items-center gap-1.5">
+   812→      <Icon className="h-3 w-3" style={{ color }} />
+   813→      <span className="jarvis-mono text-[9px] uppercase text-[var(--j-text-mute)]">{label}</span>
+   814→      <span className="jarvis-mono text-[11px] tabular-nums" style={{ color }}>{value}</span>
+   815→    </div>
+   816→  );
+   817→}
+   818→

@@ -1,0 +1,483 @@
+@import "tailwindcss";
+@import "tw-animate-css";
+
+@custom-variant dark (&:is(.dark *));
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --font-sans: var(--font-geist-sans);
+  --font-mono: var(--font-geist-mono);
+  --color-sidebar-ring: var(--sidebar-ring);
+  --color-sidebar-border: var(--sidebar-border);
+  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+  --color-sidebar-accent: var(--sidebar-accent);
+  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+  --color-sidebar-primary: var(--sidebar-primary);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar: var(--sidebar);
+  --color-chart-5: var(--chart-5);
+  --color-chart-4: var(--chart-4);
+  --color-chart-3: var(--chart-3);
+  --color-chart-2: var(--chart-2);
+  --color-chart-1: var(--chart-1);
+  --color-ring: var(--ring);
+  --color-input: var(--input);
+  --color-border: var(--border);
+  --color-destructive: var(--destructive);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-accent: var(--accent);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-muted: var(--muted);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-secondary: var(--secondary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-primary: var(--primary);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-popover: var(--popover);
+  --color-card-foreground: var(--card-foreground);
+  --color-card: var(--card);
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
+}
+
+/* JARVIS cyberpunk dark theme is the default root theme. */
+:root {
+  --radius: 0.625rem;
+  --background: #07080A;
+  --foreground: #E2E8F0;
+  --card: #0E1218;
+  --card-foreground: #E2E8F0;
+  --popover: #0E1218;
+  --popover-foreground: #E2E8F0;
+  --primary: #7DD3FC;
+  --primary-foreground: #05070A;
+  --secondary: #121821;
+  --secondary-foreground: #E2E8F0;
+  --muted: #121821;
+  --muted-foreground: #94A3B8;
+  --accent: #7DD3FC;
+  --accent-foreground: #05070A;
+  --destructive: #F87171;
+  --border: #1B2330;
+  --input: #1B2330;
+  --ring: #7DD3FC;
+  --chart-1: #7DD3FC;
+  --chart-2: #34D399;
+  --chart-3: #C4B5FD;
+  --chart-4: #FBBF24;
+  --chart-5: #F87171;
+  --sidebar: #0A0D12;
+  --sidebar-foreground: #E2E8F0;
+  --sidebar-primary: #7DD3FC;
+  --sidebar-primary-foreground: #05070A;
+  --sidebar-accent: #121821;
+  --sidebar-accent-foreground: #E2E8F0;
+  --sidebar-border: #1B2330;
+  --sidebar-ring: #7DD3FC;
+
+  /* JARVIS-specific tokens */
+  --j-bg: #07080A;
+  --j-bg-soft: #0C0F14;
+  --j-panel: #0E1218;
+  --j-panel-soft: #121821;
+  --j-border: #1B2330;
+  --j-border-soft: #141B26;
+  --j-cyan: #7DD3FC;
+  --j-cyan-dim: #38BDF8;
+  --j-green: #34D399;
+  --j-amber: #FBBF24;
+  --j-red: #F87171;
+  --j-violet: #C4B5FD;
+  --j-text: #E2E8F0;
+  --j-text-dim: #94A3B8;
+  --j-text-mute: #64748B;
+}
+
+/* JARVIS light theme — a clean high-contrast ops-console variant.
+   Toggled by adding `.light` to <html>. Keeps the cyan accent identity. */
+html.light {
+  --background: #F4F6F9;
+  --foreground: #0F172A;
+  --card: #FFFFFF;
+  --card-foreground: #0F172A;
+  --popover: #FFFFFF;
+  --popover-foreground: #0F172A;
+  --primary: #0284C7;
+  --primary-foreground: #FFFFFF;
+  --secondary: #E2E8F0;
+  --secondary-foreground: #0F172A;
+  --muted: #E2E8F0;
+  --muted-foreground: #475569;
+  --accent: #0284C7;
+  --accent-foreground: #FFFFFF;
+  --destructive: #DC2626;
+  --border: #CBD5E1;
+  --input: #CBD5E1;
+  --ring: #0284C7;
+  --chart-1: #0284C7;
+  --chart-2: #059669;
+  --chart-3: #7C3AED;
+  --chart-4: #D97706;
+  --chart-5: #DC2626;
+  --sidebar: #FFFFFF;
+  --sidebar-foreground: #0F172A;
+  --sidebar-primary: #0284C7;
+  --sidebar-primary-foreground: #FFFFFF;
+  --sidebar-accent: #F1F5F9;
+  --sidebar-accent-foreground: #0F172A;
+  --sidebar-border: #E2E8F0;
+  --sidebar-ring: #0284C7;
+
+  --j-bg: #F4F6F9;
+  --j-bg-soft: #E9EDF2;
+  --j-panel: #FFFFFF;
+  --j-panel-soft: #F1F5F9;
+  --j-border: #CBD5E1;
+  --j-border-soft: #E2E8F0;
+  --j-cyan: #0284C7;
+  --j-cyan-dim: #0EA5E9;
+  --j-green: #059669;
+  --j-amber: #D97706;
+  --j-red: #DC2626;
+  --j-violet: #7C3AED;
+  --j-text: #0F172A;
+  --j-text-dim: #475569;
+  --j-text-mute: #94A3B8;
+}
+
+html.light .jarvis-bg {
+  background:
+    radial-gradient(circle at 18% 12%, rgba(2, 132, 199, 0.06), transparent 42%),
+    radial-gradient(circle at 82% 88%, rgba(124, 58, 237, 0.05), transparent 45%),
+    linear-gradient(180deg, #F4F6F9 0%, #E9EDF2 100%);
+}
+html.light .jarvis-bg::before {
+  background-image:
+    linear-gradient(rgba(2, 132, 199, 0.05) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(2, 132, 199, 0.05) 1px, transparent 1px);
+}
+html.light .jarvis-panel {
+  background: linear-gradient(180deg, rgba(255,255,255,0.9) 0%, rgba(241,245,249,0.9) 100%);
+  box-shadow: 0 1px 3px rgba(15, 23, 42, 0.06), 0 1px 2px rgba(15, 23, 42, 0.04);
+}
+html.light .jarvis-panel::after { opacity: 0.3; }
+html.light .jarvis-text-gradient {
+  background: linear-gradient(110deg, #0284C7 0%, #7C3AED 45%, #0EA5E9 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+}
+html.light .jarvis-btn-accent {
+  background: linear-gradient(180deg, rgba(2,132,199,0.12), rgba(2,132,199,0.06));
+  border-color: rgba(2,132,199,0.4);
+  color: #0284C7;
+}
+html.light .jarvis-btn-accent:hover {
+  background: linear-gradient(180deg, rgba(2,132,199,0.2), rgba(2,132,199,0.1));
+  box-shadow: 0 4px 12px -4px rgba(2,132,199,0.3);
+}
+html.light .jarvis-scroll::-webkit-scrollbar-thumb { background: #CBD5E1; }
+html.light .jarvis-scroll::-webkit-scrollbar-thumb:hover { background: #0284C7; }
+
+
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+  }
+  html {
+    color-scheme: dark;
+  }
+  body {
+    @apply bg-background text-foreground;
+    background-color: var(--j-bg);
+    color: var(--j-text);
+    font-feature-settings: "cv11", "ss01";
+    -webkit-font-smoothing: antialiased;
+  }
+}
+
+/* ============================================================
+   JARVIS Mission Control — design system
+   ============================================================ */
+
+/* Animated grid + radial glow background for the whole app. */
+.jarvis-bg {
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  background:
+    radial-gradient(circle at 18% 12%, rgba(125, 211, 252, 0.10), transparent 42%),
+    radial-gradient(circle at 82% 88%, rgba(196, 181, 253, 0.08), transparent 45%),
+    linear-gradient(180deg, #07080A 0%, #090B10 100%);
+}
+.jarvis-bg::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background-image:
+    linear-gradient(rgba(125, 211, 252, 0.045) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(125, 211, 252, 0.045) 1px, transparent 1px);
+  background-size: 44px 44px;
+  mask-image: radial-gradient(ellipse at center, #000 0%, transparent 78%);
+  animation: jarvis-grid-pan 60s linear infinite;
+}
+@keyframes jarvis-grid-pan {
+  0% { background-position: 0 0, 0 0; }
+  100% { background-position: 44px 44px, 44px 44px; }
+}
+
+/* Glassy panel with a hairline cyan border and subtle inner glow. */
+.jarvis-panel {
+  background: linear-gradient(180deg, rgba(18, 24, 33, 0.72) 0%, rgba(14, 18, 24, 0.72) 100%);
+  border: 1px solid var(--j-border);
+  border-radius: 12px;
+  backdrop-filter: blur(8px);
+  position: relative;
+}
+.jarvis-panel::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: 12px;
+  padding: 1px;
+  background: linear-gradient(135deg, rgba(125, 211, 252, 0.35), transparent 40%, transparent 60%, rgba(196, 181, 253, 0.18));
+  -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor;
+  mask-composite: exclude;
+  pointer-events: none;
+  opacity: 0.6;
+}
+
+.jarvis-card-hover {
+  transition: transform 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease;
+}
+.jarvis-card-hover:hover {
+  transform: translateY(-2px);
+  border-color: rgba(125, 211, 252, 0.45);
+  box-shadow: 0 8px 30px -12px rgba(125, 211, 252, 0.35), 0 0 0 1px rgba(125, 211, 252, 0.15);
+}
+
+/* Gradient text used on the JARVIS title. */
+.jarvis-text-gradient {
+  background: linear-gradient(110deg, #7DD3FC 0%, #C4B5FD 45%, #38BDF8 100%);
+  background-size: 200% auto;
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  animation: jarvis-shimmer 6s linear infinite;
+}
+@keyframes jarvis-shimmer {
+  to { background-position: 200% center; }
+}
+
+.jarvis-glow {
+  box-shadow: 0 0 0 1px rgba(125, 211, 252, 0.18), 0 0 24px -6px rgba(125, 211, 252, 0.4);
+}
+.jarvis-glow-text {
+  text-shadow: 0 0 14px rgba(125, 211, 252, 0.55);
+}
+
+/* Status dot pulse */
+.jarvis-pulse-dot {
+  position: relative;
+}
+.jarvis-pulse-dot::after {
+  content: "";
+  position: absolute;
+  inset: -4px;
+  border-radius: 9999px;
+  border: 1px solid currentColor;
+  opacity: 0.5;
+  animation: jarvis-ping-ring 2s cubic-bezier(0, 0, 0.2, 1) infinite;
+}
+@keyframes jarvis-ping-ring {
+  0% { transform: scale(0.6); opacity: 0.7; }
+  80%, 100% { transform: scale(1.6); opacity: 0; }
+}
+
+/* Scan line accent for hero / banner */
+.jarvis-scan {
+  position: relative;
+  overflow: hidden;
+}
+.jarvis-scan::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: -50%;
+  width: 50%;
+  height: 100%;
+  background: linear-gradient(90deg, transparent, rgba(125, 211, 252, 0.08), transparent);
+  animation: jarvis-scan-move 5s ease-in-out infinite;
+}
+@keyframes jarvis-scan-move {
+  0% { left: -50%; }
+  100% { left: 100%; }
+}
+
+/* Entrance animations */
+@keyframes jarvis-slide-up {
+  from { opacity: 0; transform: translateY(12px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+.jarvis-slide-up { animation: jarvis-slide-up 0.45s cubic-bezier(0.16, 1, 0.3, 1) both; }
+
+@keyframes jarvis-fade-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+.jarvis-fade-in { animation: jarvis-fade-in 0.4s ease both; }
+
+@keyframes jarvis-float {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-6px); }
+}
+.jarvis-float { animation: jarvis-float 5s ease-in-out infinite; }
+
+@keyframes jarvis-spin-slow {
+  to { transform: rotate(360deg); }
+}
+.jarvis-spin-slow { animation: jarvis-spin-slow 14s linear infinite; }
+
+@keyframes jarvis-blink {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.25; }
+}
+.jarvis-blink { animation: jarvis-blink 1.4s ease-in-out infinite; }
+
+/* Typing dots for chat */
+@keyframes jarvis-typing {
+  0%, 60%, 100% { transform: translateY(0); opacity: 0.4; }
+  30% { transform: translateY(-4px); opacity: 1; }
+}
+.jarvis-typing-dot { animation: jarvis-typing 1.2s infinite; }
+
+/* Custom scrollbar */
+.jarvis-scroll {
+  scrollbar-width: thin;
+  scrollbar-color: #1B2330 transparent;
+}
+.jarvis-scroll::-webkit-scrollbar { width: 8px; height: 8px; }
+.jarvis-scroll::-webkit-scrollbar-track { background: transparent; }
+.jarvis-scroll::-webkit-scrollbar-thumb {
+  background: linear-gradient(180deg, #1B2330, #243044);
+  border-radius: 9999px;
+  border: 2px solid transparent;
+  background-clip: padding-box;
+}
+.jarvis-scroll::-webkit-scrollbar-thumb:hover { background: #38BDF8; background-clip: padding-box; }
+
+/* Monospace label chips */
+.jarvis-mono {
+  font-family: var(--font-geist-mono), ui-monospace, SFMono-Regular, Menlo, monospace;
+  letter-spacing: 0.08em;
+}
+
+/* Hairline divider with cyan tint */
+.jarvis-hr {
+  height: 1px;
+  background: linear-gradient(90deg, transparent, rgba(125, 211, 252, 0.25), transparent);
+}
+
+/* Button accent */
+.jarvis-btn-accent {
+  background: linear-gradient(180deg, rgba(125, 211, 252, 0.18), rgba(125, 211, 252, 0.08));
+  border: 1px solid rgba(125, 211, 252, 0.4);
+  color: #7DD3FC;
+  transition: all 0.18s ease;
+}
+.jarvis-btn-accent:hover {
+  background: linear-gradient(180deg, rgba(125, 211, 252, 0.28), rgba(125, 211, 252, 0.14));
+  border-color: rgba(125, 211, 252, 0.7);
+  box-shadow: 0 0 18px -4px rgba(125, 211, 252, 0.5);
+}
+
+/* Radial gauge ring */
+.jarvis-ring-track { stroke: #1B2330; }
+.jarvis-ring-progress {
+  stroke-linecap: round;
+  transition: stroke-dashoffset 0.6s cubic-bezier(0.16, 1, 0.3, 1);
+  filter: drop-shadow(0 0 6px rgba(125, 211, 252, 0.45));
+}
+
+/* Chat markdown prose */
+.prose-chat p { margin: 0 0 0.5rem; line-height: 1.55; }
+.prose-chat p:last-child { margin-bottom: 0; }
+.prose-chat ul, .prose-chat ol { margin: 0.25rem 0 0.5rem 1.1rem; }
+.prose-chat li { margin: 0.15rem 0; line-height: 1.5; }
+.prose-chat ul { list-style: disc; }
+.prose-chat ol { list-style: decimal; }
+.prose-chat code {
+  font-family: var(--font-geist-mono), ui-monospace, monospace;
+  font-size: 0.85em;
+  background: rgba(125, 211, 252, 0.1);
+  border: 1px solid rgba(125, 211, 252, 0.2);
+  border-radius: 4px;
+  padding: 0.1em 0.35em;
+  color: #7DD3FC;
+}
+.prose-chat pre {
+  background: #07090D;
+  border: 1px solid var(--j-border);
+  border-radius: 8px;
+  padding: 0.75rem 0.9rem;
+  overflow-x: auto;
+  margin: 0.5rem 0;
+  font-size: 0.8rem;
+}
+.prose-chat pre code { background: none; border: none; padding: 0; color: #E2E8F0; }
+.prose-chat strong { color: #F1F5F9; font-weight: 600; }
+.prose-chat a { color: #7DD3FC; text-decoration: underline; text-underline-offset: 2px; }
+.prose-chat h1, .prose-chat h2, .prose-chat h3 { font-weight: 600; margin: 0.5rem 0 0.25rem; color: #F1F5F9; }
+.prose-chat blockquote { border-left: 2px solid var(--j-cyan); padding-left: 0.75rem; color: var(--j-text-dim); margin: 0.5rem 0; }
+
+/* Staggered list entrance helper */
+@keyframes jarvis-stagger-in {
+  from { opacity: 0; transform: translateY(6px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+/* Soft inner top highlight for panels (frosted glass top edge) */
+.jarvis-panel-frost::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background: linear-gradient(180deg, rgba(125, 211, 252, 0.04), transparent 18%);
+  pointer-events: none;
+}
+
+/* Hover sheen sweep for interactive cards */
+.jarvis-sheen { position: relative; overflow: hidden; }
+.jarvis-sheen::after {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: -75%;
+  width: 50%;
+  height: 100%;
+  background: linear-gradient(120deg, transparent, rgba(125, 211, 252, 0.08), transparent);
+  transform: skewX(-20deg);
+  transition: left 0.6s ease;
+  pointer-events: none;
+}
+.jarvis-sheen:hover::after { left: 125%; }
+
+/* Subtle count-up number style */
+.jarvis-num { font-variant-numeric: tabular-nums; }
+
+/* Active tab indicator glow for the tab strip */
+.jarvis-tab-glow {
+  text-shadow: 0 0 12px currentColor;
+}
+
+/* Reduced-motion friendliness */
+@media (prefers-reduced-motion: reduce) {
+  .jarvis-blink, .jarvis-pulse-dot, .jarvis-bg::before, .jarvis-scan::before,
+  .jarvis-text-gradient, .jarvis-spin-slow, .jarvis-float { animation: none !important; }
+}
+
+

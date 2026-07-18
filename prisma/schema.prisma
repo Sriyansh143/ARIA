@@ -1,0 +1,609 @@
+// JARVIS Mission Control — Prisma schema
+// Autonomous agent orchestration dashboard. SQLite-backed.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id        String   @id @default(cuid())
+  email     String   @unique
+  name      String?
+  role      String   @default("operator")
+  avatar    String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Agent {
+  id          String   @id @default(cuid())
+  name        String
+  codename    String   @unique
+  role        String
+  status      String   @default("idle") // idle | thinking | working | error | offline
+  skills      String   @default("[]") // JSON array of skill ids
+  model       String   @default("glm-4.6")
+  taskCount   Int      @default(0)
+  logCount    Int      @default(0)
+  successRate Float    @default(100.0)
+  load        Float    @default(0.0) // 0-100 current load
+  lastActive  DateTime @default(now())
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  logs        AgentLog[]
+  heartbeats  AgentHeartbeat[]
+  tasks       Task[]   @relation("TaskAssignee")
+}
+
+model AgentLog {
+  id        String   @id @default(cuid())
+  agentId   String
+  agent     Agent    @relation(fields: [agentId], references: [id], onDelete: Cascade)
+  level     String   @default("info") // info | warn | error | debug | success
+  message   String
+  meta      String?  // JSON string
+  createdAt DateTime @default(now())
+
+  @@index([agentId])
+  @@index([createdAt])
+}
+
+model AgentHeartbeat {
+  id        String   @id @default(cuid())
+  agentId   String
+  agent     Agent    @relation(fields: [agentId], references: [id], onDelete: Cascade)
+  cpu       Float    @default(0)
+  mem       Float    @default(0)
+  latency   Int      @default(0)
+  createdAt DateTime @default(now())
+
+  @@index([agentId])
+}
+
+model Skill {
+  id          String   @id @default(cuid())
+  key         String   @unique
+  name        String
+  description String
+  category    String   @default("general") // general | research | code | comms | data | security | media
+  icon        String   @default("Sparkles")
+  enabled     Boolean  @default(true)
+  config      String   @default("{}") // JSON config
+  runs        Int      @default(0)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+model Task {
+  id          String   @id @default(cuid())
+  title       String
+  description String?
+  status      String   @default("pending") // pending | in_progress | completed | failed | cancelled
+  priority    String   @default("medium") // low | medium | high | critical
+  assigneeId  String?
+  assignee    Agent?   @relation("TaskAssignee", fields: [assigneeId], references: [id], onDelete: SetNull)
+  progress    Int      @default(0) // 0-100
+  tags        String   @default("[]") // JSON array
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([status])
+  @@index([assigneeId])
+}
+
+model MemoryItem {
+  id        String   @id @default(cuid())
+  scope     String   @default("semantic") // semantic | episodic | working | conversation
+  key       String
+  value     String
+  tags      String   @default("[]") // JSON array
+  pinned    Boolean  @default(false)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([key, scope])
+  @@index([scope])
+}
+
+model Telemetry {
+  id        String   @id @default(cuid())
+  cpu       Float    @default(0)
+  mem       Float    @default(0)
+  disk      Float    @default(0)
+  net       Float    @default(0)
+  latency   Int      @default(0)
+  tokens    Int      @default(0)
+  createdAt DateTime @default(now())
+}
+
+model CronJob {
+  id         String   @id @default(cuid())
+  key        String   @unique
+  name       String
+  schedule   String   // cron expression
+  description String?
+  enabled    Boolean  @default(true)
+  lastRun    DateTime?
+  runCount   Int      @default(0)
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+}
+
+model Payment {
+  id        String   @id @default(cuid())
+  method    String   // upi | card | netbanking | qr | wallet
+  amount    Float
+  currency  String   @default("INR")
+  status    String   @default("pending") // pending | confirmed | failed | refunded
+  payer     String?
+  note      String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([status])
+}
+
+model Artifact {
+  id        String   @id @default(cuid())
+  name      String
+  type      String   @default("file") // file | report | image | code | dataset
+  size      Int      @default(0)
+  meta      String   @default("{}") // JSON
+  createdAt DateTime @default(now())
+}
+
+model ChatMessage {
+  id        String   @id @default(cuid())
+  role      String   // user | assistant
+  content   String
+  latency   Int      @default(0) // ms
+  model     String   @default("glm-4.6")
+  createdAt DateTime @default(now())
+}
+
+model Provider {
+  id         String   @id @default(cuid())
+  key        String   @unique
+  name       String
+  model      String
+  enabled    Boolean  @default(true)
+  latency    Int      @default(0)
+  tokens     Int      @default(0)
+  // AES-256-GCM encrypted API key (via credential-vault). NEVER returned in
+  // any GET response — callers expose only a boolean `hasKey`.
+  apiKeyEnc  String?
+  apiKeyIv   String?
+  apiKeyTag  String?
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+}
+
+model Notification {
+  id        String   @id @default(cuid())
+  type      String   @default("info") // info | success | warn | error
+  title     String
+  message   String
+  read      Boolean  @default(false)
+  createdAt DateTime @default(now())
+}
+
+model FallbackEvent {
+  id        String   @id @default(cuid())
+  provider  String
+  reason    String
+  recovered Boolean  @default(false)
+  createdAt DateTime @default(now())
+}
+
+// Agent-to-agent comms bus.
+model AgentMessage {
+  id        String   @id @default(cuid())
+  fromAgent String   // codename of sender
+  toAgent   String   // codename of recipient, or "BROADCAST"
+  subject   String
+  body      String
+  priority  String   @default("normal") // normal | high | urgent
+  read      Boolean  @default(false)
+  thread    String   @default("general") // conversation thread id
+  createdAt DateTime @default(now())
+
+  @@index([toAgent])
+  @@index([thread])
+  @@index([createdAt])
+}
+
+// Skill execution history (web-search, web-reader, LLM skills).
+model SkillRun {
+  id        String   @id @default(cuid())
+  skillKey  String
+  input     String   // the query / url / prompt
+  output    String   // serialized result (JSON or text)
+  status    String   @default("success") // success | error
+  latencyMs Int      @default(0)
+  tokens    Int      @default(0)
+  createdAt DateTime @default(now())
+
+  @@index([skillKey])
+  @@index([createdAt])
+}
+
+// Task dependency edges (blocks → blocked). taskId depends on dependsOnId.
+model TaskLink {
+  id          String @id @default(cuid())
+  taskId      String
+  dependsOnId String
+  createdAt   DateTime @default(now())
+
+  @@unique([taskId, dependsOnId])
+  @@index([taskId])
+  @@index([dependsOnId])
+}
+
+// Saved skill pipeline templates (reusable chains of skills).
+model Pipeline {
+  id          String   @id @default(cuid())
+  name        String
+  description String?
+  steps       String   // JSON array of { skillKey, label, input? }
+  owner       String   @default("ORION") // agent codename that owns it
+  shared      Boolean  @default(false) // shared to the community feed
+  sharedWith  String   @default("[]") // JSON array of agent codenames it's shared with
+  runs        Int      @default(0)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([owner])
+  @@index([shared])
+}
+
+// Scheduled autonomy loops — an agent runs a research loop on a topic at a fixed interval.
+model ScheduledAutonomy {
+  id        String    @id @default(cuid())
+  agentCodename String
+  topic     String
+  intervalMin Int    @default(60) // minutes between runs
+  enabled   Boolean   @default(true)
+  lastRun   DateTime?
+  runCount  Int      @default(0)
+  lastResult String? // brief status of last run
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+
+  @@index([agentCodename])
+  @@index([enabled])
+}
+
+// History of autonomy loop runs (manual + scheduled).
+model AutonomyRun {
+  id           String   @id @default(cuid())
+  agentCodename String
+  topic        String
+  source       String   @default("manual") // manual | scheduled
+  status       String   @default("success") // success | error
+  traceJson    String   @default("[]") // JSON array of { step, status, detail, latencyMs }
+  tasksCreated Int      @default(0)
+  taskTitles   String   @default("[]") // JSON array of created task titles
+  latencyMs    Int      @default(0)
+  createdAt    DateTime @default(now())
+
+  @@index([agentCodename])
+  @@index([createdAt])
+  @@index([source])
+}
+
+// Saved autonomy loop templates (reusable agent+topic+interval configs).
+model AutonomyTemplate {
+  id        String   @id @default(cuid())
+  name      String
+  agentCodename String
+  topic     String
+  intervalMin Int   @default(60)
+  tags      String  @default("[]") // JSON array
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([agentCodename])
+}
+
+// History of generated report diffs (for re-viewing).
+model ReportDiff {
+  id        String   @id @default(cuid())
+  reportAKey String
+  reportBKey String
+  diff      String   // the GLM-4.6-generated markdown diff
+  createdAt DateTime @default(now())
+
+  @@index([createdAt])
+}
+
+// ─────────────────────────────────────────────────────────────────────
+// R-3 additions — Workforce org chart, Rules, Plugins, Models, Learning.
+// NOTE: R-2 already defined Department, WorkforceAgent, Rule, Plugin,
+// Model, SkillLearning, ModelKnowledge lower in this file with their own
+// field names. R-3 reuses R-2's definitions — no new models added here.
+// ─────────────────────────────────────────────────────────────────────
+
+
+// ===== Task R-2: Agent Spawning (30-day retention, respawn from log) =====
+model SpawnedAgent {
+  id            String   @id @default(cuid())
+  agentId       String   @unique
+  codename      String   @unique
+  name          String
+  parentId      String
+  parentAgentId String?
+  role          String
+  skills        String   @default("[]")
+  model         String   @default("glm-4.6")
+  status        String   @default("active")
+  taskCount     Int      @default(0)
+  earnings      Float    @default(0)
+  spawnedReason String?
+  lastUsed      DateTime @default(now())
+  expiresAt     DateTime?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+  @@index([parentId])
+  @@index([status])
+  @@index([lastUsed])
+}
+
+model SpawnedAgentLog {
+  id             String   @id @default(cuid())
+  logId          String   @unique
+  codename       String
+  name           String
+  parentId       String
+  role           String
+  skills         String   @default("[]")
+  model          String   @default("glm-4.6")
+  totalEarnings  Float    @default(0)
+  totalTasks     Int      @default(0)
+  spawnCount     Int      @default(1)
+  firstSpawnedAt DateTime @default(now())
+  lastActiveAt   DateTime @default(now())
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+  @@index([parentId])
+  @@index([codename])
+}
+
+// ===== Task R-2: Credential Vault + Earning Methods =====
+model PlatformCredential {
+  id            String   @id @default(cuid())
+  platform      String
+  platformUrl   String?
+  username      String
+  passwordEnc   String
+  passwordIv    String
+  passwordTag   String
+  notes         String?
+  methodKey     String?
+  status        String   @default("active")
+  registeredAt  DateTime @default(now())
+  lastUsedAt    DateTime?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+  @@index([platform])
+  @@index([methodKey])
+  @@index([status])
+}
+
+model EarningMethod {
+  id               String   @id @default(cuid())
+  key              String   @unique
+  name             String
+  description      String
+  category         String
+  earningPotential String   @default("medium")
+  riskLevel        String   @default("none")
+  skillsRequired   String   @default("[]")
+  method           String   @default("")
+  approved         Boolean  @default(false)
+  enabled          Boolean  @default(false)
+  autoExecute      Boolean  @default(false)
+  estimatedMonthly Int      @default(0)
+  lastResearched   DateTime?
+  lastExecuted     DateTime?
+  executionCount   Int      @default(0)
+  totalEarnings    Float    @default(0)
+  feedback         String   @default("[]")
+  tags             String   @default("[]")
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+  @@index([category])
+  @@index([enabled])
+  @@index([approved])
+}
+
+model SkillLearning {
+  id            String   @id @default(cuid())
+  agentCodename String
+  skillKey      String
+  proficiency   Int      @default(0)
+  learnedFrom   String?
+  earnings      Float    @default(0)
+  lastUsed      DateTime?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+  @@unique([agentCodename, skillKey])
+  @@index([agentCodename])
+  @@index([skillKey])
+}
+
+model Plugin {
+  id          String   @id @default(cuid())
+  key         String   @unique
+  name        String
+  description String
+  category    String   @default("general")
+  version     String   @default("1.0.0")
+  enabled     Boolean  @default(true)
+  config      String   @default("{}")
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+model Rule {
+  id          String   @id @default(cuid())
+  key         String   @unique
+  title       String
+  description String
+  category    String   @default("operational")
+  priority    String   @default("medium")
+  enabled     Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+model Department {
+  id        String   @id @default(cuid())
+  key       String   @unique
+  name      String
+  mission   String
+  headAgent String?
+  accent    String   @default("#7DD3FC")
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model WorkforceAgent {
+  id            String   @id @default(cuid())
+  codename      String   @unique
+  name          String
+  title         String
+  departmentKey String
+  seniority     String   @default("specialist")
+  modelTier     String   @default("strong")
+  skills        String   @default("[]")
+  personality   String   @default("{}")
+  status        String   @default("active")
+  reportsTo     String?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+  @@index([departmentKey])
+  @@index([seniority])
+}
+
+model Model {
+  id            String    @id @default(cuid())
+  providerKey   String
+  modelId       String
+  contextWindow Int       @default(128000)
+  capabilities  String    @default("[]")
+  tier          String    @default("strong")
+  enabled       Boolean   @default(true)
+  // Task ID 12 (PARALLEL-D) — Model Provider Sync system.
+  // source: 'seed' (initial roster) | 'provider' (discovered via API) | 'local' (Ollama).
+  // status: 'active' | 'broken' | 'rate-limited' | 'unknown'.
+  source        String    @default("seed")
+  status        String    @default("active")
+  lastChecked   DateTime?
+  pricingPer1k  Float?
+  latencyMs     Int?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @default(now()) @updatedAt
+  @@index([providerKey])
+  @@index([tier])
+  @@index([status])
+  @@index([source])
+}
+
+model ModelKnowledge {
+  id               String   @id @default(cuid())
+  modelId          String   @unique
+  displayName      String
+  provider         String
+  patterns         String   @default("{}")
+  behaviorNotes    String   @default("")
+  thinkingStyle    String   @default("")
+  capabilities     String   @default("[]")
+  contextWindow    Int      @default(128000)
+  tier             String   @default("strong")
+  lastObserved     DateTime?
+  observationCount Int      @default(0)
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+  @@index([provider])
+  @@index([tier])
+}
+
+// ===== Task ID 6 (PARALLEL-B): Owner Payment Methods =====
+// Stores the OWNER's payout instruments (UPI VPA, bank accounts, cards,
+// wallets, PayPal, crypto) that agents can use to receive earnings.
+// Method-specific details are AES-256-GCM encrypted via credential-vault
+// and NEVER exposed in API responses — only the `masked` preview is.
+model OwnerPaymentMethod {
+  id            String   @id @default(cuid())
+  label         String   // e.g. "Primary UPI", "HDFC Business"
+  method        String   // upi | bank | card | wallet | paypal | crypto
+  // Method-specific details stored as encrypted JSON (AES-256-GCM via credential-vault)
+  detailsEnc    String   // encrypted JSON: { vpa } | { accountNo, ifsc, name } | { cardLast4, token } | { walletId } | { email } | { address }
+  detailsIv     String
+  detailsTag    String
+  masked        String   // human-readable masked preview e.g. "user@oksbi•••" / "•••• 4242" / "HDFC•••1234"
+  currency      String   @default("INR")
+  isDefault     Boolean  @default(false)
+  enabled       Boolean  @default(true)
+  verified      Boolean  @default(false)
+  lastUsedAt    DateTime?
+  usageCount    Int      @default(0)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+  @@index([method])
+  @@index([enabled])
+}
+
+// ===== Task ID 10 (PARALLEL-E): User Action Tracking + Agent Monitoring =====
+// Captures OPERATOR (human) clicks/navigations/submits/errors so monitor agents
+// can analyse behaviour, surface UX friction, and auto-create Tasks for fixes.
+// Distinct from the agent-behaviour Blackbox (src/lib/blackbox.ts) — this is
+// purely user-side telemetry.
+model UserAction {
+  id          String   @id @default(cuid())
+  sessionId   String   @default("default")
+  actor       String   @default("operator")
+  type        String   // navigate | click | submit | toggle | create | delete | error | search | command
+  tab         String?
+  target      String?  // element identifier (e.g. "stat-card:fleet", "button:spawn-agent")
+  label       String?  // human-readable label
+  meta        String   @default("{}")  // JSON
+  severity    String   @default("info")  // info | warn | error | critical
+  duration    Int?     // ms taken (for submits)
+  createdAt   DateTime @default(now())
+  @@index([createdAt])
+  @@index([tab])
+  @@index([type])
+  @@index([severity])
+}
+
+// Findings raised by server-side monitor agents (fleet-watchdog, api-sentinel,
+// health-monitor, task-watcher, comm-watcher, cron-monitor, payment-monitor,
+// model-watchdog). Each finding can suggest a navigation action and/or a Task
+// to be created. Findings dedupe by monitorKey+title within 24h if still open.
+model AgentMonitorFinding {
+  id              String   @id @default(cuid())
+  monitorKey      String   // which monitor agent raised this (e.g. "fleet-watchdog", "api-sentinel")
+  tab             String   // which tab is affected
+  severity        String   // info | warn | error | critical
+  category        String   // bug | performance | ux | security | opportunity | error-rate
+  title           String
+  detail          String
+  evidence        String   @default("{}")  // JSON with metrics/screenshots/etc
+  suggestedAction String?  // e.g. "navigate:tasks", "create-task:fix-broken-button"
+  actionTab       String?  // tab to navigate to
+  actionMeta      String   @default("{}")  // JSON context for the navigation
+  status          String   @default("open")  // open | acknowledged | resolved | dismissed
+  linkedTaskId    String?  // if a Task was created from this finding
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  @@index([monitorKey])
+  @@index([tab])
+  @@index([severity])
+  @@index([status])
+}
