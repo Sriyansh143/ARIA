@@ -212,6 +212,53 @@ export default function MemoryGraphTab() {
           </motion.button>
         ))}
       </div>
+
+      {/* Top connected nodes — shows which memory items have the most tag connections */}
+      {nodes.length > 0 && (
+        <div className="jarvis-panel p-4">
+          <SectionTitle title="Top Connected Memory Items" icon={Hash} accent={JARVIS.colors.cyan} action={<span className="jarvis-mono text-[9px] uppercase text-[var(--j-text-mute)]">by edge count</span>} />
+          {(() => {
+            const edgeCounts: Record<string, number> = {};
+            for (const e of edges) {
+              if (!e.source.startsWith('tag-')) edgeCounts[e.source] = (edgeCounts[e.source] ?? 0) + 1;
+              if (!e.target.startsWith('tag-')) edgeCounts[e.target] = (edgeCounts[e.target] ?? 0) + 1;
+            }
+            const top = Object.entries(edgeCounts)
+              .sort((a, b) => b[1] - a[1])
+              .slice(0, 6)
+              .map(([id, count]) => ({ node: nodes.find((n) => n.id === id), count }))
+              .filter((x) => x.node);
+            if (top.length === 0) return <div className="text-xs text-[var(--j-text-mute)] py-4 text-center">No connections yet — tag your memory items to build the network.</div>;
+            return (
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-2">
+                {top.map(({ node, count }, i) => {
+                  const color = SCOPE_COLORS[node!.type] ?? JARVIS.colors.cyan;
+                  return (
+                    <motion.button
+                      key={node!.id}
+                      initial={{ opacity: 0, y: 6 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      transition={{ delay: i * 0.04 }}
+                      onClick={() => setSelected(node!)}
+                      className="flex items-center gap-2.5 p-2.5 rounded-md border border-[var(--j-border-soft)] hover:border-[var(--j-cyan)]/40 hover:bg-[var(--j-panel-soft)]/60 transition-all text-left group"
+                    >
+                      <span className="jarvis-mono text-xs font-bold w-5 text-center" style={{ color: i === 0 ? JARVIS.colors.amber : 'var(--j-text-mute)' }}>
+                        {i === 0 ? '★' : `#${i + 1}`}
+                      </span>
+                      <span className="h-2 w-2 rounded-full shrink-0" style={{ background: color }} />
+                      <div className="min-w-0 flex-1">
+                        <div className="jarvis-mono text-xs text-[var(--j-text)] truncate group-hover:text-[var(--j-cyan)] transition-colors">{node!.label}</div>
+                        <div className="text-[9px] text-[var(--j-text-mute)]">{node!.type}</div>
+                      </div>
+                      <span className="jarvis-mono text-xs font-semibold" style={{ color: JARVIS.colors.cyan }}>{count}</span>
+                    </motion.button>
+                  );
+                })}
+              </div>
+            );
+          })()}
+        </div>
+      )}
     </div>
   );
 }

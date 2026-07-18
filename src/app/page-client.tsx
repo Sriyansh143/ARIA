@@ -1093,8 +1093,10 @@ interface SearchResult {
 function GlobalSearch({ open, onClose, onNavigate }: { open: boolean; onClose: () => void; onNavigate: (t: TabKey) => void }) {
   const [q, setQ] = useState('');
   const [results, setResults] = useState<SearchResult[]>([]);
+  const [byType, setByType] = useState<Record<string, number>>({});
   const [loading, setLoading] = useState(false);
   const [sel, setSel] = useState(0);
+  const [typeFilter, setTypeFilter] = useState<string>('all');
   const [savedSearches, setSavedSearches] = useState<string[]>([]);
 
   // Load saved searches from localStorage on mount.
@@ -1117,21 +1119,22 @@ function GlobalSearch({ open, onClose, onNavigate }: { open: boolean; onClose: (
 
   // Debounced search.
   useEffect(() => {
-    if (!open) { setQ(''); setResults([]); setSel(0); return; }
-    if (!q.trim()) { setResults([]); return; }
+    if (!open) { setQ(''); setResults([]); setByType({}); setSel(0); setTypeFilter('all'); return; }
+    if (!q.trim()) { setResults([]); setByType({}); return; }
     setLoading(true);
     const id = setTimeout(async () => {
       try {
-        const res = await fetch(`/api/search?q=${encodeURIComponent(q)}`, { cache: 'no-store' });
+        const res = await fetch(`/api/search?q=${encodeURIComponent(q)}${typeFilter !== 'all' ? `&type=${typeFilter}` : ''}`, { cache: 'no-store' });
         const json = await res.json();
         setResults(json.results ?? []);
+        setByType(json.byType ?? {});
         setSel(0);
       } catch { /* ignore */ } finally {
         setLoading(false);
       }
     }, 200);
     return () => clearTimeout(id);
-  }, [q, open]);
+  }, [q, open, typeFilter]);
 
   useEffect(() => {
     if (!open) return;
@@ -1144,7 +1147,15 @@ function GlobalSearch({ open, onClose, onNavigate }: { open: boolean; onClose: (
     return () => window.removeEventListener('keydown', onKey);
   }, [open, results, sel, onNavigate, onClose]);
 
-  const typeIcon: Record<string, typeof Bot> = { agent: Bot, task: ListTodo, memory: Database, comms: MessagesSquare, skill: Sparkles };
+  const typeIcon: Record<string, typeof Bot> = {
+    agent: Bot, task: ListTodo, memory: Database, comms: MessagesSquare, skill: Sparkles,
+    model: Cpu, earning: DollarSign, rule: Gavel, payment: Wallet,
+  };
+  const typeLabel: Record<string, string> = {
+    agent: 'Agents', task: 'Tasks', memory: 'Memory', comms: 'Comms', skill: 'Skills',
+    model: 'Models', earning: 'Earnings', rule: 'Rules', payment: 'Payments',
+  };
+  const availableTypes = Object.keys(byType).filter((t) => byType[t] > 0);
 
   return (
     <AnimatePresence>
@@ -1170,6 +1181,30 @@ function GlobalSearch({ open, onClose, onNavigate }: { open: boolean; onClose: (
               <kbd className="jarvis-mono text-[9px] px-1.5 py-0.5 rounded border border-[var(--j-border)] text-[var(--j-text-mute)]">ESC</kbd>
             </div>
             <div className="max-h-96 overflow-y-auto jarvis-scroll p-2">
+              {/* Type filter chips */}
+              {availableTypes.length > 0 && (
+                <div className="flex flex-wrap gap-1 px-1 pb-2 mb-1 border-b border-[var(--j-border-soft)]">
+                  <button
+                    onClick={() => setTypeFilter('all')}
+                    className={`jarvis-mono text-[9px] uppercase px-2 py-1 rounded border transition-colors ${
+                      typeFilter === 'all' ? 'border-[var(--j-cyan)] bg-[var(--j-cyan)]/10 text-[var(--j-cyan)]' : 'border-[var(--j-border)] text-[var(--j-text-mute)] hover:text-[var(--j-text)]'
+                    }`}
+                  >
+                    All ({results.length})
+                  </button>
+                  {availableTypes.map((t) => (
+                    <button
+                      key={t}
+                      onClick={() => setTypeFilter(typeFilter === t ? 'all' : t)}
+                      className={`jarvis-mono text-[9px] uppercase px-2 py-1 rounded border transition-colors ${
+                        typeFilter === t ? 'border-[var(--j-cyan)] bg-[var(--j-cyan)]/10 text-[var(--j-cyan)]' : 'border-[var(--j-border)] text-[var(--j-text-mute)] hover:text-[var(--j-text)]'
+                      }`}
+                    >
+                      {typeLabel[t] ?? t} ({byType[t]})
+                    </button>
+                  ))}
+                </div>
+              )}
               {results.length > 0 ? (
                 results.map((r, i) => {
                   const Icon = typeIcon[r.type] ?? Search;

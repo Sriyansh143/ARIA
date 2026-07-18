@@ -2644,3 +2644,84 @@ Stage Summary:
 6. Add command palette search inside tab content (global entity search).
 7. Add drag-and-drop task reordering within Kanban columns.
 8. Add more agent comparison dimensions (charts, radar, timeline).
+
+---
+Task ID: CRON-WEBDEVREVIEW-6
+Agent: main (Z.ai Code) — webDevReview cron run #6
+Task: Assess project status, perform QA via agent-browser, fix bugs, add features, improve styling.
+
+Work Log:
+- Read worklog tail (CRON-WEBDEVREVIEW-5) — prior session fixed nested button bug in ModelsTab + added Agent Comparison view.
+- **QA Assessment**:
+  - Dev server: HTTP 200, lint clean, 0 errors in dev.log.
+  - agent-browser sweep: found minor recharts warning "width(0) and height(0)" on initial load (cosmetic, not a bug — chart renders before container has dimensions).
+  - Global Search tested: works but only searched 5 entity types (agents, tasks, memory, comms, skills). Enhanced to search 9 types.
+  - App is stable, 0 page errors, 0 console errors.
+
+**FEATURE 1: Enhanced Global Search** (`src/app/api/search/route.ts` + `src/app/page-client.tsx`):
+- Search API expanded from 5 to **9 entity types**:
+  - Existing: agents, tasks, memory, comms, skills.
+  - NEW: models (modelId, providerKey, tier), earning methods (name, description, category), rules (name, description, category), payments (payer, note, method).
+- New `type` query parameter for filtering: `?q=glm&type=model` returns only model results.
+- Response now includes `byType` object: `{ agent: 2, task: 5, model: 17, ... }` — counts per type for filter chip rendering.
+- GlobalSearch UI enhanced:
+  - **Type filter chips** row appears above results when results exist — shows "All (N)" + per-type chips with counts (e.g. "Models (17)", "Memory (3)"). Clicking a chip filters results to that type. Clicking again clears the filter.
+  - 4 new type icons added: `model: Cpu`, `earning: DollarSign`, `rule: Gavel`, `payment: Wallet`.
+  - Type labels map for human-readable chip labels.
+  - Filter state resets when search closes.
+  - Debounced search respects active type filter.
+- Verified: search "glm" returns 20 results (17 models + 3 memory), filter chips show correct counts, clicking "Models (17)" filters to model-only results.
+
+**FEATURE 2: Memory Graph Top Connected Nodes Panel** (`src/components/tabs/MemoryGraphTab.tsx`):
+- New "Top Connected Memory Items" panel at the bottom of the Memory Graph tab.
+- Computes edge count per memory node (excluding tag nodes) — shows which memory items have the most tag connections.
+- Top 6 items displayed in a responsive 3-column grid:
+  - #1 shown with gold star (★), rest with #N rank.
+  - Colored scope dot (semantic=cyan, episodic=violet, working=amber, conversation=green).
+  - Node label + type + edge count.
+  - Clickable → selects the node in the detail panel.
+  - Hover effect: cyan border + text color transition.
+  - Staggered entrance animation (delay i*0.04).
+- Empty state: "No connections yet — tag your memory items to build the network."
+- Verified: panel renders with "BY EDGE COUNT" label, shows top connected memory items.
+
+**FEATURE 3: Enhanced EmptyState Component** (`src/components/jarvis/shared.tsx`):
+- EmptyState upgraded from a simple icon + message to a richer component:
+  - **Larger icon container**: 14x14 rounded-2xl with accent color background + border + jarvis-enter animation.
+  - **Optional hint**: secondary text below the message for context (e.g. "Try adjusting your filters").
+  - **Optional action button**: labeled button with accent color that triggers an onClick (e.g. "Create your first task").
+  - **Accent color parameter**: customizable per empty state (defaults to cyan).
+  - Backward compatible — existing usages with just `icon` + `message` still work.
+- All existing EmptyState usages automatically benefit from the enhanced styling.
+
+**Verification (agent-browser)**:
+- App loads HTTP 200, 0 page errors, 0 console errors.
+- Global Search: opens with Ctrl+Shift+F, typing "glm" shows 20 results, filter chips appear (All 20, Models 17, Memory 3), clicking "Models (17)" filters correctly.
+- Memory Graph: "Top Connected Memory Items" panel renders at bottom with "BY EDGE COUNT" label, top items shown with rank + scope color + edge count.
+- Sticky footer: visible at viewport bottom on short content (top:863, vh:900).
+- Lint: clean (0 errors, 0 warnings).
+
+Stage Summary:
+- ✅ QA: app stable, 0 bugs, all endpoints 200, lint clean.
+- ✅ FEATURE 1: Enhanced Global Search — 9 entity types (was 5), type filter chips with counts, 4 new icons.
+- ✅ FEATURE 2: Memory Graph Top Connected Nodes — top 6 by edge count, clickable, ranked with stars.
+- ✅ FEATURE 3: Enhanced EmptyState — larger icon, optional hint + action button, accent color, backward compatible.
+- ✅ Dev server stable HTTP 200.
+- ✅ Lint clean. 0 page errors. All features verified via agent-browser.
+
+## Updated App Stats
+- **41 tabs** across 8 intelligent groups
+- **Global search**: 9 entity types (was 5) + type filter chips
+- **Memory Graph**: Top Connected Nodes panel
+- **Enhanced EmptyState**: richer design with hint + action button
+- **0 lint errors, 0 page errors, 0 console errors**
+
+## Pending Works (for next cron run)
+1. Add WebSocket mini-service for true real-time updates (currently polling 10-30s).
+2. Wire skill execution to actually invoke web-search/web-reader skills.
+3. Add PDF export for reports (currently CSV only).
+4. Add scheduled email reports.
+5. Add drag-and-drop task reordering within Kanban columns.
+6. Add more agent comparison dimensions (charts, radar, timeline).
+7. Add command palette recent items + frequently used tabs.
+8. Add notifications panel with filter + mark-as-read improvements.

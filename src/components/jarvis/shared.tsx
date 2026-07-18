@@ -228,11 +228,38 @@ export function Pill({ children, color = JARVIS.colors.cyan }: { children: React
 }
 
 /* ---------- Empty state ---------- */
-export function EmptyState({ icon: Icon, message }: { icon: LucideIcon; message: string }) {
+export function EmptyState({
+  icon: Icon,
+  message,
+  hint,
+  action,
+  accent = JARVIS.colors.cyan,
+}: {
+  icon: LucideIcon;
+  message: string;
+  hint?: string;
+  action?: { label: string; onClick: () => void };
+  accent?: string;
+}) {
   return (
-    <div className="flex flex-col items-center justify-center py-10 text-[var(--j-text-mute)]">
-      <Icon className="h-8 w-8 mb-2 opacity-50" />
-      <div className="text-xs jarvis-mono uppercase">{message}</div>
+    <div className="flex flex-col items-center justify-center py-12 text-center">
+      <div
+        className="flex h-14 w-14 items-center justify-center rounded-2xl mb-3 jarvis-enter"
+        style={{ background: `${accent}1a`, border: `1px solid ${accent}33`, color: accent }}
+      >
+        <Icon className="h-7 w-7 opacity-70" />
+      </div>
+      <div className="text-xs jarvis-mono uppercase text-[var(--j-text-dim)] mb-1">{message}</div>
+      {hint && <div className="text-[10px] text-[var(--j-text-mute)] max-w-xs">{hint}</div>}
+      {action && (
+        <button
+          onClick={action.onClick}
+          className="mt-4 jarvis-mono text-[10px] uppercase px-3 py-1.5 rounded-md border transition-all hover:scale-105"
+          style={{ borderColor: `${accent}40`, color: accent, background: `${accent}10` }}
+        >
+          {action.label}
+        </button>
+      )}
     </div>
   );
 }
