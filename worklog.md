@@ -2725,3 +2725,73 @@ Stage Summary:
 6. Add more agent comparison dimensions (charts, radar, timeline).
 7. Add command palette recent items + frequently used tabs.
 8. Add notifications panel with filter + mark-as-read improvements.
+
+---
+Task ID: CRON-WEBDEVREVIEW-7
+Agent: main (Z.ai Code) — webDevReview cron run #7
+Task: Assess project status, perform QA via agent-browser, fix bugs, add features, improve styling.
+
+Work Log:
+- Read worklog tail (CRON-WEBDEVREVIEW-6) — prior session enhanced Global Search (9 entity types), Memory Graph Top Connected panel, Enhanced EmptyState.
+- **QA Assessment**:
+  - Dev server: HTTP 200, lint clean, 0 errors in dev.log.
+  - agent-browser sweep: only minor recharts width(0) warning (cosmetic, not a bug). App stable, 0 page errors, 0 console errors.
+  - No bugs found — proceeded to add features.
+
+**FEATURE 1: Command Palette Recent + Frequent Tabs** (`src/app/page-client.tsx`):
+- CommandPalette enhanced with **recent tabs** + **frequently used tabs** tracking:
+  - **localStorage persistence**: `jarvis-recent-tabs` (last 5 visited, most recent first, deduped) + `jarvis-frequent-tabs` (top 5 by visit count, sorted desc).
+  - **navigateAndTrack()**: when a tab is selected from the palette, updates both recent + frequent stores before navigating.
+  - **Sectioned display**: when no query, palette shows 3 sections:
+    - **RECENT** (if any) — recently visited tabs with count.
+    - **FREQUENT** (if any) — most-used tabs with `N×` usage count badge in amber.
+    - **ALL TABS** — full list (41 tabs).
+  - When query is active, shows single **RESULTS** section with filtered tabs.
+  - Section headers have colored dot + label + count (e.g. "RECENT (2)").
+  - **Keyboard navigation** works across sections (flattened index for ↑↓ + Enter).
+  - Selection resets when query changes.
+  - Footer shows total item count + keyboard hints.
+  - Empty state: "No results for '{query}'" when no matches.
+- Verified: navigated to Agent Fleet via palette → reopened → RECENT (1) Agent Fleet + FREQUENT (1) Agent Fleet 1× shown. Typing "fleet" shows RESULTS (6) with all fleet-related tabs.
+
+**FEATURE 2: Enhanced Notifications Panel** (`src/app/page-client.tsx` — NotificationsBell):
+- **Width expanded** from w-80 to w-96 for more content space.
+- **Header enhanced**: Bell icon + "Notifications" + unread count badge (amber pill) + "Mark all read" button (disabled when no unread).
+- **Type filter chips**: row of chips above results — "All (N)" + per-type chips with counts (e.g. "Success (7)", "Warn (1)"). Click to filter, click again to clear. Active chip highlighted cyan.
+- **Timestamps on every notification**: relative time ("just now", "5m ago", "1h ago", "2d ago") shown right-aligned.
+- **Per-notification mark-as-read**: hover reveals "Mark read" button (for unread) or "Mark unread" (for read). Calls PATCH /api/notifications/{id}.
+- **Agent Alerts section**: now shows relative timestamps on each finding too.
+- **Improved empty state**: Bell icon + "No notifications" + "Try a different filter" hint when filtered.
+- **Footer**: shows "N shown · filtered by {type}" + "View all activity →" link that navigates to Activity tab.
+- **Limit increased**: fetches 30 notifications (was default) for better filter coverage.
+- Verified: bell shows 9 unread, filter chips (All 8, Success 7, Warn 1), Agent Alerts with timestamp, each notification has "1h ago" + "MARK READ" hover action.
+
+**Verification (agent-browser)**:
+- App loads HTTP 200, 0 page errors, 0 console errors.
+- Command Palette: Ctrl+K opens, shows RECENT + FREQUENT + ALL TABS sections. Typing "fleet" filters to 6 results. Navigation tracks recent + frequent correctly.
+- Notifications Bell: opens with 9 unread badge, filter chips (All 8, Success 7, Warn 1), Agent Alerts with timestamps, per-notification mark-read/unread on hover, footer with "View all activity →" link.
+- Sticky footer: reachable on short content (top:880 after minor scroll, vh:900).
+- Lint: clean (0 errors, 0 warnings).
+
+Stage Summary:
+- ✅ QA: app stable, 0 bugs, all endpoints 200, lint clean.
+- ✅ FEATURE 1: Command Palette Recent + Frequent Tabs — localStorage persistence, 3-section display, keyboard nav across sections, usage count badges.
+- ✅ FEATURE 2: Enhanced Notifications Panel — type filter chips, timestamps, per-notification mark-read/unread, improved empty state, footer with activity link.
+- ✅ Dev server stable HTTP 200.
+- ✅ Lint clean. 0 page errors. All features verified via agent-browser.
+
+## Updated App Stats
+- **41 tabs** across 8 intelligent groups
+- **Command Palette**: recent + frequent tabs tracking with localStorage
+- **Notifications Bell**: type filter chips + timestamps + per-notification mark-read/unread
+- **0 lint errors, 0 page errors, 0 console errors**
+
+## Pending Works (for next cron run)
+1. Add WebSocket mini-service for true real-time updates (currently polling 10-30s).
+2. Wire skill execution to actually invoke web-search/web-reader skills.
+3. Add PDF export for reports (currently CSV only).
+4. Add scheduled email reports.
+5. Add drag-and-drop task reordering within Kanban columns.
+6. Add more agent comparison dimensions (charts, radar, timeline).
+7. Add notifications settings (per-type enable/disable, sound, desktop notifications).
+8. Add tab pinning from command palette (quick-pin frequent tabs).

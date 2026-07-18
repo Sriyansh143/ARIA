@@ -795,25 +795,46 @@ function activityTab(type: string): string {
 }
 
 function NotificationsBell({ open, setOpen }: { open: boolean; setOpen: (o: boolean) => void }) {
-  const { data, refresh } = useApi<{ notifications: Array<{ id: string; type: string; title: string; message: string; read: boolean; createdAt: string }>; unread: number }>('/api/notifications', 10000);
-  // Also pull high-priority agent-monitor findings (critical + open) so they
-  // surface in the same bell — this is the "every tab is monitored by agents
-  // and high-priority items surface to the operator" connection.
+  const { data, refresh } = useApi<{ notifications: Array<{ id: string; type: string; title: string; message: string; read: boolean; createdAt: string }>; unread: number }>('/api/notifications?limit=30', 10000);
   const { data: findingsData } = useApi<{ findings: Array<{ id: string; severity: string; monitorKey: string; tab: string; title: string; detail: string; actionTab?: string; actionMeta?: string; status: string; createdAt: string }> }>(
     '/api/agent-monitors/findings?severity=critical&status=open&limit=5',
     15000,
   );
   const { toast } = useToast();
   const navigate = useNavStore((s) => s.navigate);
+  const [filter, setFilter] = useState<string>('all');
   const unread = data?.unread ?? 0;
   const criticalFindings = findingsData?.findings ?? [];
   const totalBadge = unread + criticalFindings.length;
 
+  const allNotifications = data?.notifications ?? [];
+  const typeCounts = allNotifications.reduce<Record<string, number>>((acc, n) => {
+    acc[n.type] = (acc[n.type] ?? 0) + 1;
+    return acc;
+  }, {});
+  const filtered = filter === 'all' ? allNotifications : allNotifications.filter((n) => n.type === filter);
+
   const markAll = async () => {
-    if (!data?.notifications) return;
-    await Promise.all(data.notifications.filter((n) => !n.read).map((n) => patchNotif(n.id, true)));
+    if (!allNotifications.length) return;
+    await Promise.all(allNotifications.filter((n) => !n.read).map((n) => patchNotif(n.id, true)));
     refresh();
-    toast({ title: 'Notifications cleared' });
+    toast({ title: 'All notifications marked as read' });
+  };
+
+  const markOne = async (id: string, read: boolean) => {
+    await patchNotif(id, read);
+    refresh();
+  };
+
+  const formatTime = (ts: string) => {
+    const diff = Date.now() - new Date(ts).getTime();
+    const mins = Math.floor(diff / 60000);
+    if (mins < 1) return 'just now';
+    if (mins < 60) return `${mins}m ago`;
+    const hrs = Math.floor(mins / 60);
+    if (hrs < 24) return `${hrs}h ago`;
+    const days = Math.floor(hrs / 24);
+    return `${days}d ago`;
   };
 
   return (
@@ -841,15 +862,48 @@ function NotificationsBell({ open, setOpen }: { open: boolean; setOpen: (o: bool
               initial={{ opacity: 0, y: -8 }}
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: -8 }}
-              className="absolute right-0 mt-2 w-80 z-50 jarvis-panel p-0 overflow-hidden"
+              className="absolute right-0 mt-2 w-96 z-50 jarvis-panel p-0 overflow-hidden"
             >
+              {/* Header */}
               <div className="flex items-center justify-between px-3 py-2 border-b border-[var(--j-border)]">
-                <span className="jarvis-mono text-[10px] uppercase text-[var(--j-text)]">Notifications</span>
-                <button onClick={markAll} className="jarvis-mono text-[9px] uppercase text-[var(--j-cyan)] hover:underline">Mark all read</button>
+                <div className="flex items-center gap-2">
+                  <Bell className="h-3.5 w-3.5 text-[var(--j-cyan)]" />
+                  <span className="jarvis-mono text-[10px] uppercase text-[var(--j-text)]">Notifications</span>
+                  {totalBadge > 0 && <span className="jarvis-mono text-[9px] px-1.5 rounded bg-[var(--j-amber)]/20 text-[var(--j-amber)]">{totalBadge} unread</span>}
+                </div>
+                <button onClick={markAll} disabled={unread === 0} className="jarvis-mono text-[9px] uppercase text-[var(--j-cyan)] hover:underline disabled:opacity-40 disabled:no-underline">
+                  Mark all read
+                </button>
               </div>
+
+              {/* Filter chips */}
+              {allNotifications.length > 0 && (
+                <div className="flex flex-wrap gap-1 px-2 py-1.5 border-b border-[var(--j-border-soft)]">
+                  <button
+                    onClick={() => setFilter('all')}
+                    className={`jarvis-mono text-[9px] uppercase px-1.5 py-0.5 rounded border transition-colors ${
+                      filter === 'all' ? 'border-[var(--j-cyan)] bg-[var(--j-cyan)]/10 text-[var(--j-cyan)]' : 'border-[var(--j-border)] text-[var(--j-text-mute)] hover:text-[var(--j-text)]'
+                    }`}
+                  >
+                    All ({allNotifications.length})
+                  </button>
+                  {Object.entries(typeCounts).map(([t, count]) => (
+                    <button
+                      key={t}
+                      onClick={() => setFilter(filter === t ? 'all' : t)}
+                      className={`jarvis-mono text-[9px] uppercase px-1.5 py-0.5 rounded border transition-colors ${
+                        filter === t ? 'border-[var(--j-cyan)] bg-[var(--j-cyan)]/10 text-[var(--j-cyan)]' : 'border-[var(--j-border)] text-[var(--j-text-mute)] hover:text-[var(--j-text)]'
+                      }`}
+                    >
+                      {t} ({count})
+                    </button>
+                  ))}
+                </div>
+              )}
+
               <div className="max-h-96 overflow-y-auto jarvis-scroll">
-                {/* Critical agent-monitor findings first — clickable to navigate */}
-                {criticalFindings.length > 0 && (
+                {/* Critical agent-monitor findings first */}
+                {criticalFindings.length > 0 && filter === 'all' && (
                   <div className="border-b border-[var(--j-red)]/30">
                     <div className="px-3 py-1.5 bg-[var(--j-red)]/10 flex items-center gap-1.5">
                       <span className="h-1.5 w-1.5 rounded-full bg-[var(--j-red)] jarvis-pulse-dot" />
@@ -867,6 +921,7 @@ function NotificationsBell({ open, setOpen }: { open: boolean; setOpen: (o: bool
                         <div className="flex items-center gap-2 mb-0.5">
                           <span className="jarvis-mono text-[9px] uppercase px-1 rounded bg-[var(--j-red)]/20 text-[var(--j-red)]">{f.monitorKey}</span>
                           <span className="text-xs font-medium text-[var(--j-text)] truncate flex-1">{f.title}</span>
+                          <span className="jarvis-mono text-[9px] text-[var(--j-text-mute)] shrink-0">{formatTime(f.createdAt)}</span>
                         </div>
                         <div className="text-[11px] text-[var(--j-text-dim)] line-clamp-2">{f.detail}</div>
                         <div className="jarvis-mono text-[9px] uppercase text-[var(--j-cyan)] mt-1">→ {f.actionTab || 'agent-monitor'} tab</div>
@@ -875,20 +930,52 @@ function NotificationsBell({ open, setOpen }: { open: boolean; setOpen: (o: bool
                   </div>
                 )}
                 {/* Regular notifications */}
-                {data?.notifications?.length ? (
-                  data.notifications.map((n) => (
-                    <div key={n.id} className={cn('px-3 py-2.5 border-b border-[var(--j-border-soft)] hover:bg-[var(--j-panel-soft)]/60', !n.read && 'bg-[var(--j-cyan)]/5')}>
+                {filtered.length > 0 ? (
+                  filtered.map((n) => (
+                    <div
+                      key={n.id}
+                      className={cn('group px-3 py-2.5 border-b border-[var(--j-border-soft)] hover:bg-[var(--j-panel-soft)]/60 transition-colors', !n.read && 'bg-[var(--j-cyan)]/5')}
+                    >
                       <div className="flex items-center gap-2 mb-0.5">
-                        <span className="h-1.5 w-1.5 rounded-full" style={{ background: notifColor(n.type) }} />
-                        <span className="text-xs font-medium text-[var(--j-text)]">{n.title}</span>
-                        {!n.read && <span className="ml-auto h-1.5 w-1.5 rounded-full bg-[var(--j-cyan)]" />}
+                        <span className="h-1.5 w-1.5 rounded-full shrink-0" style={{ background: notifColor(n.type) }} />
+                        <span className="text-xs font-medium text-[var(--j-text)] flex-1 truncate">{n.title}</span>
+                        <span className="jarvis-mono text-[9px] text-[var(--j-text-mute)] shrink-0">{formatTime(n.createdAt)}</span>
                       </div>
-                      <div className="text-[11px] text-[var(--j-text-dim)]">{n.message}</div>
+                      <div className="text-[11px] text-[var(--j-text-dim)] line-clamp-2">{n.message}</div>
+                      {/* Per-notification mark-as-read button */}
+                      <div className="flex items-center gap-2 mt-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                        {!n.read && (
+                          <button
+                            onClick={() => markOne(n.id, true)}
+                            className="jarvis-mono text-[9px] uppercase text-[var(--j-cyan)] hover:underline"
+                          >
+                            Mark read
+                          </button>
+                        )}
+                        {n.read && (
+                          <button
+                            onClick={() => markOne(n.id, false)}
+                            className="jarvis-mono text-[9px] uppercase text-[var(--j-text-mute)] hover:text-[var(--j-text)]"
+                          >
+                            Mark unread
+                          </button>
+                        )}
+                      </div>
                     </div>
                   ))
                 ) : criticalFindings.length === 0 ? (
-                  <div className="px-3 py-8 text-center text-xs text-[var(--j-text-mute)]">No notifications</div>
+                  <div className="px-3 py-10 text-center">
+                    <Bell className="h-8 w-8 mx-auto mb-2 text-[var(--j-text-mute)] opacity-30" />
+                    <div className="text-xs text-[var(--j-text-mute)]">No notifications</div>
+                    {filter !== 'all' && <div className="jarvis-mono text-[9px] text-[var(--j-text-mute)] mt-1">Try a different filter</div>}
+                  </div>
                 ) : null}
+              </div>
+
+              {/* Footer */}
+              <div className="px-3 py-1.5 border-t border-[var(--j-border)] bg-[var(--j-panel-soft)]/40 flex items-center justify-between jarvis-mono text-[9px] uppercase text-[var(--j-text-mute)]">
+                <span>{filtered.length} shown{filter !== 'all' ? ` · filtered by ${filter}` : ''}</span>
+                <button onClick={() => navigate('activity')} className="text-[var(--j-cyan)] hover:underline">View all activity →</button>
               </div>
             </motion.div>
           </>
@@ -916,22 +1003,86 @@ function CommandPalette({ open, onClose, onNavigate }: { open: boolean; onClose:
   // Fresh mount (via key in parent) ensures q/sel start empty each open.
   const [q, setQ] = useState('');
   const [sel, setSel] = useState(0);
+  const [recentTabs, setRecentTabs] = useState<TabKey[]>([]);
+  const [frequentTabs, setFrequentTabs] = useState<Array<{ key: TabKey; count: number }>>([]);
+
+  // Load recent + frequent tabs from localStorage on mount.
+  useEffect(() => {
+    try {
+      const rawRecent = localStorage.getItem('jarvis-recent-tabs');
+      if (rawRecent) setRecentTabs(JSON.parse(rawRecent).slice(0, 5));
+      const rawFreq = localStorage.getItem('jarvis-frequent-tabs');
+      if (rawFreq) setFrequentTabs(JSON.parse(rawFreq).slice(0, 5));
+    } catch { /* ignore */ }
+  }, []);
+
+  // Track navigation when a tab is selected from the palette.
+  const navigateAndTrack = useCallback((key: TabKey) => {
+    // Update recent tabs (most recent first, deduped, max 5).
+    setRecentTabs((prev) => {
+      const next = [key, ...prev.filter((k) => k !== key)].slice(0, 5);
+      try { localStorage.setItem('jarvis-recent-tabs', JSON.stringify(next)); } catch { /* ignore */ }
+      return next;
+    });
+    // Update frequent tabs (sorted by count, max 5).
+    setFrequentTabs((prev) => {
+      const existing = prev.find((t) => t.key === key);
+      const updated = existing
+        ? prev.map((t) => (t.key === key ? { ...t, count: t.count + 1 } : t))
+        : [...prev, { key, count: 1 }];
+      updated.sort((a, b) => b.count - a.count);
+      const top = updated.slice(0, 5);
+      try { localStorage.setItem('jarvis-frequent-tabs', JSON.stringify(top)); } catch { /* ignore */ }
+      return top;
+    });
+    onNavigate(key);
+  }, [onNavigate]);
 
   const results = useMemo(() => {
     const ql = q.toLowerCase();
     return TABS.filter((t) => !ql || t.label.toLowerCase().includes(ql) || t.group.toLowerCase().includes(ql));
   }, [q]);
 
+  // Build the display list: when no query, show recent + frequent + all. When query, show filtered.
+  const displaySections = useMemo(() => {
+    if (q.trim()) {
+      return [{ label: 'Results', items: results }];
+    }
+    const sections: Array<{ label: string; items: TabDef[] }> = [];
+    if (recentTabs.length > 0) {
+      const items = recentTabs
+        .map((k) => TABS.find((t) => t.key === k))
+        .filter((t): t is TabDef => Boolean(t));
+      if (items.length > 0) sections.push({ label: 'Recent', items });
+    }
+    if (frequentTabs.length > 0) {
+      const items = frequentTabs
+        .map((f) => TABS.find((t) => t.key === f.key))
+        .filter((t): t is TabDef => Boolean(t));
+      if (items.length > 0) sections.push({ label: 'Frequent', items });
+    }
+    sections.push({ label: 'All Tabs', items: TABS });
+    return sections;
+  }, [q, results, recentTabs, frequentTabs]);
+
+  // Flatten for keyboard nav.
+  const flatItems = displaySections.flatMap((s) => s.items);
+
   useEffect(() => {
     if (!open) return;
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'ArrowDown') { e.preventDefault(); setSel((s) => Math.min(s + 1, results.length - 1)); }
+      if (e.key === 'ArrowDown') { e.preventDefault(); setSel((s) => Math.min(s + 1, flatItems.length - 1)); }
       if (e.key === 'ArrowUp') { e.preventDefault(); setSel((s) => Math.max(s - 1, 0)); }
-      if (e.key === 'Enter') { e.preventDefault(); const r = results[sel]; if (r) onNavigate(r.key); }
+      if (e.key === 'Enter') { e.preventDefault(); const r = flatItems[sel]; if (r) navigateAndTrack(r.key); }
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [open, results, sel, onNavigate]);
+  }, [open, flatItems, sel, navigateAndTrack]);
+
+  // Reset selection when query changes.
+  useEffect(() => { setSel(0); }, [q]);
+
+  let runningIdx = -1;
 
   return (
     <AnimatePresence>
@@ -961,25 +1112,53 @@ function CommandPalette({ open, onClose, onNavigate }: { open: boolean; onClose:
               />
               <kbd className="jarvis-mono text-[9px] px-1.5 py-0.5 rounded border border-[var(--j-border)] text-[var(--j-text-mute)]">ESC</kbd>
             </div>
-            <div className="max-h-72 overflow-y-auto jarvis-scroll p-2">
-              {results.length ? results.map((t, i) => {
-                const Icon = t.icon;
-                const active = i === sel;
-                return (
-                  <button
-                    key={t.key}
-                    onMouseEnter={() => setSel(i)}
-                    onClick={() => onNavigate(t.key)}
-                    className={cn('w-full flex items-center gap-3 px-3 py-2 rounded-md text-sm transition-colors', active ? 'bg-[var(--j-panel-soft)] text-[var(--j-text)]' : 'text-[var(--j-text-dim)]')}
-                  >
-                    <Icon className="h-4 w-4" style={{ color: active ? t.accent : undefined }} />
-                    <span className="flex-1 text-left">{t.label}</span>
-                    <span className="jarvis-mono text-[9px] uppercase text-[var(--j-text-mute)]">{t.group}</span>
-                  </button>
-                );
-              }) : (
-                <div className="px-3 py-8 text-center text-xs text-[var(--j-text-mute)]">No results</div>
+            <div className="max-h-80 overflow-y-auto jarvis-scroll p-2">
+              {flatItems.length === 0 ? (
+                <div className="px-3 py-8 text-center text-xs text-[var(--j-text-mute)]">No results for "{q}"</div>
+              ) : (
+                displaySections.map((section) => {
+                  if (section.items.length === 0) return null;
+                  return (
+                    <div key={section.label} className="mb-2">
+                      <div className="jarvis-mono text-[9px] uppercase tracking-widest text-[var(--j-text-mute)] px-3 py-1.5 flex items-center gap-1.5">
+                        <span className="h-1 w-1 rounded-full bg-[var(--j-text-mute)]" />
+                        {section.label}
+                        <span className="ml-1 text-[var(--j-text-mute)] opacity-60">({section.items.length})</span>
+                      </div>
+                      {section.items.map((t) => {
+                        runningIdx++;
+                        const i = runningIdx;
+                        const Icon = t.icon;
+                        const active = i === sel;
+                        return (
+                          <button
+                            key={`${section.label}-${t.key}`}
+                            onMouseEnter={() => setSel(i)}
+                            onClick={() => navigateAndTrack(t.key)}
+                            className={cn('w-full flex items-center gap-3 px-3 py-2 rounded-md text-sm transition-colors', active ? 'bg-[var(--j-panel-soft)] text-[var(--j-text)]' : 'text-[var(--j-text-dim)]')}
+                          >
+                            <Icon className="h-4 w-4 shrink-0" style={{ color: active ? t.accent : undefined }} />
+                            <span className="flex-1 text-left truncate">{t.label}</span>
+                            {section.label === 'Frequent' && (
+                              <span className="jarvis-mono text-[9px] text-[var(--j-amber)]">
+                                {frequentTabs.find((f) => f.key === t.key)?.count}×
+                              </span>
+                            )}
+                            <span className="jarvis-mono text-[9px] uppercase text-[var(--j-text-mute)]">{t.group}</span>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  );
+                })
               )}
+            </div>
+            <div className="px-4 py-2 border-t border-[var(--j-border)] bg-[var(--j-panel-soft)]/40 flex items-center justify-between jarvis-mono text-[9px] uppercase text-[var(--j-text-mute)]">
+              <span>{flatItems.length} items</span>
+              <span className="flex items-center gap-2">
+                <span>↑↓ navigate</span>
+                <span>⏎ open</span>
+              </span>
             </div>
           </motion.div>
         </motion.div>
