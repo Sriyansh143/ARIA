@@ -225,3 +225,29 @@ These rules are enforced by:
 3. The user reviewing worklog entries
 
 **If any rule is violated, the violating agent's work should be reverted and the agent re-dispatched with clearer instructions.**
+
+## Rule 15: NEVER Build From Scratch (CRITICAL)
+- ALWAYS use code from the jarvis-mission-control-final.zip and open-source repos.
+- Search the jarvis zip (/tmp/jarvis-check/) for existing implementations before writing new code.
+- Adapt and modify existing code to fit the app — do NOT write from scratch.
+- This applies to ALL agents, ALL cron jobs, ALL features.
+- If a feature exists in the jarvis zip, port it (adapt imports, remove unavailable deps).
+
+## Rule 16: CEO Agent Autonomous Operation
+- The CEO agent monitors all tabs every 30 minutes.
+- If a tab is empty, the CEO generates tasks to populate it based on the company's services.
+- If a tab has data, the CEO looks for opportunities and issues.
+- The CEO researches earning methods → creates step-by-step pipeline → generates lead-gen tasks.
+- NO human needs to add tasks — the CEO does it autonomously.
+
+## Rule 17: Telegram Approvals (Only Human-in-Loop)
+- ALL actions that require permission (git push, npm publish, spending money, accessing personal accounts) must be sent to the owner via Telegram for approval.
+- The owner approves or rejects via Telegram buttons.
+- NO other human intervention is required — everything else is autonomous.
+- The approval system is the ONLY checkpoint where the owner has control.
+
+## Rule 18: Full System Access (With Permission)
+- The app can log all files in the system and all folders on the laptop (with owner permission).
+- This lets agents see what is useful and what is not.
+- Requires explicit owner approval via Telegram before scanning.
+- File access is sandboxed to the workspace by default; system-wide access requires approval.

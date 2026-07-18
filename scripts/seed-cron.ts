@@ -34,6 +34,13 @@ export const EXTRA_CRON_ROSTER: Array<{
     description: 'Sync models from all configured providers + local Ollama; purge broken.',
     enabled: true,
   },
+  {
+    key: 'ceo-sweep',
+    name: 'CEO Tab Sweep',
+    schedule: '*/30 * * * *', // every 30 min
+    description: 'CEO agent monitors all tabs, generates tasks for empty/stale ones, finds opportunities.',
+    enabled: true,
+  },
 ];
 
 async function main() {

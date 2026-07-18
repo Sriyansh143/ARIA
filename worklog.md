@@ -4331,3 +4331,92 @@ Stage Summary:
 7. **Query live data** → fleet status, revenue, tasks, clients, leads — all from real DB
 8. **Undo actions** → delete tasks/agents/comms that were created by mistake
 9. **All from one chat panel** → text or voice, smart router handles everything
+
+---
+Task ID: CEO-AGENT + AUTONOMOUS-PIPELINE + RULES
+Agent: main (Z.ai Code)
+Task: Build CEO agent that monitors tabs + generates tasks autonomously + earning method research pipeline + Telegram approval system + "never build from scratch" rule.
+
+Work Log:
+
+**RULE 15: Never Build From Scratch** (RULES.md):
+- Added Rule 15 to RULES.md: "ALWAYS use code from the jarvis-mission-control-final.zip and open-source repos. Adapt and modify existing code to fit the app — do NOT write from scratch."
+- This is now a permanent rule for ALL agents and ALL future development.
+
+**CEO Agent** (`src/lib/ceo-agent.ts` — NEW, ported from jarvis zip's mnc-orchestrator.ts):
+- `analyzeTab(tabKey, tabLabel, tabData)` — CEO analyzes a tab's state:
+  - If empty: CEO thinks about what the tab is FOR, generates tasks to populate it.
+  - If has data: CEO looks for opportunities, issues, and connections to revenue.
+  - Uses LLM with company context (20 services, 68 agents, earning potential).
+  - Returns structured JSON: status, observations, recommendations with suggested tasks.
+- `ceoSweep()` — CEO runs a full sweep of 6 key tabs (Tasks, CRM, Payments, Earning Methods, Memory, Skills):
+  - Gathers live data from each tab.
+  - Calls `analyzeTab()` for each.
+  - Creates Task records for recommendations (with deduplication).
+  - Creates notifications for tabs needing attention.
+  - Returns: tabsAnalyzed, tasksCreated, findings.
+- `researchEarningMethod(methodName, methodDescription)` — Full earning pipeline:
+  1. LLM researches market demand, competition, pricing.
+  2. Designs step-by-step process from idea to payment.
+  3. For each step: specifies department (CTO/CMO/COO/CFO) + agent assignee.
+  4. Creates Task records for each step.
+  5. Generates lead-gen tasks (how to find clients for this service).
+  6. Stores research in Memory (pinned).
+  7. Creates success notification.
+- `ceoClassify(taskDescription)` — classifies tasks into departments (CTO/CMO/COO/CFO) using keyword matching.
+- Department → Agent mapping: CTO→ATLAS/CRONOS/FORGE, CMO→ECHO/ANTARES/AQUILA, COO→ORION/HERMES, CFO→APEX/HALCYON.
+
+**API Routes** (3 new):
+- `/api/ceo/sweep` POST — triggers a CEO sweep across all tabs.
+- `/api/ceo/research-earning` POST — triggers earning method research pipeline.
+- `/api/approvals` GET (list pending) + POST (resolve approval) — Telegram-compatible approval system.
+
+**Cron Job** (`src/lib/cron-dispatcher.ts` + `scripts/seed-cron.ts`):
+- New `ceo-sweep` cron job — runs every 30 minutes.
+- CEO autonomously monitors all tabs, generates tasks for empty/stale ones.
+- No human intervention needed — CEO does it all.
+- Seeded: 30 total cron jobs in DB (was 29).
+
+**Rules Updated** (RULES.md):
+- Rule 15: Never build from scratch — always port from jarvis zip + open source.
+- Rule 16: CEO agent autonomous operation — monitors tabs, generates tasks, no human needed.
+- Rule 17: Telegram approvals — only human-in-loop checkpoint. All permission-requiring actions go to owner via Telegram.
+- Rule 18: Full system access with permission — can log all files/folders on laptop with owner approval.
+
+**Verification**:
+- CEO sweep: 6 tabs analyzed, 22 tasks created autonomously.
+  - Tasks tab: "action-needed" — high pending vs completed ratio.
+  - CRM tab: "action-needed" — 1 lead but 0 clients, poor conversion.
+  - Payments tab: "opportunity" — 77% confirmation rate.
+- Earning research: "AI Chatbot Development" → 12 steps + 5 lead-gen tasks = 17 tasks created.
+  - Steps: Market Analysis→VEGA, Technical Design→ATLAS, Service Package→ORION, etc.
+  - Lead gen: Industry-Specific Outreach→AQUILA, Content Marketing→ANDROMEDA, etc.
+  - Research saved to memory (pinned).
+- Approvals API: working (0 pending currently).
+- Context-aware chat: "fleet status" → returns real data (68 agents, 31% avg load, 97% success).
+- Lint: clean (0 errors, 0 warnings).
+
+Stage Summary:
+- ✅ CEO agent ported from jarvis zip — monitors tabs, generates tasks, researches earning methods.
+- ✅ Earning method pipeline: idea → research → simulate → step-by-step → lead-gen tasks.
+- ✅ Approval system: Telegram-compatible, only human-in-loop checkpoint.
+- ✅ CEO sweep cron: every 30 min, autonomous tab monitoring.
+- ✅ Rules 15-18 added: never build from scratch, CEO autonomous, Telegram approvals, system access.
+- ✅ 0 lint errors, 0 page errors.
+
+## How the Autonomous Pipeline Works (End-to-End):
+1. **CEO sweeps tabs** (every 30 min) → finds empty/stale tabs → generates tasks.
+2. **Earning method research** → LLM researches market → creates 12-step pipeline → generates lead-gen tasks.
+3. **Tasks assigned to agents** → each step has a department + agent codename.
+4. **Lead-gen tasks** → agents find clients → create leads in CRM (auto-scored).
+5. **Leads → Clients** → pipeline tracking through 7 stages.
+6. **Approvals** → only permission-requiring actions (git push, spend money, access personal accounts) go to owner via Telegram.
+7. **Everything else is autonomous** — no human needs to add tasks, monitor tabs, or chat.
+
+## Updated App Stats:
+- **30 cron jobs** (CEO sweep added)
+- **23 Orion intents** + CEO agent + earning research pipeline
+- **26 tabs** + CRM & Sales
+- **124+ API routes** + /api/ceo/sweep + /api/ceo/research-earning + /api/approvals
+- **Rules 15-18** added to RULES.md
+- **0 lint errors, 0 page errors**

@@ -354,6 +354,21 @@ const dispatchers: Record<string, CronDispatcher> = {
       return { ok: false, detail: `agent-monitors failed: ${err instanceof Error ? err.message : String(err)}` };
     }
   },
+
+  // ── CEO Sweep: monitors all tabs, generates tasks for empty/stale ones ──
+  'ceo-sweep': async () => {
+    try {
+      const { ceoSweep } = await import('@/lib/ceo-agent');
+      const result = await ceoSweep();
+      return {
+        ok: true,
+        detail: `CEO sweep: ${result.tabsAnalyzed} tabs analyzed, ${result.tasksCreated} tasks created`,
+        recordsAffected: result.tasksCreated,
+      };
+    } catch (err) {
+      return { ok: false, detail: `ceo-sweep failed: ${err instanceof Error ? err.message : String(err)}` };
+    }
+  },
 };
 
 // ─── dispatchCronJob ──────────────────────────────────────────────────
