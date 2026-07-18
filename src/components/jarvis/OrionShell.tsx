@@ -204,6 +204,22 @@ export default function OrionShell({ onClose }: { onClose: () => void }) {
   const [proactiveIdx, setProactiveIdx] = useState(0);
   const [lastActivity, setLastActivity] = useState<number>(Date.now());
 
+  /* ---------- conversation state machine ---------- */
+  // Tracks the current phase of the conversation cycle:
+  // listening → processing → speaking → pause → listening
+  // This prevents the mic from picking up TTS output (feedback loop).
+  const [conversationPhase, setConversationPhase] = useState<'listening' | 'processing' | 'speaking' | 'paused'>('listening');
+  const conversationPhaseRef = useRef<'listening' | 'processing' | 'speaking' | 'paused'>('listening');
+
+  // Pending clarification: when the AI asks a question, we store it here.
+  // The next user input is treated as the answer (not a new command).
+  const [pendingQuestion, setPendingQuestion] = useState<string | null>(null);
+  const pendingQuestionRef = useRef<string | null>(null);
+
+  // Task monitoring: after creating tasks, poll until they complete.
+  const [monitoredTasks, setMonitoredTasks] = useState<Array<{ id: string; title: string; status: string; assignee?: string }>>([]);
+  const monitorTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
   const recognitionRef = useRef<any>(null);
   const shouldListenRef = useRef(false);
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -294,9 +310,32 @@ export default function OrionShell({ onClose }: { onClose: () => void }) {
   }, [lastActivity, state]);
 
   /* ---------- TTS ---------- */
+  // The speak function is the KEY to the conversation state machine.
+  // When speaking starts: pause speech recognition (prevent mic feedback).
+  // When speaking ends: resume listening after a short delay.
+  // startRecognitionRef is a ref to startRecognition so speak() can call it
+  // without creating a circular dependency (speak depends on startRecognition,
+  // startRecognition depends on sendCommand, sendCommand depends on speak).
+  const startRecognitionRef = useRef<() => void>(() => {});
   const speak = useCallback((text: string) => {
     if (typeof window === 'undefined' || !window.speechSynthesis) return;
-    if (muted) return;
+    if (muted) {
+      // If muted, skip TTS but still cycle through the conversation phases.
+      setConversationPhase('speaking');
+      conversationPhaseRef.current = 'speaking';
+      setState('speaking');
+      // Simulate end of speech after a short delay.
+      setTimeout(() => {
+        setConversationPhase('listening');
+        conversationPhaseRef.current = 'listening';
+        setState(shouldListenRef.current ? 'listening' : 'idle');
+        // Resume recognition after speaking.
+        if (shouldListenRef.current && !recognitionRef.current) {
+          startRecognitionRef.current();
+        }
+      }, 500);
+      return;
+    }
     window.speechSynthesis.cancel();
     const clean = text.replace(/[#*`_>]/g, '').replace(/\s+/g, ' ').trim().slice(0, 600);
     if (!clean) return;
@@ -311,9 +350,38 @@ export default function OrionShell({ onClose }: { onClose: () => void }) {
         || voices.find((v) => /^en/i.test(v.lang));
       if (pref) u.voice = pref;
     }
-    u.onstart = () => setState('speaking');
-    u.onend = () => setState((s) => (s === 'speaking' ? (shouldListenRef.current ? 'listening' : 'idle') : s));
-    u.onerror = () => setState((s) => (s === 'speaking' ? (shouldListenRef.current ? 'listening' : 'idle') : s));
+    // PAUSE recognition while speaking — prevents mic from picking up TTS.
+    u.onstart = () => {
+      setConversationPhase('speaking');
+      conversationPhaseRef.current = 'speaking';
+      setState('speaking');
+      // Stop the mic while speaking.
+      if (recognitionRef.current) {
+        try { recognitionRef.current.stop(); } catch { /* ignore */ }
+      }
+    };
+    // RESUME listening after speaking ends.
+    u.onend = () => {
+      setConversationPhase('listening');
+      conversationPhaseRef.current = 'listening';
+      setState(shouldListenRef.current ? 'listening' : 'idle');
+      // Restart recognition after a 300ms delay (let the room go quiet).
+      if (shouldListenRef.current) {
+        setTimeout(() => {
+          if (shouldListenRef.current && conversationPhaseRef.current === 'listening') {
+            startRecognitionRef.current();
+          }
+        }, 300);
+      }
+    };
+    u.onerror = () => {
+      setConversationPhase('listening');
+      conversationPhaseRef.current = 'listening';
+      setState(shouldListenRef.current ? 'listening' : 'idle');
+      if (shouldListenRef.current) {
+        setTimeout(() => startRecognitionRef.current(), 300);
+      }
+    };
     window.speechSynthesis.speak(u);
   }, [muted]);
 
