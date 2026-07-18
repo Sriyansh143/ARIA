@@ -266,3 +266,45 @@ These rules are enforced by:
 - This is more robust than single-agent decision-making.
 - The CEO agent coordinates the discussion, C-Suite agents (CTO/CMO/COO/CFO) provide domain expertise.
 - Discussion results are logged to memory for future reference.
+
+## Rule 21: Agent Separation (Monitoring vs Executing)
+- **Monitoring agents** (CEO, C-Suite, watchdogs) observe tabs, generate tasks, find issues, propose improvements. They do NOT execute tasks themselves.
+- **Executing agents** (developers, researchers, writers, testers) complete tasks created by monitoring agents. They do NOT create tasks or monitor tabs.
+- **Error handling agents** (incident responders, quality reviewers) catch failures, retry, rollback, report.
+- Monitoring agents decide which executing agent gets which work based on skills, load, and department.
+- Monitoring agents track the progress of executing agents until completion.
+
+## Rule 22: Smart Model Selection (Not Always glm-4.6)
+- Every agent should use the BEST model for its task, not always glm-4.6.
+- The app has 453 models across 23 providers. Use them.
+- Model selection criteria:
+  - **Coding tasks**: use coding-specialist models (qwen3-coder, deepseek-coder, etc.)
+  - **Reasoning tasks**: use reasoning models (glm-4.6, deepseek-v3.1, etc.)
+  - **Vision tasks**: use vision models (qwen3-vl, glm-4v, etc.)
+  - **Fast tasks**: use fast models (groq:llama-3.3-70b, glm-4-air, etc.)
+  - **Creative tasks**: use creative models (glm-4.6, claude-3.5-sonnet, etc.)
+- The `selectModel(taskKind)` function should query the Model table for available models matching the task kind and pick the best non-rate-limited one.
+
+## Rule 23: No Idle Agents (Zero Idle Policy)
+- If any agent is idle for more than 5 minutes, their supervisor/lead MUST assign them a new task.
+- Supervisors check for idle agents every 5 minutes (via the health-check cron).
+- Idle agents should be assigned:
+  1. Pending tasks from the queue matching their skills.
+  2. If no pending tasks: research/improvement tasks (read docs, learn skills, monitor tabs).
+  3. If nothing to do: stand-by mode (but logged as "standby" not "idle").
+- An agent should NEVER be idle — there is always something to learn, improve, or monitor.
+
+## Rule 24: Task Queue System
+- When all executing agents are busy, new tasks go into a queue.
+- The queue auto-dispatches tasks when an agent becomes free.
+- Queue priority: critical > high > medium > low.
+- Within the same priority: oldest first (FIFO).
+- The queue is checked every 30 seconds by the task dispatcher.
+- If a task has been in the queue for >1 hour, escalate priority by one level.
+
+## Rule 25: Setup File Must Match App
+- The setup/README file must be updated whenever the app's dependencies, environment variables, or startup process changes.
+- If a new mini-service is added, the setup file must document how to start it.
+- If a new Prisma model is added, the setup file must mention running `bunx prisma db push`.
+- If a new environment variable is required, the setup file must list it.
+- This rule applies to ALL future changes — not just this session.

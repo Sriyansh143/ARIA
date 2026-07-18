@@ -384,29 +384,19 @@ const dispatchers: Record<string, CronDispatcher> = {
       return { ok: false, detail: `multi-agent-discuss failed: ${err instanceof Error ? err.message : String(err)}` };
     }
   },
+
+  // ── Idle Agent Check: assign tasks to idle agents (Rule 23: no idle agents) ──
+  'idle-agent-check': async () => {
+    try {
+      const { assignIdleAgents } = await import('@/lib/task-queue');
+      const result = await assignIdleAgents();
+      return {
+        ok: true,
+        detail: `Idle check: ${result.idleFound} idle agents found, ${result.assigned} tasks assigned`,
+        recordsAffected: result.assigned,
+      };
+    } catch (err) {
+      return { ok: false, detail: `idle-agent-check failed: ${err instanceof Error ? err.message : String(err)}` };
+    }
+  },
 };
-
-// ─── dispatchCronJob ──────────────────────────────────────────────────
-export async function dispatchCronJob(key: string): Promise<CronJobResult> {
-  const start = Date.now();
-  const dispatcher = dispatchers[key];
-  if (!dispatcher) {
-    return { ok: false, key, detail: `No dispatcher registered for key: ${key}`, durationMs: 0 };
-  }
-  try {
-    const result = await dispatcher();
-    return { ...result, key, durationMs: Date.now() - start };
-  } catch (err) {
-    return {
-      ok: false,
-      key,
-      detail: `Dispatcher threw: ${err instanceof Error ? err.message : String(err)}`,
-      durationMs: Date.now() - start,
-    };
-  }
-}
-
-// ─── listCronKeys ─────────────────────────────────────────────────────
-export function listCronKeys(): string[] {
-  return Object.keys(dispatchers);
-}

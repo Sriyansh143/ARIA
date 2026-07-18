@@ -4535,3 +4535,62 @@ Stage Summary:
 - **PENDING_TASKS.md**: 117 lines — NEW, tracks all pending works.
 - **worklog.md**: 4,473 lines — UP TO DATE (appended every run).
 - **RULES.md**: 268 lines, 20 rules — UP TO DATE (rules 15-20 added recently).
+
+---
+Task ID: AGENT-SEPARATION + QUEUE + MODEL-SELECTION + RULES-21-25
+Agent: main (Z.ai Code)
+Task: Separate monitoring/executing agents, smart model selection, task queue, no-idle rule, predefined personas, app navigation map, rules 21-25.
+
+Work Log:
+
+**RULES 21-25** (RULES.md):
+- Rule 21: Agent Separation — monitoring agents observe/generate tasks, executing agents complete tasks, error handlers catch failures.
+- Rule 22: Smart Model Selection — use best model per task (coding→qwen3-coder, reasoning→deepseek-v3.1, vision→qwen3-vl, fast→groq:llama, creative→glm-4.6). NOT always glm-4.6.
+- Rule 23: No Idle Agents — if idle >5 min, supervisor MUST assign new task. Zero idle policy.
+- Rule 24: Task Queue System — auto-dispatch when agents free, priority escalation after 1 hour.
+- Rule 25: Setup File Must Match App — update setup/README whenever deps/env/startup changes.
+
+**AGENT REGISTRY** (`src/lib/agent-registry.ts` — NEW, ported from jarvis zip's agent-roster.ts):
+- 17 predefined agent personas with full metadata:
+  - **5 Monitoring agents** (CEO Orion, CTO Atlas, CMO Echo, CFO Apex, Quality Lead Pulse).
+  - **10 Executing agents** (Forge/DevOps, Cronos/Release, Daedalus/Testing, Vega/Research, Andromeda/Sales, Antares/SDR, Calliope/Content, Hermes/Coordinator, Sage/Memory, Halcyon/Legal).
+  - **2 Error-handling agents** (Bastion/Incident, Labyrinth/QA).
+- Each persona has: codename, name, type, department, role, title, modelPreference (ordered list), skills, persona, backstory, goal, maxIterations, maxRpm, seniority, reportsTo.
+- `selectModel(taskKind)` — picks best model for task kind (coding/reasoning/vision/fast/creative/chat).
+- `APP_NAVIGATION_MAP` — 26 tabs with purpose descriptions + 12 key actions with step-by-step instructions. Monitoring agents use this to know where to go and what to click.
+- Hierarchy: CEO → C-Suite (CTO/CMO/COO/CFO/Quality) → Specialists. Each agent reports to their supervisor.
+
+**TASK QUEUE** (`src/lib/task-queue.ts` — NEW):
+- `enqueue(task)` — adds task to priority queue (critical > high > medium > low, FIFO within same priority).
+- `dispatchNext()` — finds idle agent matching required skills, assigns task, sets agent to working.
+- `startAutoDispatch()` — checks every 30 seconds for idle agents + queued tasks.
+- `escalateStaleTasks()` — tasks in queue >1 hour get priority escalated one level.
+- `assignIdleAgents()` — implements Rule 23 (no idle agents): finds idle agents, assigns pending tasks from DB. If no pending tasks, sets to "thinking" (standby/learning).
+- API: `/api/agents/idle-check` POST, `/api/queue` GET (list) + POST (dispatch).
+- Cron: `idle-agent-check` every 5 minutes.
+- **Verified**: 4 idle agents found, 4 tasks assigned.
+
+**Verification**:
+- Idle check: 4 idle agents found, 4 tasks assigned.
+- Queue: 0 tasks (all dispatched).
+- Cron jobs: 32 total (added idle-agent-check).
+- Lint: clean (0 errors, 0 warnings).
+- Dev server: HTTP 200.
+
+Stage Summary:
+- ✅ Rules 21-25 added (agent separation, model selection, no idle, queue, setup).
+- ✅ Agent registry with 17 predefined personas (monitoring/executing/error-handler).
+- ✅ Smart model selection (best model per task kind, not always glm-4.6).
+- ✅ Task queue with auto-dispatch (every 30s) + priority escalation (after 1h).
+- ✅ No-idle rule enforced (idle-agent-check cron every 5 min).
+- ✅ App navigation map fed to monitoring agents (26 tabs + 12 key actions).
+- ✅ PENDING_TASKS.md updated (50 completed items).
+- ✅ 0 lint errors, 0 page errors.
+- ✅ 32 cron jobs, 25 rules, 17 agent personas.
+
+## Updated App Stats:
+- **32 cron jobs** (added idle-agent-check every 5 min).
+- **25 rules** (added 21-25).
+- **17 agent personas** (5 monitoring + 10 executing + 2 error-handling).
+- **26 tabs** with navigation map.
+- **124+ API routes** (+ /api/agents/idle-check + /api/queue).

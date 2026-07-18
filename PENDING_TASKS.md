@@ -55,6 +55,17 @@
 
 ---
 
+41. ✅ ~~Multi-agent discussion system~~ — Done (4 C-Suite agents, 2-round discussion, CEO consensus).
+42. ✅ ~~Agent separation (monitoring vs executing)~~ — Done (agent-registry.ts with 17 personas).
+43. ✅ ~~Smart model selection~~ — Done (selectModel() picks best model per task kind).
+44. ✅ ~~Task queue system~~ — Done (auto-dispatch every 30s, priority escalation).
+45. ✅ ~~No idle agents rule~~ — Done (idle-agent-check cron every 5 min).
+46. ✅ ~~Predefined agent personas~~ — Done (17 personas with skills/memories/intelligence).
+47. ✅ ~~App navigation map~~ — Done (APP_NAVIGATION_MAP with 26 tabs + key actions).
+48. ✅ ~~Documentation rules (19-20)~~ — Done (update every run + multi-agent discussion).
+49. ✅ ~~Rules 21-25~~ — Done (agent separation, model selection, no idle, queue, setup update).
+50. ✅ ~~PENDING_TASKS.md~~ — Done (living log of all pending works).
+
 ## 🔴 Pending (High Priority)
 
 ### Execution Layer
@@ -69,7 +80,7 @@
 7. **Verification gate** — After plan execution, LLM verifies if the goal was achieved.
 
 ### Multi-Agent Discussion
-8. **Multi-agent discussion system** — Multiple agents monitor tabs, discuss findings, vote on actions, then implement.
+8. ✅ ~~Multi-agent discussion system~~ — Done. — Multiple agents monitor tabs, discuss findings, vote on actions, then implement.
 9. **Agent-to-agent delegation** — CEO → C-Suite → specialist hierarchy with structured reports.
 10. **Consensus mechanism** — Agents propose actions, discuss, reach consensus before executing.
 
@@ -107,11 +118,11 @@
 - **Orion intents**: 23
 - **Tabs**: 26
 - **API routes**: 124+
-- **Cron jobs**: 30
+- **Cron jobs**: 32
 - **Prisma models**: 37
 - **Agents**: 68
 - **Skills**: 20 (in DB)
 - **Providers**: 23
 - **Models**: 453
-- **Rules**: 18
+- **Rules**: 25
 - **Documentation**: 3,557 lines (APP_DOCUMENTATION.md)

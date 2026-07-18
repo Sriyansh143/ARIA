@@ -41,6 +41,13 @@ export const EXTRA_CRON_ROSTER: Array<{
     description: 'CEO agent monitors all tabs, generates tasks for empty/stale ones, finds opportunities.',
     enabled: true,
   },
+  {
+    key: 'idle-agent-check',
+    name: 'Idle Agent Check',
+    schedule: '*/5 * * * *', // every 5 min
+    description: 'Check for idle agents and assign them pending tasks. Rule 23: no idle agents.',
+    enabled: true,
+  },
 ];
 
 async function main() {
