@@ -62,6 +62,7 @@ import GoalsTab from '@/components/tabs/GoalsTab';
 import DataManagementTab from '@/components/tabs/DataManagementTab';
 import AgentMonitorTab from '@/components/tabs/AgentMonitorTab';
 import AuditLogTab from '@/components/tabs/AuditLogTab';
+import CRMTab from '@/components/tabs/CRMTab';
 
 // ─── Merged tab components (combine related tabs with sub-view toggles) ───
 
@@ -221,7 +222,8 @@ export type TabKey =
   | 'memory' | 'learning' | 'rules-plugins' | 'artifacts'
   | 'health' | 'monitoring' | 'scheduler'
   | 'payments' | 'earnings' | 'analytics' | 'services'
-  | 'data-mgmt' | 'branding' | 'apptree';
+  | 'data-mgmt' | 'branding' | 'apptree'
+  | 'crm';
 
 interface TabDef {
   key: TabKey;
@@ -262,9 +264,10 @@ const TABS: TabDef[] = [
   { key: 'monitoring', label: 'Monitoring', icon: ShieldCheck, group: 'Monitoring', accent: JARVIS.colors.red },
   { key: 'scheduler', label: 'Scheduler', icon: CalendarClock, group: 'Monitoring', accent: JARVIS.colors.violet },
 
-  // ─── Business & Revenue (4) — merged 6→4 ───
+  // ─── Business & Revenue (5) — merged 6→5 ───
   { key: 'payments', label: 'Payments', icon: Wallet, group: 'Business', accent: JARVIS.colors.green },
   { key: 'earnings', label: 'Earning Methods', icon: DollarSign, group: 'Business', accent: JARVIS.colors.green },
+  { key: 'crm', label: 'CRM & Sales', icon: Briefcase, group: 'Business', accent: JARVIS.colors.amber },
   { key: 'analytics', label: 'Analytics & Reports', icon: BarChart3, group: 'Business', accent: JARVIS.colors.cyan },
   { key: 'services', label: 'Services Hub', icon: Briefcase, group: 'Business', accent: JARVIS.colors.amber },
 
@@ -318,6 +321,7 @@ const TAB_MAP: Record<TabKey, () => JSX.Element> = {
   // Business (merged)
   payments: PaymentsMergedTab,
   earnings: EarningMethodsTab,
+  crm: CRMTab,
   analytics: AnalyticsReportsMergedTab,
   services: ServicesHubTab,
   // System

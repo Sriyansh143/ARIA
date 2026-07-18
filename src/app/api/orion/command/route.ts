@@ -21,6 +21,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/lib/db';
 import { chat } from '@/lib/llm';
 import { parseIntent, type ParsedIntent } from '@/lib/orion-intent';
+import { scoreLead } from '@/lib/lead-score';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -133,6 +134,18 @@ export async function POST(req: NextRequest): Promise<NextResponse<CommandRespon
       case 'browse':
         out = await handleBrowse(parsed, sessionId);
         break;
+      case 'create-lead':
+        out = await handleCreateLead(parsed, sessionId);
+        break;
+      case 'create-client':
+        out = await handleCreateClient(parsed, sessionId);
+        break;
+      case 'create-ticket':
+        out = await handleCreateTicket(parsed, sessionId);
+        break;
+      case 'query-clients':
+        out = await handleQueryClients(sessionId);
+        break;
       default:
         out = await handleChat(text, parsed, sessionId);
     }
@@ -157,15 +170,124 @@ export async function POST(req: NextRequest): Promise<NextResponse<CommandRespon
    ============================================================ */
 
 async function handleChat(text: string, parsed: ParsedIntent, sessionId: string): Promise<CommandResponse> {
-  const { content, latencyMs } = await chat(text);
+  // Build context-aware system prompt with live fleet/memory/skills data.
+  const contextPrompt = await buildContextPrompt(text);
+  const { content, latencyMs } = await chat(text, [], contextPrompt);
+
+  // Auto-detect [FILE: path] markers + code blocks and save them.
+  const savedFiles: Array<{ path: string; size: number }> = [];
+  const filePattern = /\[FILE:\s*([^\]]+)\]\s*```[\w]*\n([\s\S]*?)```/g;
+  let match;
+  let processedContent = content;
+  try {
+    const { writeSandboxed } = await import('@/lib/fs-sandbox');
+    while ((match = filePattern.exec(content)) !== null) {
+      const filePath = match[1].trim();
+      const fileContent = match[2];
+      try {
+        await writeSandboxed(filePath, fileContent);
+        savedFiles.push({ path: filePath, size: fileContent.length });
+        processedContent = processedContent.replace(match[0], `${match[0]}\n\n✅ **Saved to** \`${filePath}\` (${fileContent.length} chars)`);
+      } catch (e) {
+        processedContent = processedContent.replace(match[0], `${match[0]}\n\n⚠️ Failed to save: ${e instanceof Error ? e.message : 'unknown'}`);
+      }
+    }
+  } catch { /* fs-sandbox not available */ }
+
+  const savedNote = savedFiles.length > 0
+    ? `\n\n📁 **${savedFiles.length} file(s) auto-saved:**\n${savedFiles.map(f => `- \`${f.path}\` (${f.size} chars)`).join('\n')}`
+    : '';
+
   return {
     intent: 'chat',
-    response: content || '(no response)',
+    response: (processedContent || '(no response)') + savedNote,
     latencyMs,
     sessionId,
     confidence: parsed.confidence,
-    suggestions: ['Show fleet status', 'Create a task', 'Run a health check'],
+    suggestions: savedFiles.length > 0
+      ? ['Read one of the saved files', 'Run command: ls workspace', 'Create a task to review']
+      : ['Show fleet status', 'Create a task', 'Run a health check'],
   };
+}
+
+/**
+ * Build a context-aware system prompt with live fleet/memory/skills data.
+ * This makes the AI aware of the current state of the app, not just a static persona.
+ */
+async function buildContextPrompt(userQuery: string): Promise<string> {
+  const basePrompt = `You are ARIA — the central AI orchestrator of an autonomous agent fleet running JARVIS Mission Control. You are an autonomous AI company that can SEE, DO, and EARN — not just chat.
+
+## Your Capabilities (you can ACTUALLY DO these, not just talk about them):
+- **Execute shell commands**: "run command: git status" — you run real commands on the host.
+- **Read/write/edit files**: You can read, create, and modify files in the workspace.
+- **Browse websites**: You can open URLs, extract content, take screenshots, click elements.
+- **Create tasks**: You create real Task records assigned to fleet agents.
+- **Spawn agents**: You can create new specialist agents under existing ones.
+- **Run skills**: web-search, web-reader, summarize, code-gen, code-review, forecast.
+- **Send messages**: Internal agent-to-agent comms.
+- **Plan complex tasks**: Decompose goals into multi-step plans with assignees.
+- **Navigate the dashboard**: Switch between 25 tabs.
+- **Query live data**: Fleet status, revenue, task status, health checks.
+- **Undo actions**: You can undo task/agent/comms creation.
+
+## Critical Rules:
+1. **NEVER just give code and ask the user to save it.** If you generate code, SAVE IT YOURSELF using the [FILE: path/to/file.ext] marker before the code block. The system will auto-save it.
+2. **NEVER say "you should do X" when you CAN do X.** Just do it. You are autonomous.
+3. **When asked to build something**: plan it, create the files, run the commands, verify it works, report results.
+4. **When generating code**: always include the filename in a special marker: [FILE: path/to/file.ext] before the code block, so the system can auto-save it.
+5. **When asked for research**: use web-search, read the results, synthesize, cite sources.
+6. **When a task is complex**: decompose it into steps, ask clarifying questions if needed, then execute each step.
+7. **Be direct and useful.** Prefer crisp bullet points. Keep responses under ~250 words unless depth is needed.
+8. **Stay calm, competent, and slightly dry-witted.** You are a mission-control AI, not a chatbot.`;
+
+  // Gather live context (best-effort, don't fail if DB is unavailable).
+  let contextSection = '';
+  try {
+    const [agents, tasks, memoryItems, skills, rules] = await Promise.all([
+      db.agent.findMany({ select: { codename: true, role: true, status: true, load: true }, take: 15, orderBy: { load: 'desc' } }),
+      db.task.findMany({ select: { title: true, status: true, priority: true }, take: 5, orderBy: { createdAt: 'desc' } }),
+      db.memoryItem.findMany({ select: { key: true, value: true, scope: true, pinned: true }, take: 5, orderBy: { updatedAt: 'desc' } }),
+      db.skill.findMany({ select: { key: true, name: true, category: true, enabled: true }, take: 10 }),
+      db.rule.findMany({ select: { name: true, category: true, priority: true }, take: 5, orderBy: { priority: 'desc' } }).catch(() => []),
+    ]);
+
+    const fleetSummary = agents.length > 0
+      ? agents.map(a => `${a.codename} (${a.role}, ${a.status}, ${Math.round(a.load)}% load)`).join('; ')
+      : 'No agents';
+
+    const taskSummary = tasks.length > 0
+      ? tasks.map(t => `"${t.title}" (${t.status}, ${t.priority})`).join('; ')
+      : 'No tasks';
+
+    const memorySummary = memoryItems.length > 0
+      ? memoryItems.filter(m => m.pinned).map(m => `${m.key}: ${m.value.slice(0, 80)}`).join('\n')
+      : 'No memories';
+
+    const skillsSummary = skills.length > 0
+      ? skills.filter(s => s.enabled).map(s => s.name).join(', ')
+      : 'No skills';
+
+    const rulesSummary = rules.length > 0
+      ? rules.map(r => `${r.name} (${r.category}, ${r.priority})`).join('; ')
+      : 'No rules';
+
+    contextSection = `
+
+## Live Context (current system state):
+**Fleet**: ${agents.length} agents. Top: ${fleetSummary}.
+**Recent tasks**: ${taskSummary}.
+**Pinned memories**:
+${memorySummary}
+**Available skills**: ${skillsSummary}.
+**Active rules**: ${rulesSummary}.
+
+The user is asking: "${userQuery.slice(0, 200)}"
+Respond based on the live context above. If the user asks about the fleet, use the real data. If they ask you to do something, DO IT (don't just describe it).`;
+  } catch {
+    // If DB context fails, just use the base prompt.
+  }
+
+  return basePrompt + contextSection;
 }
 
 async function handleNavigate(parsed: ParsedIntent, sessionId: string): Promise<CommandResponse> {
@@ -905,6 +1027,233 @@ async function handleBrowse(parsed: ParsedIntent, sessionId: string): Promise<Co
     return {
       intent: 'browse',
       response: `Failed to browse: ${e instanceof Error ? e.message : 'unknown error'}`,
+      latencyMs: Date.now() - t0,
+      sessionId,
+      error: e instanceof Error ? e.message : 'unknown',
+    };
+  }
+}
+
+/* ============================================================
+   Business / CRM intent handlers (Task ID BUSINESS)
+   ============================================================ */
+
+/** create-lead — POST /api/leads */
+async function handleCreateLead(parsed: ParsedIntent, sessionId: string): Promise<CommandResponse> {
+  const t0 = Date.now();
+  const p = (parsed.params ?? {}) as {
+    clientName?: string; company?: string; email?: string; phone?: string;
+    source?: string; notes?: string;
+  };
+  const clientName = (p.clientName ?? '').trim();
+  if (!clientName) {
+    return {
+      intent: 'create-lead',
+      response: 'I need at least a name to add a lead. Try: "add lead: John from Acme, john@acme.com".',
+      latencyMs: Date.now() - t0,
+      sessionId,
+      error: 'missing-clientName',
+    };
+  }
+  try {
+    const source = p.source ?? 'web';
+    const company = p.company?.trim() || null;
+    const email = p.email?.trim() || null;
+    const phone = p.phone?.trim() || null;
+    const notes = p.notes?.trim() || null;
+    // Compute auto-score so Orion-created leads match the /api/leads POST behaviour.
+    const score = scoreLead({ source, clientName, company, email, phone, notes });
+    const lead = await db.lead.create({
+      data: {
+        clientName,
+        company,
+        email,
+        phone,
+        source,
+        score,
+        notes,
+      },
+    });
+    return {
+      intent: 'create-lead',
+      response: `Lead added: ${lead.clientName}${lead.company ? ` from ${lead.company}` : ''} — score ${lead.score}/100. Open the CRM tab to follow up.`,
+      latencyMs: Date.now() - t0,
+      sessionId,
+      params: { leadId: lead.id, score: lead.score },
+      suggestions: ['Show leads', 'Convert to client', 'Add another lead'],
+    };
+  } catch (e) {
+    return {
+      intent: 'create-lead',
+      response: `Could not add lead: ${e instanceof Error ? e.message : 'unknown error'}`,
+      latencyMs: Date.now() - t0,
+      sessionId,
+      error: e instanceof Error ? e.message : 'unknown',
+    };
+  }
+}
+
+/** create-client — POST /api/clients */
+async function handleCreateClient(parsed: ParsedIntent, sessionId: string): Promise<CommandResponse> {
+  const t0 = Date.now();
+  const p = (parsed.params ?? {}) as {
+    name?: string; company?: string; email?: string; phone?: string;
+    source?: string; value?: number; notes?: string; assignee?: string;
+  };
+  const name = (p.name ?? '').trim();
+  if (!name) {
+    return {
+      intent: 'create-client',
+      response: 'I need at least a name to add a client. Try: "add client: Jane Doe, janedoe@example.com".',
+      latencyMs: Date.now() - t0,
+      sessionId,
+      error: 'missing-name',
+    };
+  }
+  try {
+    const client = await db.client.create({
+      data: {
+        name,
+        company: p.company?.trim() || null,
+        email: p.email?.trim() || null,
+        phone: p.phone?.trim() || null,
+        source: p.source ?? null,
+        value: typeof p.value === 'number' ? p.value : 0,
+        notes: p.notes?.trim() || null,
+        assignee: p.assignee?.trim() || null,
+      },
+    });
+    return {
+      intent: 'create-client',
+      response: `Client added: ${client.name}${client.company ? ` from ${client.company}` : ''} — status: ${client.status}. Open the CRM tab to advance the pipeline.`,
+      latencyMs: Date.now() - t0,
+      sessionId,
+      params: { clientId: client.id },
+      suggestions: ['Show clients', 'Add a lead', 'Open CRM tab'],
+    };
+  } catch (e) {
+    return {
+      intent: 'create-client',
+      response: `Could not add client: ${e instanceof Error ? e.message : 'unknown error'}`,
+      latencyMs: Date.now() - t0,
+      sessionId,
+      error: e instanceof Error ? e.message : 'unknown',
+    };
+  }
+}
+
+/** create-ticket — POST /api/support */
+async function handleCreateTicket(parsed: ParsedIntent, sessionId: string): Promise<CommandResponse> {
+  const t0 = Date.now();
+  const p = (parsed.params ?? {}) as {
+    subject?: string; clientName?: string; body?: string;
+    priority?: string; channel?: string; assignee?: string;
+  };
+  const subject = (p.subject ?? '').trim();
+  if (!subject) {
+    return {
+      intent: 'create-ticket',
+      response: 'What is the ticket about? Try: "create ticket: client can\'t login".',
+      latencyMs: Date.now() - t0,
+      sessionId,
+      error: 'missing-subject',
+    };
+  }
+  try {
+    const ticket = await db.supportTicket.create({
+      data: {
+        clientName: (p.clientName ?? 'Unknown').trim(),
+        subject,
+        body: (p.body ?? subject).trim(),
+        priority: p.priority ?? 'medium',
+        channel: p.channel ?? 'chat',
+        assignee: p.assignee?.trim() || null,
+      },
+    });
+    return {
+      intent: 'create-ticket',
+      response: `Ticket #${ticket.id.slice(-6)} opened: "${ticket.subject}" from ${ticket.clientName} — priority: ${ticket.priority}. Open the CRM tab to assign an agent.`,
+      latencyMs: Date.now() - t0,
+      sessionId,
+      params: { ticketId: ticket.id },
+      suggestions: ['Show support tickets', 'Assign to an agent', 'Mark as urgent'],
+    };
+  } catch (e) {
+    return {
+      intent: 'create-ticket',
+      response: `Could not open ticket: ${e instanceof Error ? e.message : 'unknown error'}`,
+      latencyMs: Date.now() - t0,
+      sessionId,
+      error: e instanceof Error ? e.message : 'unknown',
+    };
+  }
+}
+
+/** query-clients — pull live CRM stats (clients + leads + tickets) */
+async function handleQueryClients(sessionId: string): Promise<CommandResponse> {
+  const t0 = Date.now();
+  try {
+    const [clients, leads, tickets] = await Promise.all([
+      db.client.findMany({ select: { status: true, value: true } }),
+      db.lead.findMany({ select: { status: true, score: true } }),
+      db.supportTicket.findMany({ select: { status: true, priority: true } }),
+    ]);
+    const clientByStatus: Record<string, number> = {};
+    let pipelineValue = 0;
+    for (const c of clients) {
+      clientByStatus[c.status] = (clientByStatus[c.status] ?? 0) + 1;
+      pipelineValue += c.value ?? 0;
+    }
+    const leadByStatus: Record<string, number> = {};
+    let totalScore = 0;
+    for (const l of leads) {
+      leadByStatus[l.status] = (leadByStatus[l.status] ?? 0) + 1;
+      totalScore += l.score ?? 0;
+    }
+    const ticketByStatus: Record<string, number> = {};
+    let urgent = 0;
+    for (const tk of tickets) {
+      ticketByStatus[tk.status] = (ticketByStatus[tk.status] ?? 0) + 1;
+      if (tk.priority === 'urgent') urgent += 1;
+    }
+    const won = clientByStatus.won ?? 0;
+    const qualified = clientByStatus.qualified ?? 0;
+    const leadNew = leadByStatus.new ?? 0;
+    const leadQualified = leadByStatus.qualified ?? 0;
+    const openTickets = ticketByStatus.open ?? 0;
+    const inProgressTickets = ticketByStatus.in_progress ?? 0;
+    const response =
+      `CRM pipeline report:\n` +
+      `• Clients: ${clients.length} total — ${clientByStatus.lead ?? 0} lead, ${qualified} qualified, ${won} won. Pipeline value ₹${pipelineValue.toLocaleString()}.\n` +
+      `• Leads: ${leads.length} total — ${leadNew} new, ${leadQualified} qualified, avg score ${leads.length ? Math.round(totalScore / leads.length) : 0}/100.\n` +
+      `• Support: ${tickets.length} tickets — ${openTickets} open, ${inProgressTickets} in progress, ${urgent} urgent.`;
+    return {
+      intent: 'query-clients',
+      response,
+      latencyMs: Date.now() - t0,
+      sessionId,
+      graph: [
+        { label: 'Leads', value: leads.length },
+        { label: 'Clients', value: clients.length },
+        { label: 'Won', value: won },
+        { label: 'Open Tickets', value: openTickets },
+      ],
+      summary: {
+        clients: clients.length,
+        leads: leads.length,
+        tickets: tickets.length,
+        pipelineValue,
+        clientByStatus,
+        leadByStatus,
+        ticketByStatus,
+        urgentTickets: urgent,
+      },
+      suggestions: ['Open CRM tab', 'Add a lead', 'Add a client'],
+    };
+  } catch (e) {
+    return {
+      intent: 'query-clients',
+      response: `Could not pull CRM stats: ${e instanceof Error ? e.message : 'unknown error'}`,
       latencyMs: Date.now() - t0,
       sessionId,
       error: e instanceof Error ? e.message : 'unknown',

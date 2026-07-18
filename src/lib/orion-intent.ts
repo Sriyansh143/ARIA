@@ -43,7 +43,18 @@ export type IntentName =
   | 'set-theme'
   | 'search'
   | 'help'
-  | 'chat';
+  | 'chat'
+  // ── Execution / autonomy intents (added by AUTONOMOUS-EXECUTION-LAYER task) ──
+  | 'make-plan'
+  | 'run-command'
+  | 'read-file'
+  | 'write-file'
+  | 'browse'
+  // ── Business / CRM intents (Task ID BUSINESS) ──
+  | 'create-lead'
+  | 'create-client'
+  | 'create-ticket'
+  | 'query-clients';
 
 export interface IntentGraph {
   label: string;
@@ -113,6 +124,7 @@ export const TAB_ALIASES: Record<string, string> = {
   branding: 'branding',
   teach: 'teach',
   insights: 'insights', insight: 'insights',
+  crm: 'crm', 'crm & sales': 'crm', sales: 'crm',
 };
 
 const TAB_GROUP_LABEL: Record<string, string> = {
@@ -127,6 +139,7 @@ const TAB_GROUP_LABEL: Record<string, string> = {
   blackbox: 'Black Box', scheduler: 'Scheduler', 'data-mgmt': 'Data Management',
   payments: 'Payments', 'payment-methods': 'Payment Methods', earnings: 'Earning Methods',
   branding: 'Branding', teach: 'Teach', insights: 'Insights',
+  crm: 'CRM & Sales',
 };
 
 /* ------------------------------------------------------------------ */
@@ -620,6 +633,142 @@ function matchBrowse(t: string): MatchResult | null {
   return null;
 }
 
+/* ---- create-lead (CRM) ---- */
+function matchCreateLead(t: string): MatchResult | null {
+  // "add lead: John from Acme, john@acme.com"
+  // "new lead: Jane Doe (janedoe@example.com)"
+  // "create lead: Bob Smith from Globex, bob@globex.io"
+  const m = t.match(/^(?:add|new|create|register)\s+lead\s*[:\s]+(.+)$/);
+  if (!m) return null;
+  const raw = m[1].trim();
+  const c = parseContactString(raw);
+  // Lead API expects `clientName` (not `name`).
+  const params = {
+    clientName: c.name,
+    company: c.company,
+    email: c.email,
+    phone: c.phone,
+    source: c.source ?? 'web',
+  };
+  return {
+    intent: 'create-lead',
+    confidence: 0.95,
+    action: { type: 'create-lead', ...params },
+    params,
+    response: `Adding lead ${params.clientName}${params.company ? ` from ${params.company}` : ''}.`,
+    suggestions: ['Show leads', 'Convert to client', 'Add another lead'],
+  };
+}
+
+/* ---- create-client (CRM) ---- */
+function matchCreateClient(t: string): MatchResult | null {
+  // "add client: Jane Doe, janedoe@example.com"
+  // "new client: Acme Corp (finance@acme.com)"
+  // "create client: Bob Smith at Globex"
+  const m = t.match(/^(?:add|new|create|register)\s+client\s*[:\s]+(.+)$/);
+  if (!m) return null;
+  const raw = m[1].trim();
+  const params = parseContactString(raw);
+  return {
+    intent: 'create-client',
+    confidence: 0.95,
+    action: { type: 'create-client', ...params },
+    params,
+    response: `Adding client ${params.name}${params.company ? ` from ${params.company}` : ''}.`,
+    suggestions: ['Show clients', 'Add a lead', 'Open CRM tab'],
+  };
+}
+
+/* ---- create-ticket (support) ---- */
+function matchCreateTicket(t: string): MatchResult | null {
+  // "create support ticket: client can't login"
+  // "new ticket: billing issue from Jane"
+  // "open ticket: shipping delay for order #1234"
+  const m = t.match(/^(?:create|new|open|raise|file)\s+(?:support\s+)?ticket\s*[:\s]+(.+)$/);
+  if (!m) return null;
+  const subject = m[1].trim();
+  // Try to detect a client name pattern: "from X" or "for X"
+  let clientName = 'Unknown';
+  const fromMatch = subject.match(/\b(?:from|for|by)\s+([A-Z][a-zA-Z]+(?:\s+[A-Z][a-zA-Z]+)?)/);
+  if (fromMatch) clientName = fromMatch[1];
+  return {
+    intent: 'create-ticket',
+    confidence: 0.93,
+    action: { type: 'create-ticket', subject, clientName, body: subject, priority: 'medium', channel: 'chat' },
+    params: { subject, clientName, body: subject, priority: 'medium', channel: 'chat' },
+    response: `Opening support ticket: "${subject.slice(0, 60)}".`,
+    suggestions: ['Show support tickets', 'Assign to an agent', 'Mark as urgent'],
+  };
+}
+
+/* ---- query-clients (CRM analytics) ---- */
+function matchQueryClients(t: string): MatchResult | null {
+  if (has(t, [
+    'show clients', 'list clients', 'client status', 'client list', 'client report',
+    'how many clients', 'how many leads', 'show leads', 'lead status', 'leads status',
+    'pipeline status', 'pipeline value', 'crm status', 'crm report', 'support tickets',
+    'open tickets', 'ticket status',
+  ])) {
+    return {
+      intent: 'query-clients',
+      confidence: 0.93,
+      action: { type: 'query-clients' },
+      response: 'Pulling live CRM pipeline, leads, and support ticket stats.',
+      suggestions: ['Open CRM tab', 'Add a lead', 'Add a client'],
+    };
+  }
+  return null;
+}
+
+/**
+ * Parse a free-text contact string into structured fields.
+ * Handles:
+ *   "John from Acme Corp, john@acme.com, +91 99999 12345"
+ *   "Jane Doe (janedoe@example.com)"
+ *   "Bob Smith at Globex"
+ */
+function parseContactString(raw: string): {
+  name: string;
+  company?: string;
+  email?: string;
+  phone?: string;
+  source?: string;
+} {
+  let s = raw;
+  // Extract email
+  let email: string | undefined;
+  const emailMatch = s.match(/[\w.+-]+@[\w-]+\.[\w.-]+/);
+  if (emailMatch) {
+    email = emailMatch[0];
+    s = s.replace(emailMatch[0], '').trim();
+  }
+  // Extract phone (very loose — any 7+ digit sequence with optional + and separators)
+  let phone: string | undefined;
+  const phoneMatch = s.match(/\+?\d[\d\s\-().]{6,}\d/);
+  if (phoneMatch) {
+    phone = phoneMatch[0].trim();
+    s = s.replace(phoneMatch[0], ' ').trim();
+  }
+  // Strip trailing punctuation/commas/parens
+  s = s.replace(/[,.()]+/g, ' ').replace(/\s+/g, ' ').trim();
+  // Extract company: "X from Y" / "X at Y" / "X - Y"
+  let company: string | undefined;
+  const companyMatch = s.match(/\s+(?:from|at|-|@)\s+(.+)$/);
+  let name = s;
+  if (companyMatch) {
+    company = companyMatch[1].trim();
+    name = s.slice(0, companyMatch.index).trim();
+  }
+  if (!name) name = 'Unknown';
+  // Source heuristic
+  let source: string | undefined;
+  const lower = raw.toLowerCase();
+  if (/\breferral\b/.test(lower)) source = 'referral';
+  else if (/\binbound\b/.test(lower)) source = 'inbound';
+  else if (/\bcold\b/.test(lower)) source = 'cold-outreach';
+  return { name, company, email, phone, source };
+}
+
 /* ------------------------------------------------------------------ */
 /* Ordered matcher pipeline                                            */
 /* ------------------------------------------------------------------ */
@@ -635,6 +784,10 @@ const MATCHERS: Array<(t: string) => MatchResult | null> = [
   matchReadFile,
   matchWriteFile,
   matchBrowse,
+  matchCreateLead,
+  matchCreateClient,
+  matchCreateTicket,
+  matchQueryClients,
   matchCreateTask,
   matchCreateAgent,
   matchRunSkill,
@@ -794,6 +947,34 @@ export const INTENT_CATALOG: IntentExample[] = [
     color: '#7DD3FC',
     examples: ['Summarize today', 'Research AI agents', 'Plan a launch strategy'],
   },
+  {
+    intent: 'create-lead',
+    label: 'Add Lead',
+    icon: 'UserPlus',
+    color: '#FBBF24',
+    examples: ['add lead: John from Acme, john@acme.com', 'new lead: Jane Doe', 'create lead: Bob at Globex'],
+  },
+  {
+    intent: 'create-client',
+    label: 'Add Client',
+    icon: 'Users',
+    color: '#FBBF24',
+    examples: ['add client: Jane Doe, janedoe@example.com', 'new client: Acme Corp', 'create client: Bob at Globex'],
+  },
+  {
+    intent: 'create-ticket',
+    label: 'Open Ticket',
+    icon: 'Headphones',
+    color: '#34D399',
+    examples: ['create ticket: client can\'t login', 'new ticket: billing issue from Jane', 'open ticket: shipping delay'],
+  },
+  {
+    intent: 'query-clients',
+    label: 'CRM Stats',
+    icon: 'Briefcase',
+    color: '#7DD3FC',
+    examples: ['Show clients', 'How many leads?', 'Pipeline status', 'Open tickets'],
+  },
 ];
 
 /* ------------------------------------------------------------------ */
@@ -832,6 +1013,11 @@ export const PALETTE_ENTRIES: PaletteEntry[] = [
   { id: 'p-light-mode', label: 'Light Mode', hint: 'set-theme', intent: 'set-theme', icon: 'Sun', color: '#FBBF24', prompt: 'Light mode' },
   { id: 'p-search', label: 'Search…', hint: 'search', intent: 'search', icon: 'Search', color: '#7DD3FC', prompt: 'Search for ' },
   { id: 'p-help', label: 'Help', hint: 'help', intent: 'help', icon: 'HelpCircle', color: '#FBBF24', prompt: 'Help' },
+  { id: 'p-crm-tab', label: 'Open CRM Tab', hint: 'navigate', intent: 'navigate', icon: 'Compass', color: '#7DD3FC', prompt: 'Open CRM' },
+  { id: 'p-add-lead', label: 'Add Lead…', hint: 'create-lead', intent: 'create-lead', icon: 'UserPlus', color: '#FBBF24', prompt: 'Add lead: ' },
+  { id: 'p-add-client', label: 'Add Client…', hint: 'create-client', intent: 'create-client', icon: 'Users', color: '#FBBF24', prompt: 'Add client: ' },
+  { id: 'p-open-ticket', label: 'Open Ticket…', hint: 'create-ticket', intent: 'create-ticket', icon: 'Headphones', color: '#34D399', prompt: 'Create ticket: ' },
+  { id: 'p-crm-stats', label: 'CRM Stats', hint: 'query-clients', intent: 'query-clients', icon: 'Briefcase', color: '#7DD3FC', prompt: 'Show clients' },
 ];
 
 /**

@@ -1,0 +1,911 @@
+     1→     1→/**
+     2→     2→ * orion-intent.ts — Orion Shell intent-routing engine.
+     3→     3→ *
+     4→     4→ * Pure-TS, zero-dependency, sync parser. No DB, no LLM. Runs in <1ms so the
+     5→     5→ * shell can show instant feedback (orb pulse + spoken ack) before the slow
+     6→     6→ * /api/orion/command endpoint does the real work.
+     7→     7→ *
+     8→     8→ * Taxonomy (14 intents):
+     9→     9→ *   navigate       → "show fleet", "open tasks", "go to payments"
+    10→    10→ *   create-task    → "create a task to...", "add task"
+    11→    11→ *   create-agent   → "spawn agent", "new agent for..."
+    12→    12→ *   run-skill      → "run skill web-search", "execute skill summarize"
+    13→    13→ *   send-comms     → "send message to orion", "tell agent", "notify"
+    14→    14→ *   health-check   → "health check", "system status"
+    15→    15→ *   sync-models    → "sync models", "update model list"
+    16→    16→ *   query-fleet    → "fleet status", "agent status"
+    17→    17→ *   query-revenue  → "revenue", "payments today"
+    18→    18→ *   query-tasks    → "task status", "what's pending"
+    19→    19→ *   set-theme      → "dark mode", "light mode"
+    20→    20→ *   search         → "search for..."
+    21→    21→ *   help           → "help", "what can you do"
+    22→    22→ *   chat (fallback)→ everything else — let the LLM handle
+    23→    23→ *
+    24→    24→ * Output shape:
+    25→    25→ *   { intent, tab?, action?, params?, confidence, response?, suggestions?, graph? }
+    26→    26→ *
+    27→    27→ * `response` is omitted for `chat` (the LLM writes it). For every other
+    28→    28→ * intent the parser returns a ready-to-speak string so the shell can ack
+    29→    29→ * instantly while the API round-trip is in flight.
+    30→    30→ */
+    31→    31→
+    32→    32→export type IntentName =
+    33→    33→  | 'navigate'
+    34→    34→  | 'create-task'
+    35→    35→  | 'create-agent'
+    36→    36→  | 'run-skill'
+    37→    37→  | 'send-comms'
+    38→    38→  | 'health-check'
+    39→    39→  | 'sync-models'
+    40→    40→  | 'query-fleet'
+    41→    41→  | 'query-revenue'
+    42→    42→  | 'query-tasks'
+    43→    43→  | 'set-theme'
+    44→    44→  | 'search'
+    45→    45→  | 'help'
+    46→    46→  | 'chat';
+    47→    47→
+    48→    48→export interface IntentGraph {
+    49→    49→  label: string;
+    50→    50→  value: number;
+    51→    51→}
+    52→    52→
+    53→    53→export interface IntentAction {
+    54→    54→  type: string;
+    55→    55→  [key: string]: unknown;
+    56→    56→}
+    57→    57→
+    58→    58→export interface ParsedIntent {
+    59→    59→  intent: IntentName;
+    60→    60→  tab?: string;
+    61→    61→  action?: IntentAction;
+    62→    62→  params?: Record<string, unknown>;
+    63→    63→  confidence: number; // 0..1
+    64→    64→  /** Spoken reply — omitted for `chat` (LLM writes it). */
+    65→    65→  response?: string;
+    66→    66→  suggestions?: string[];
+    67→    67→  graph?: IntentGraph[];
+    68→    68→}
+    69→    69→
+    70→    70→/* ------------------------------------------------------------------ */
+    71→    71→/* Tab-key vocabulary — mirrors the TabKey union in page-client.tsx.   */
+    72→    72→/* Used by navigate + by contextual suggestions.                       */
+    73→    73→/* ------------------------------------------------------------------ */
+    74→    74→
+    75→    75→export const TAB_ALIASES: Record<string, string> = {
+    76→    76→  overview: 'overview', dashboard: 'overview', home: 'overview',
+    77→    77→  fleet: 'fleet', agents: 'fleet', 'agent fleet': 'fleet', 'agent list': 'fleet',
+    78→    78→  topology: 'fleet-topology', 'fleet topology': 'fleet-topology',
+    79→    79→  spawned: 'spawned', 'spawned agents': 'spawned',
+    80→    80→  workforce: 'workforce',
+    81→    81→  goals: 'goals', 'goal': 'goals',
+    82→    82→  chat: 'chat', jarvis: 'chat',
+    83→    83→  comms: 'comms', 'agent comms': 'comms', messages: 'comms',
+    84→    84→  tasks: 'tasks', task: 'tasks',
+    85→    85→  kanban: 'kanban', board: 'kanban',
+    86→    86→  'task dag': 'task-dag', dag: 'task-dag',
+    87→    87→  activity: 'activity',
+    88→    88→  skills: 'skills', skill: 'skills',
+    89→    89→  runner: 'runner', 'skill runner': 'runner', terminal: 'runner',
+    90→    90→  chain: 'chain', pipeline: 'chain', 'skill pipeline': 'chain',
+    91→    91→  autonomy: 'autonomy', 'autonomy loop': 'autonomy',
+    92→    92→  learning: 'learning', 'learn and earn': 'learning', 'learn & earn': 'learning',
+    93→    93→  rules: 'rules', rule: 'rules',
+    94→    94→  plugins: 'plugins', plugin: 'plugins',
+    95→    95→  models: 'models', model: 'models',
+    96→    96→  services: 'services', 'services hub': 'services',
+    97→    97→  apptree: 'apptree', 'app tree': 'apptree',
+    98→    98→  analytics: 'analytics',
+    99→    99→  reports: 'reports', report: 'reports',
+   100→   100→  memory: 'memory',
+   101→   101→  'memory graph': 'memory-graph', graph: 'memory-graph',
+   102→   102→  artifacts: 'artifacts', artifact: 'artifacts',
+   103→   103→  providers: 'providers', provider: 'providers',
+   104→   104→  telemetry: 'telemetry', metrics: 'telemetry',
+   105→   105→  health: 'health',
+   106→   106→  logs: 'logs', log: 'logs',
+   107→   107→  blackbox: 'blackbox', 'black box': 'blackbox',
+   108→   108→  scheduler: 'scheduler', schedule: 'scheduler', cron: 'scheduler',
+   109→   109→  'data mgmt': 'data-mgmt', 'data management': 'data-mgmt', data: 'data-mgmt',
+   110→   110→  payments: 'payments', payment: 'payments',
+   111→   111→  'payment methods': 'payment-methods',
+   112→   112→  earnings: 'earnings', 'earning methods': 'earnings',
+   113→   113→  branding: 'branding',
+   114→   114→  teach: 'teach',
+   115→   115→  insights: 'insights', insight: 'insights',
+   116→   116→};
+   117→   117→
+   118→   118→const TAB_GROUP_LABEL: Record<string, string> = {
+   119→   119→  overview: 'Overview', fleet: 'Agent Fleet', 'fleet-topology': 'Fleet Topology',
+   120→   120→  spawned: 'Spawned Agents', workforce: 'Workforce', goals: 'Goals', chat: 'JARVIS Chat',
+   121→   121→  comms: 'Agent Comms', tasks: 'Tasks', kanban: 'Kanban', 'task-dag': 'Task DAG',
+   122→   122→  activity: 'Activity', skills: 'Skills', runner: 'Skill Runner', chain: 'Skill Pipeline',
+   123→   123→  autonomy: 'Autonomy Loop', learning: 'Learn & Earn', rules: 'Rules', plugins: 'Plugins',
+   124→   124→  models: 'Models', services: 'Services Hub', apptree: 'App Tree', analytics: 'Analytics',
+   125→   125→  reports: 'Reports', memory: 'Memory', 'memory-graph': 'Memory Graph', artifacts: 'Artifacts',
+   126→   126→  providers: 'Providers', telemetry: 'Telemetry', health: 'Health', logs: 'Logs',
+   127→   127→  blackbox: 'Black Box', scheduler: 'Scheduler', 'data-mgmt': 'Data Management',
+   128→   128→  payments: 'Payments', 'payment-methods': 'Payment Methods', earnings: 'Earning Methods',
+   129→   129→  branding: 'Branding', teach: 'Teach', insights: 'Insights',
+   130→   130→};
+   131→   131→
+   132→   132→/* ------------------------------------------------------------------ */
+   133→   133→/* Small helpers                                                       */
+   134→   134→/* ------------------------------------------------------------------ */
+   135→   135→
+   136→   136→function has(text: string, words: string[]): boolean {
+   137→   137→  return words.some((w) => text.includes(w));
+   138→   138→}
+   139→   139→
+   140→   140→function pickFirst<T>(arr: T[]): T | undefined {
+   141→   141→  return arr.length ? arr[0] : undefined;
+   142→   142→}
+   143→   143→
+   144→   144→/* ------------------------------------------------------------------ */
+   145→   145→/* Intent matchers (order matters — most specific first)               */
+   146→   146→/* ------------------------------------------------------------------ */
+   147→   147→
+   148→   148→interface MatchResult {
+   149→   149→  intent: IntentName;
+   150→   150→  confidence: number;
+   151→   151→  tab?: string;
+   152→   152→  action?: IntentAction;
+   153→   153→  params?: Record<string, unknown>;
+   154→   154→  response?: string;
+   155→   155→  suggestions?: string[];
+   156→   156→  graph?: IntentGraph[];
+   157→   157→}
+   158→   158→
+   159→   159→/* ---- help ---- */
+   160→   160→function matchHelp(t: string): MatchResult | null {
+   161→   161→  if (/^(help|what can you do|what can i say|commands|capabilities)/.test(t)) {
+   162→   162→    return {
+   163→   163→      intent: 'help',
+   164→   164→      confidence: 0.99,
+   165→   165→      action: { type: 'open-help' },
+   166→   166→      response:
+   167→   167→        "I can navigate tabs, create tasks and agents, run skills, send agent messages, " +
+   168→   168→        "check system health, sync models, and answer fleet, revenue, and task questions. " +
+   169→   169→        "Try: 'show fleet', 'create a task to ship the API', 'run skill summarize', or 'health check'.",
+   170→   170→      suggestions: [
+   171→   171→        'Show fleet status',
+   172→   172→        'Create a task to review PRs',
+   173→   173→        'Run skill summarize on the latest report',
+   174→   174→        'What is the revenue today?',
+   175→   175→      ],
+   176→   176→    };
+   177→   177→  }
+   178→   178→  return null;
+   179→   179→}
+   180→   180→
+   181→   181→/* ---- set-theme ---- */
+   182→   182→function matchTheme(t: string): MatchResult | null {
+   183→   183→  if (/\b(dark mode|switch to dark|enable dark|night mode)\b/.test(t)) {
+   184→   184→    return {
+   185→   185→      intent: 'set-theme',
+   186→   186→      confidence: 0.97,
+   187→   187→      action: { type: 'set-theme', theme: 'dark' },
+   188→   188→      response: 'Switching to dark mode.',
+   189→   189→      suggestions: ['Switch to light mode', 'Show fleet status'],
+   190→   190→    };
+   191→   191→  }
+   192→   192→  if (/\b(light mode|switch to light|enable light|day mode)\b/.test(t)) {
+   193→   193→    return {
+   194→   194→      intent: 'set-theme',
+   195→   195→      confidence: 0.97,
+   196→   196→      action: { type: 'set-theme', theme: 'light' },
+   197→   197→      response: 'Switching to light mode.',
+   198→   198→      suggestions: ['Switch to dark mode', 'Show fleet status'],
+   199→   199→    };
+   200→   200→  }
+   201→   201→  if (/\b(switch theme|toggle theme|change theme|flip theme)\b/.test(t)) {
+   202→   202→    return {
+   203→   203→      intent: 'set-theme',
+   204→   204→      confidence: 0.9,
+   205→   205→      action: { type: 'set-theme', theme: 'toggle' },
+   206→   206→      response: 'Toggling theme.',
+   207→   207→      suggestions: ['Show fleet status'],
+   208→   208→    };
+   209→   209→  }
+   210→   210→  return null;
+   211→   211→}
+   212→   212→
+   213→   213→/* ---- search ---- */
+   214→   214→function matchSearch(t: string): MatchResult | null {
+   215→   215→  // "search for X", "search X", "find X in agents"
+   216→   216→  const m = t.match(/\b(?:search(?:\s+for)?|find|look\s+up)\s+(.+?)(?:\s+in\s+(\w+))?$/);
+   217→   217→  if (m) {
+   218→   218→    const query = m[1].trim();
+   219→   219→    const scope = m[2]?.trim() || 'global';
+   220→   220→    return {
+   221→   221→      intent: 'search',
+   222→   222→      confidence: 0.93,
+   223→   223→      action: { type: 'search', query, scope },
+   224→   224→      params: { query, scope },
+   225→   225→      response: `Searching for "${query}".`,
+   226→   226→      suggestions: [`Open ${scope === 'global' ? 'fleet' : scope} tab`, 'Create a task from this search'],
+   227→   227→    };
+   228→   228→  }
+   229→   229→  return null;
+   230→   230→}
+   231→   231→
+   232→   232→/* ---- health-check ---- */
+   233→   233→function matchHealth(t: string): MatchResult | null {
+   234→   234→  if (has(t, ['health check', 'system status', 'are we healthy', 'how is the system', 'system health', 'health report', 'run a health', 'run health'])) {
+   235→   235→    return {
+   236→   236→      intent: 'health-check',
+   237→   237→      confidence: 0.95,
+   238→   238→      action: { type: 'health-check' },
+   239→   239→      response: 'Running a full system health check now.',
+   240→   240→      suggestions: ['Show errored agents', 'Open health tab', 'Run self-heal'],
+   241→   241→    };
+   242→   242→  }
+   243→   243→  return null;
+   244→   244→}
+   245→   245→
+   246→   246→/* ---- sync-models ---- */
+   247→   247→function matchSyncModels(t: string): MatchResult | null {
+   248→   248→  if (has(t, ['sync model', 'sync the model', 'check for new model', 'update model list', 'refresh models', 'pull models', 'model sync'])) {
+   249→   249→    return {
+   250→   250→      intent: 'sync-models',
+   251→   251→      confidence: 0.95,
+   252→   252→      action: { type: 'sync-models' },
+   253→   253→      response: 'Syncing the model catalog from all enabled providers.',
+   254→   254→      suggestions: ['Open models tab', 'Show provider health'],
+   255→   255→    };
+   256→   256→  }
+   257→   257→  return null;
+   258→   258→}
+   259→   259→
+   260→   260→/* ---- create-task ---- */
+   261→   261→function matchCreateTask(t: string): MatchResult | null {
+   262→   262→  if (!/\b(create|add|new|make|schedule)\b/.test(t)) return null;
+   263→   263→  if (!/\b(task|to-?do|ticket|job)\b/.test(t)) return null;
+   264→   264→
+   265→   265→  // Try to peel off a title: "create a task to ship the API" → "ship the API"
+   266→   266→  // Also tolerates priority words between the article and the noun:
+   267→   267→  //   "create a high priority task to review the API" → "review the API"
+   268→   268→  //   "create a critical task to fix login"            → "fix login"
+   269→   269→  let title = '';
+   270→   270→  const m = t.match(
+   271→   271→    /(?:create|add|new|make|schedule)\s+(?:a\s+)?(?:new\s+)?(?:(?:critical|urgent|high|medium|low|p[0-3])(?:\s+priority)?\s+)?(?:task|to-?do|ticket|job)\s+(?:to|for|called|named|titled|:)?\s*(.+)$/,
+   272→   272→  );
+   273→   273→  if (m) title = m[1].replace(/^["'`]|["'`]$/g, '').trim();
+   274→   274→
+   275→   275→  // Priority
+   276→   276→  let priority = 'medium';
+   277→   277→  if (/\b(critical|urgent|p0)\b/.test(t)) priority = 'critical';
+   278→   278→  else if (/\bhigh\b|\bp1\b/.test(t)) priority = 'high';
+   279→   279→  else if (/\blow\b|\bp3\b/.test(t)) priority = 'low';
+   280→   280→
+   281→   281→  const response = title
+   282→   282→    ? `Creating a ${priority}-priority task: "${title}".`
+   283→   283→    : `Creating a new ${priority}-priority task.`;
+   284→   284→
+   285→   285→  return {
+   286→   286→    intent: 'create-task',
+   287→   287→    confidence: 0.92,
+   288→   288→    action: { type: 'create-task', title, priority },
+   289→   289→    params: { title, priority },
+   290→   290→    response,
+   291→   291→    suggestions: ['Show pending tasks', 'Open tasks tab', 'Assign this to an agent'],
+   292→   292→  };
+   293→   293→}
+   294→   294→
+   295→   295→/* ---- create-agent ---- */
+   296→   296→function matchCreateAgent(t: string): MatchResult | null {
+   297→   297→  if (!/\b(spawn|create|new|make|build)\b/.test(t)) return null;
+   298→   298→  if (!/\b(agent|sub-?agent|worker|bot)\b/.test(t)) return null;
+   299→   299→
+   300→   300→  // Parent agent: "spawn agent from orion", "spawn agent under vega"
+   301→   301→  let parent = '';
+   302→   302→  const pm = t.match(/\b(?:from|under|child of|offspring of)\s+([a-z][a-z0-9_-]{1,24})/);
+   303→   303→  if (pm) parent = pm[1];
+   304→   304→
+   305→   305→  // Role: "for research", "to handle support"
+   306→   306→  let role = '';
+   307→   307→  const rm = t.match(/\b(?:for|to handle|to do|specializing in|specialized in)\s+(.+?)(?:\s+using|\s+with|$)/);
+   308→   308→  if (rm) role = rm[1].replace(/\b(agent|sub agent|sub-agent)\b/g, '').trim();
+   309→   309→
+   310→   310→  // If no parent mentioned, default to "orion" (the orchestrator)
+   311→   311→  if (!parent) parent = 'orion';
+   312→   312→
+   313→   313→  const response = role
+   314→   314→    ? `Spawning a new sub-agent under ${parent} for ${role}.`
+   315→   315→    : `Spawning a new sub-agent under ${parent}.`;
+   316→   316→
+   317→   317→  return {
+   318→   318→    intent: 'create-agent',
+   319→   319→    confidence: 0.9,
+   320→   320→    action: { type: 'create-agent', parentCodename: parent, role },
+   321→   321→    params: { parentCodename: parent, role },
+   322→   322→    response,
+   323→   323→    suggestions: ['Open spawned agents tab', 'Show fleet status', 'Send a message to the new agent'],
+   324→   324→  };
+   325→   325→}
+   326→   326→
+   327→   327→/* ---- run-skill ---- */
+   328→   328→function matchRunSkill(t: string): MatchResult | null {
+   329→   329→  if (!/\b(run|execute|use|invoke|trigger)\b/.test(t)) return null;
+   330→   330→  if (!/\b(skill|web-?search|web-?reader|summarize|summarise|code-?gen|code-?review|forecast)\b/.test(t)) return null;
+   331→   331→
+   332→   332→  // Identify skill key
+   333→   333→  let skillKey = '';
+   334→   334→  if (/\bweb-?search\b/.test(t)) skillKey = 'web-search';
+   335→   335→  else if (/\bweb-?reader\b/.test(t)) skillKey = 'web-reader';
+   336→   336→  else if (/\b(summarize|summarise|summary)\b/.test(t)) skillKey = 'summarize';
+   337→   337→  else if (/\bcode-?gen\b/.test(t)) skillKey = 'code-gen';
+   338→   338→  else if (/\bcode-?review\b/.test(t)) skillKey = 'code-review';
+   339→   339→  else if (/\bforecast\b/.test(t)) skillKey = 'forecast';
+   340→   340→  else {
+   341→   341→    // generic: "run skill <key>"
+   342→   342→    const m = t.match(/skill\s+([a-z][a-z0-9_-]{1,32})/);
+   343→   343→    if (m) skillKey = m[1];
+   344→   344→  }
+   345→   345→  if (!skillKey) return null;
+   346→   346→
+   347→   347→  // Input: "run skill summarize on <text>", "use web-search for <query>"
+   348→   348→  let input = '';
+   349→   349→  const im = t.match(/(?:on|for|with|about|:)\s+(.+)$/);
+   350→   350→  if (im) input = im[1].replace(/^["'`]|["'`]$/g, '').trim();
+   351→   351→
+   352→   352→  const response = input
+   353→   353→    ? `Running the ${skillKey} skill on "${input.slice(0, 80)}".`
+   354→   354→    : `Running the ${skillKey} skill.`;
+   355→   355→
+   356→   356→  return {
+   357→   357→    intent: 'run-skill',
+   358→   358→    confidence: 0.9,
+   359→   359→    action: { type: 'run-skill', skillKey, input },
+   360→   360→    params: { skillKey, input },
+   361→   361→    response,
+   362→   362→    suggestions: ['Open skill runner', 'Show skill history', 'Run another skill'],
+   363→   363→  };
+   364→   364→}
+   365→   365→
+   366→   366→/* ---- send-comms ---- */
+   367→   367→function matchSendComms(t: string): MatchResult | null {
+   368→   368→  if (!/\b(send|tell|notify|message|ping|broadcast)\b/.test(t)) return null;
+   369→   369→  if (!/\b(message|agent|comms|notify|tell|ping|broadcast)\b/.test(t)) return null;
+   370→   370→
+   371→   371→  // recipient: "send message to orion" / "tell vega" / "notify all" / "broadcast"
+   372→   372→  let toAgent = 'BROADCAST';
+   373→   373→  let isBroadcast = /\b(broadcast|all agents|everyone|notify all)\b/.test(t);
+   374→   374→  const rm = t.match(/\b(?:to|tell|notify|ping)\s+([a-z][a-z0-9_-]{1,24})/);
+   375→   375→  if (rm && !isBroadcast) {
+   376→   376→    const cand = rm[1];
+   377→   377→    // filter out common stopwords that follow "tell/notify"
+   378→   378→    if (!['me', 'us', 'them', 'him', 'her', 'the', 'about', 'that', 'everyone', 'all'].includes(cand)) {
+   379→   379→      toAgent = cand;
+   380→   380→    } else if (cand === 'all' || cand === 'everyone') {
+   381→   381→      isBroadcast = true;
+   382→   382→    }
+   383→   383→  }
+   384→   384→
+   385→   385→  // subject + body
+   386→   386→  let body = '';
+   387→   387→  const bm = t.match(/(?:message|notify|tell|ping|broadcast)(?:\s+\w+){0,3}\s*[:\-]?\s*(.+)$/);
+   388→   388→  if (bm) body = bm[1].replace(/^["'`]|["'`]$/g, '').trim();
+   389→   389→  if (!body) {
+   390→   390→    const sm = t.match(/(?:saying|that|:)\s+(.+)$/);
+   391→   391→    if (sm) body = sm[1].trim();
+   392→   392→  }
+   393→   393→  if (!body) body = '(no body)';
+   394→   394→
+   395→   395→  const subject = body.length > 60 ? body.slice(0, 57) + '…' : body;
+   396→   396→  const response = isBroadcast
+   397→   397→    ? `Broadcasting: "${body.slice(0, 80)}".`
+   398→   398→    : `Sending a message to ${toAgent}: "${body.slice(0, 80)}".`;
+   399→   399→
+   400→   400→  return {
+   401→   401→    intent: 'send-comms',
+   402→   402→    confidence: 0.88,
+   403→   403→    action: { type: 'send-comms', toAgent, subject, body, priority: 'normal', thread: 'orion' },
+   404→   404→    params: { toAgent, subject, body, isBroadcast },
+   405→   405→    response,
+   406→   406→    suggestions: ['Open comms tab', 'Send another message', 'Show fleet status'],
+   407→   407→  };
+   408→   408→}
+   409→   409→
+   410→   410→/* ---- query-fleet ---- */
+   411→   411→function matchQueryFleet(t: string): MatchResult | null {
+   412→   412→  if (has(t, ['fleet status', 'agent status', 'how are agents', 'how is the fleet', 'how\'s the fleet', 'fleet report', 'fleet summary', 'fleet health', 'agent fleet'])) {
+   413→   413→    return {
+   414→   414→      intent: 'query-fleet',
+   415→   415→      confidence: 0.95,
+   416→   416→      action: { type: 'query-fleet' },
+   417→   417→      response: 'Pulling live fleet status now.',
+   418→   418→      suggestions: ['Show errored agents', 'Open fleet tab', 'Run self-heal'],
+   419→   419→    };
+   420→   420→  }
+   421→   421→  return null;
+   422→   422→}
+   423→   423→
+   424→   424→/* ---- query-revenue ---- */
+   425→   425→function matchQueryRevenue(t: string): MatchResult | null {
+   426→   426→  if (has(t, ['revenue', 'how much money', 'payments today', 'payment status', 'earnings today', 'income today', 'today\'s revenue', 'todays revenue', 'how much did we make'])) {
+   427→   427→    return {
+   428→   428→      intent: 'query-revenue',
+   429→   429→      confidence: 0.94,
+   430→   430→      action: { type: 'query-revenue' },
+   431→   431→      response: 'Summarizing today\'s revenue and payments.',
+   432→   432→      suggestions: ['Open payments tab', 'Show pending payments', 'List earning methods'],
+   433→   433→    };
+   434→   434→  }
+   435→   435→  return null;
+   436→   436→}
+   437→   437→
+   438→   438→/* ---- query-tasks ---- */
+   439→   439→function matchQueryTasks(t: string): MatchResult | null {
+   440→   440→  if (has(t, ['task status', 'what\'s pending', 'what is pending', 'whats pending', 'pending tasks', 'blocked tasks', 'task summary', 'task report', 'what tasks', 'how many tasks', 'task queue'])) {
+   441→   441→    return {
+   442→   442→      intent: 'query-tasks',
+   443→   443→      confidence: 0.94,
+   444→   444→      action: { type: 'query-tasks' },
+   445→   445→      response: 'Summarizing current task status.',
+   446→   446→      suggestions: ['Open tasks tab', 'Open Kanban board', 'Create a task'],
+   447→   447→    };
+   448→   448→  }
+   449→   449→  return null;
+   450→   450→}
+   451→   451→
+   452→   452→/* ---- navigate ---- */
+   453→   453→function matchNavigate(t: string): MatchResult | null {
+   454→   454→  // "show fleet", "open tasks", "go to payments", "view health", "take me to models"
+   455→   455→  const m = t.match(/\b(?:show|open|go\s+to|view|visit|take\s+me\s+to|switch\s+to|navigate\s+to|jump\s+to|bring\s+up)\s+(?:the\s+|all\s+)?(.+)$/);
+   456→   456→  if (!m) return null;
+   457→   457→  const phrase = m[1].replace(/\b(tab|page|view|panel|section)\b/g, '').trim();
+   458→   458→  // try direct alias lookup
+   459→   459→  let tab = TAB_ALIASES[phrase];
+   460→   460→  // try last word (e.g. "open agent fleet" → "fleet")
+   461→   461→  if (!tab) {
+   462→   462→    const words = phrase.split(/\s+/);
+   463→   463→    for (let i = words.length - 1; i >= 0; i--) {
+   464→   464→      const w = words[i];
+   465→   465→      if (TAB_ALIASES[w]) { tab = TAB_ALIASES[w]; break; }
+   466→   466→    }
+   467→   467→  }
+   468→   468→  // try multi-word combinations
+   469→   469→  if (!tab) {
+   470→   470→    for (const k of Object.keys(TAB_ALIASES)) {
+   471→   471→      if (phrase.includes(k)) { tab = TAB_ALIASES[k]; break; }
+   472→   472→    }
+   473→   473→  }
+   474→   474→  if (!tab) return null;
+   475→   475→
+   476→   476→  const label = TAB_GROUP_LABEL[tab] ?? tab;
+   477→   477→  return {
+   478→   478→    intent: 'navigate',
+   479→   479→    confidence: 0.9,
+   480→   480→    tab,
+   481→   481→    action: { type: 'navigate', tab },
+   482→   482→    response: `Opening ${label}.`,
+   483→   483→    suggestions: [`Show ${label.toLowerCase()} status`, 'Take me to overview'],
+   484→   484→  };
+   485→   485→}
+   486→   486→
+   487→   487→/* ---- Bare single-word navigation: just "fleet" or "tasks" ---- */
+   488→   488→function matchBareNavigate(t: string): MatchResult | null {
+   489→   489→  const trimmed = t.trim().replace(/^the\s+/, '');
+   490→   490→  if (trimmed.length > 24) return null; // bare words only
+   491→   491→  const tab = TAB_ALIASES[trimmed];
+   492→   492→  if (!tab) return null;
+   493→   493→  const label = TAB_GROUP_LABEL[tab] ?? tab;
+   494→   494→  return {
+   495→   495→    intent: 'navigate',
+   496→   496→    confidence: 0.7,
+   497→   497→    tab,
+   498→   498→    action: { type: 'navigate', tab },
+   499→   499→    response: `Opening ${label}.`,
+   500→   500→    suggestions: [`Show ${label.toLowerCase()} status`, 'Take me to overview'],
+   501→   501→  };
+   502→   502→}
+   503→   503→
+   504→   504→/* ---- make-plan (task decomposition) ---- */
+   505→   505→function matchMakePlan(t: string): MatchResult | null {
+   506→   506→  // "plan: decompose Q3 roadmap", "make a plan for...", "decompose...", "break down..."
+   507→   507→  const m = t.match(/^(?:plan|make\s+a\s+plan|create\s+a\s+plan|decompose|break\s+down|analyze\s+and\s+plan)\s*[:\s]*(.+)$/);
+   508→   508→  if (m) {
+   509→   509→    const topic = m[1].trim();
+   510→   510→    return {
+   511→   511→      intent: 'make-plan',
+   512→   512→      confidence: 0.95,
+   513→   513→      action: { type: 'make-plan', topic },
+   514→   514→      params: { topic },
+   515→   515→      response: `Planning: ${topic}. I'll decompose this into actionable steps.`,
+   516→   516→      suggestions: ['Execute plan', 'Modify plan', 'Save as tasks'],
+   517→   517→    };
+   518→   518→  }
+   519→   519→  // "plan to...", "plan for..."
+   520→   520→  const m2 = t.match(/^plan\s+(?:to|for)\s+(.+)$/);
+   521→   521→  if (m2) {
+   522→   522→    return {
+   523→   523→      intent: 'make-plan',
+   524→   524→      confidence: 0.92,
+   525→   525→      action: { type: 'make-plan', topic: m2[1].trim() },
+   526→   526→      params: { topic: m2[1].trim() },
+   527→   527→      response: `Planning: ${m2[1].trim()}. Decomposing into steps.`,
+   528→   528→      suggestions: ['Execute plan', 'Modify plan', 'Save as tasks'],
+   529→   529→    };
+   530→   530→  }
+   531→   531→  return null;
+   532→   532→}
+   533→   533→
+   534→   534→/* ---- run-command (terminal/shell execution) ---- */
+   535→   535→function matchRunCommand(t: string): MatchResult | null {
+   536→   536→  // "run command: git status", "execute: ls -la", "run: npm install"
+   537→   537→  const m = t.match(/^(?:run|execute)\s+(?:command\s*[:\s]+|cmd\s*[:\s]+)?(.+)$/);
+   538→   538→  if (m) {
+   539→   539→    return {
+   540→   540→      intent: 'run-command',
+   541→   541→      confidence: 0.95,
+   542→   542→      action: { type: 'run-command', command: m[1].trim() },
+   543→   543→      params: { command: m[1].trim() },
+   544→   544→      response: `Executing: ${m[1].trim()}`,
+   545→   545→    };
+   546→   546→  }
+   547→   547→  // "shell: ...", "terminal: ..."
+   548→   548→  const m2 = t.match(/^(?:shell|terminal)\s*[:\s]+(.+)$/);
+   549→   549→  if (m2) {
+   550→   550→    return {
+   551→   551→      intent: 'run-command',
+   552→   552→      confidence: 0.93,
+   553→   553→      action: { type: 'run-command', command: m2[1].trim() },
+   554→   554→      params: { command: m2[1].trim() },
+   555→   555→      response: `Executing: ${m2[1].trim()}`,
+   556→   556→    };
+   557→   557→  }
+   558→   558→  return null;
+   559→   559→}
+   560→   560→
+   561→   561→/* ---- read-file ---- */
+   562→   562→function matchReadFile(t: string): MatchResult | null {
+   563→   563→  // "read file: src/app/page.tsx", "show file config.ts"
+   564→   564→  const m = t.match(/^(?:read|show|cat|view)\s+file\s*[:\s]+(.+)$/);
+   565→   565→  if (m) {
+   566→   566→    return {
+   567→   567→      intent: 'read-file',
+   568→   568→      confidence: 0.95,
+   569→   569→      action: { type: 'read-file', path: m[1].trim() },
+   570→   570→      params: { path: m[1].trim() },
+   571→   571→      response: `Reading file: ${m[1].trim()}`,
+   572→   572→    };
+   573→   573→  }
+   574→   574→  const m2 = t.match(/^(?:read|show|cat)\s+([\w./-]+\.\w+)$/);
+   575→   575→  if (m2) {
+   576→   576→    return {
+   577→   577→      intent: 'read-file',
+   578→   578→      confidence: 0.88,
+   579→   579→      action: { type: 'read-file', path: m2[1].trim() },
+   580→   580→      params: { path: m2[1].trim() },
+   581→   581→      response: `Reading file: ${m2[1].trim()}`,
+   582→   582→    };
+   583→   583→  }
+   584→   584→  return null;
+   585→   585→}
+   586→   586→
+   587→   587→/* ---- write-file ---- */
+   588→   588→function matchWriteFile(t: string): MatchResult | null {
+   589→   589→  // "write file: path" or "create file: path"
+   590→   590→  const m = t.match(/^(?:write|create|edit)\s+file\s*[:\s]+(.+)$/);
+   591→   591→  if (m) {
+   592→   592→    return {
+   593→   593→      intent: 'write-file',
+   594→   594→      confidence: 0.93,
+   595→   595→      action: { type: 'write-file', path: m[1].trim() },
+   596→   596→      params: { path: m[1].trim() },
+   597→   597→      response: `Preparing to write file: ${m[1].trim()}`,
+   598→   598→      suggestions: ['What content should I write?'],
+   599→   599→    };
+   600→   600→  }
+   601→   601→  return null;
+   602→   602→}
+   603→   603→
+   604→   604→/* ---- browse (browser automation) ---- */
+   605→   605→function matchBrowse(t: string): MatchResult | null {
+   606→   606→  // "browse to github.com", "open website cnn.com", "go to news.ycombinator.com"
+   607→   607→  const m = t.match(/^(?:browse\s+to|open\s+website|go\s+to\s+website|visit\s+site|browse)\s+(.+)$/);
+   608→   608→  if (m) {
+   609→   609→    let url = m[1].trim();
+   610→   610→    if (!/^https?:\/\//i.test(url)) url = `https://${url}`;
+   611→   611→    return {
+   612→   612→      intent: 'browse',
+   613→   613→      confidence: 0.92,
+   614→   614→      action: { type: 'browse', url },
+   615→   615→      params: { url },
+   616→   616→      response: `Opening ${url} in the browser.`,
+   617→   617→      suggestions: ['Take a screenshot', 'Extract page content', 'Click an element'],
+   618→   618→    };
+   619→   619→  }
+   620→   620→  return null;
+   621→   621→}
+   622→   622→
+   623→   623→/* ------------------------------------------------------------------ */
+   624→   624→/* Ordered matcher pipeline                                            */
+   625→   625→/* ------------------------------------------------------------------ */
+   626→   626→
+   627→   627→const MATCHERS: Array<(t: string) => MatchResult | null> = [
+   628→   628→  matchHelp,
+   629→   629→  matchTheme,
+   630→   630→  matchSearch,
+   631→   631→  matchHealth,
+   632→   632→  matchSyncModels,
+   633→   633→  matchMakePlan,
+   634→   634→  matchRunCommand,
+   635→   635→  matchReadFile,
+   636→   636→  matchWriteFile,
+   637→   637→  matchBrowse,
+   638→   638→  matchCreateTask,
+   639→   639→  matchCreateAgent,
+   640→   640→  matchRunSkill,
+   641→   641→  matchSendComms,
+   642→   642→  matchQueryFleet,
+   643→   643→  matchQueryRevenue,
+   644→   644→  matchQueryTasks,
+   645→   645→  matchNavigate,
+   646→   646→  matchBareNavigate,
+   647→   647→];
+   648→   648→
+   649→   649→/**
+   650→   650→ * Parse a free-text command into a structured intent.
+   651→   651→ *
+   652→   652→ * Always returns a ParsedIntent — never throws. Falls back to `chat` with
+   653→   653→ * confidence 0 if no matcher fires, leaving the response to the LLM.
+   654→   654→ */
+   655→   655→export function parseIntent(text: string): ParsedIntent {
+   656→   656→  const raw = (text || '').trim();
+   657→   657→  if (!raw) {
+   658→   658→    return { intent: 'chat', confidence: 0 };
+   659→   659→  }
+   660→   660→  const t = raw.toLowerCase().replace(/[.,!?]+$/g, '').replace(/\s+/g, ' ');
+   661→   661→
+   662→   662→  for (const matcher of MATCHERS) {
+   663→   663→    try {
+   664→   664→      const r = matcher(t);
+   665→   665→      if (r) {
+   666→   666→        return {
+   667→   667→          intent: r.intent,
+   668→   668→          tab: r.tab,
+   669→   669→          action: r.action,
+   670→   670→          params: r.params,
+   671→   671→          confidence: r.confidence,
+   672→   672→          response: r.response,
+   673→   673→          suggestions: r.suggestions,
+   674→   674→          graph: r.graph,
+   675→   675→        };
+   676→   676→      }
+   677→   677→    } catch {
+   678→   678→      // a matcher bug should never break the shell — keep going
+   679→   679→    }
+   680→   680→  }
+   681→   681→
+   682→   682→  // Fallback: let the LLM handle it.
+   683→   683→  return { intent: 'chat', confidence: 0 };
+   684→   684→}
+   685→   685→
+   686→   686→/* ------------------------------------------------------------------ */
+   687→   687→/* Suggestion catalog (used by the shell's "What can I say?" panel)    */
+   688→   688→/* ------------------------------------------------------------------ */
+   689→   689→
+   690→   690→export interface IntentExample {
+   691→   691→  intent: IntentName;
+   692→   692→  label: string;
+   693→   693→  examples: string[];
+   694→   694→  icon: string; // lucide icon name
+   695→   695→  color: string; // hex
+   696→   696→}
+   697→   697→
+   698→   698→export const INTENT_CATALOG: IntentExample[] = [
+   699→   699→  {
+   700→   700→    intent: 'navigate',
+   701→   701→    label: 'Navigate Tabs',
+   702→   702→    icon: 'Compass',
+   703→   703→    color: '#7DD3FC',
+   704→   704→    examples: ['Show fleet', 'Open tasks', 'Go to payments', 'Take me to health', 'Switch to models'],
+   705→   705→  },
+   706→   706→  {
+   707→   707→    intent: 'create-task',
+   708→   708→    label: 'Create Tasks',
+   709→   709→    icon: 'ListTodo',
+   710→   710→    color: '#FBBF24',
+   711→   711→    examples: ['Create a task to ship the API', 'Add a critical task: fix login bug', 'New task to review PRs'],
+   712→   712→  },
+   713→   713→  {
+   714→   714→    intent: 'create-agent',
+   715→   715→    label: 'Spawn Agents',
+   716→   716→    icon: 'Bot',
+   717→   717→    color: '#C4B5FD',
+   718→   718→    examples: ['Spawn an agent under orion for research', 'Create a sub-agent from vega', 'New agent for support'],
+   719→   719→  },
+   720→   720→  {
+   721→   721→    intent: 'run-skill',
+   722→   722→    label: 'Run Skills',
+   723→   723→    icon: 'Terminal',
+   724→   724→    color: '#34D399',
+   725→   725→    examples: ['Run skill summarize on <text>', 'Use web-search for AI agents', 'Execute code-review on my function'],
+   726→   726→  },
+   727→   727→  {
+   728→   728→    intent: 'send-comms',
+   729→   729→    label: 'Send Messages',
+   730→   730→    icon: 'MessagesSquare',
+   731→   731→    color: '#C4B5FD',
+   732→   732→    examples: ['Send message to orion: deploy now', 'Tell vega the build passed', 'Broadcast: stand-up in 5'],
+   733→   733→  },
+   734→   734→  {
+   735→   735→    intent: 'health-check',
+   736→   736→    label: 'Health Check',
+   737→   737→    icon: 'HeartPulse',
+   738→   738→    color: '#34D399',
+   739→   739→    examples: ['Health check', 'System status', 'Are we healthy?'],
+   740→   740→  },
+   741→   741→  {
+   742→   742→    intent: 'sync-models',
+   743→   743→    label: 'Sync Models',
+   744→   744→    icon: 'RefreshCw',
+   745→   745→    color: '#7DD3FC',
+   746→   746→    examples: ['Sync models', 'Update model list', 'Check for new models'],
+   747→   747→  },
+   748→   748→  {
+   749→   749→    intent: 'query-fleet',
+   750→   750→    label: 'Query Fleet',
+   751→   751→    icon: 'Bot',
+   752→   752→    color: '#7DD3FC',
+   753→   753→    examples: ['Fleet status', 'How are agents doing?', 'Agent status'],
+   754→   754→  },
+   755→   755→  {
+   756→   756→    intent: 'query-revenue',
+   757→   757→    label: 'Query Revenue',
+   758→   758→    icon: 'Wallet',
+   759→   759→    color: '#34D399',
+   760→   760→    examples: ['Revenue today', 'How much money did we make?', 'Payments today'],
+   761→   761→  },
+   762→   762→  {
+   763→   763→    intent: 'query-tasks',
+   764→   764→    label: 'Query Tasks',
+   765→   765→    icon: 'ListTodo',
+   766→   766→    color: '#FBBF24',
+   767→   767→    examples: ["What's pending?", 'Task status', 'Blocked tasks'],
+   768→   768→  },
+   769→   769→  {
+   770→   770→    intent: 'set-theme',
+   771→   771→    label: 'Switch Theme',
+   772→   772→    icon: 'Moon',
+   773→   773→    color: '#C4B5FD',
+   774→   774→    examples: ['Dark mode', 'Light mode', 'Switch theme'],
+   775→   775→  },
+   776→   776→  {
+   777→   777→    intent: 'search',
+   778→   778→    label: 'Search',
+   779→   779→    icon: 'Search',
+   780→   780→    color: '#7DD3FC',
+   781→   781→    examples: ['Search for orion', 'Find vega in agents', 'Look up payment failures'],
+   782→   782→  },
+   783→   783→  {
+   784→   784→    intent: 'help',
+   785→   785→    label: 'Help',
+   786→   786→    icon: 'HelpCircle',
+   787→   787→    color: '#FBBF24',
+   788→   788→    examples: ['Help', 'What can you do?', 'What can I say?'],
+   789→   789→  },
+   790→   790→  {
+   791→   791→    intent: 'chat',
+   792→   792→    label: 'Ask Anything',
+   793→   793→    icon: 'Sparkles',
+   794→   794→    color: '#7DD3FC',
+   795→   795→    examples: ['Summarize today', 'Research AI agents', 'Plan a launch strategy'],
+   796→   796→  },
+   797→   797→];
+   798→   798→
+   799→   799→/* ------------------------------------------------------------------ */
+   800→   800→/* Command palette entries (used by the shell's typeahead dropdown)    */
+   801→   801→/* ------------------------------------------------------------------ */
+   802→   802→
+   803→   803→export interface PaletteEntry {
+   804→   804→  id: string;
+   805→   805→  label: string;
+   806→   806→  hint: string;
+   807→   807→  intent: IntentName;
+   808→   808→  icon: string;
+   809→   809→  color: string;
+   810→   810→  /** A pre-filled prompt the user can edit + Enter to send. */
+   811→   811→  prompt: string;
+   812→   812→}
+   813→   813→
+   814→   814→export const PALETTE_ENTRIES: PaletteEntry[] = [
+   815→   815→  { id: 'p-fleet-status', label: 'Show Fleet Status', hint: 'query-fleet', intent: 'query-fleet', icon: 'Bot', color: '#7DD3FC', prompt: 'Fleet status' },
+   816→   816→  { id: 'p-fleet-tab', label: 'Open Fleet Tab', hint: 'navigate', intent: 'navigate', icon: 'Compass', color: '#7DD3FC', prompt: 'Open fleet' },
+   817→   817→  { id: 'p-fleet-spawn', label: 'Spawn Fleet Agent', hint: 'create-agent', intent: 'create-agent', icon: 'Bot', color: '#C4B5FD', prompt: 'Spawn an agent under orion for fleet ops' },
+   818→   818→  { id: 'p-revenue-today', label: 'Revenue Today', hint: 'query-revenue', intent: 'query-revenue', icon: 'Wallet', color: '#34D399', prompt: 'Revenue today' },
+   819→   819→  { id: 'p-payments-tab', label: 'Open Payments Tab', hint: 'navigate', intent: 'navigate', icon: 'Compass', color: '#7DD3FC', prompt: 'Open payments' },
+   820→   820→  { id: 'p-pending-tasks', label: 'Pending Tasks', hint: 'query-tasks', intent: 'query-tasks', icon: 'ListTodo', color: '#FBBF24', prompt: "What's pending?" },
+   821→   821→  { id: 'p-tasks-tab', label: 'Open Tasks Tab', hint: 'navigate', intent: 'navigate', icon: 'Compass', color: '#7DD3FC', prompt: 'Open tasks' },
+   822→   822→  { id: 'p-create-task', label: 'Create Task…', hint: 'create-task', intent: 'create-task', icon: 'ListTodo', color: '#FBBF24', prompt: 'Create a task to ' },
+   823→   823→  { id: 'p-health-check', label: 'Health Check', hint: 'health-check', intent: 'health-check', icon: 'HeartPulse', color: '#34D399', prompt: 'Health check' },
+   824→   824→  { id: 'p-health-tab', label: 'Open Health Tab', hint: 'navigate', intent: 'navigate', icon: 'Compass', color: '#7DD3FC', prompt: 'Open health' },
+   825→   825→  { id: 'p-sync-models', label: 'Sync Models', hint: 'sync-models', intent: 'sync-models', icon: 'RefreshCw', color: '#7DD3FC', prompt: 'Sync models' },
+   826→   826→  { id: 'p-models-tab', label: 'Open Models Tab', hint: 'navigate', intent: 'navigate', icon: 'Compass', color: '#7DD3FC', prompt: 'Open models' },
+   827→   827→  { id: 'p-spawn-agent', label: 'Spawn Agent…', hint: 'create-agent', intent: 'create-agent', icon: 'Bot', color: '#C4B5FD', prompt: 'Spawn an agent under orion for ' },
+   828→   828→  { id: 'p-run-skill', label: 'Run Skill…', hint: 'run-skill', intent: 'run-skill', icon: 'Terminal', color: '#34D399', prompt: 'Run skill ' },
+   829→   829→  { id: 'p-send-comms', label: 'Send Message…', hint: 'send-comms', intent: 'send-comms', icon: 'MessagesSquare', color: '#C4B5FD', prompt: 'Send message to ' },
+   830→   830→  { id: 'p-comms-tab', label: 'Open Comms Tab', hint: 'navigate', intent: 'navigate', icon: 'Compass', color: '#7DD3FC', prompt: 'Open comms' },
+   831→   831→  { id: 'p-dark-mode', label: 'Dark Mode', hint: 'set-theme', intent: 'set-theme', icon: 'Moon', color: '#C4B5FD', prompt: 'Dark mode' },
+   832→   832→  { id: 'p-light-mode', label: 'Light Mode', hint: 'set-theme', intent: 'set-theme', icon: 'Sun', color: '#FBBF24', prompt: 'Light mode' },
+   833→   833→  { id: 'p-search', label: 'Search…', hint: 'search', intent: 'search', icon: 'Search', color: '#7DD3FC', prompt: 'Search for ' },
+   834→   834→  { id: 'p-help', label: 'Help', hint: 'help', intent: 'help', icon: 'HelpCircle', color: '#FBBF24', prompt: 'Help' },
+   835→   835→];
+   836→   836→
+   837→   837→/**
+   838→   838→ * Filter palette entries by a query string. Matches on label + hint + intent.
+   839→   839→ */
+   840→   840→export function filterPalette(query: string): PaletteEntry[] {
+   841→   841→  const q = query.trim().toLowerCase();
+   842→   842→  if (!q) return PALETTE_ENTRIES;
+   843→   843→  return PALETTE_ENTRIES.filter((e) => {
+   844→   844→    const hay = `${e.label} ${e.hint} ${e.intent}`.toLowerCase();
+   845→   845→    return q.split(/\s+/).every((tok) => hay.includes(tok));
+   846→   846→  });
+   847→   847→}
+   848→   848→
+   849→   849→/* ------------------------------------------------------------------ */
+   850→   850→/* Proactive idle suggestions (rotated by the shell every 30s)         */
+   851→   851→/* ------------------------------------------------------------------ */
+   852→   852→
+   853→   853→export const PROACTIVE_PROMPTS: string[] = [
+   854→   854→  "Try: \"What's the fleet status?\"",
+   855→   855→  'Try: "Create a task to review the API"',
+   856→   856→  'Try: "Show me revenue today"',
+   857→   857→  'Try: "Run a health check"',
+   858→   858→  'Try: "Open the tasks tab"',
+   859→   859→  'Try: "Sync models from providers"',
+   860→   860→  'Try: "Send a message to orion"',
+   861→   861→  'Try: "Spawn an agent for research"',
+   862→   862→  'Try: "What can you do?"',
+   863→   863→  'Try: "Switch to light mode"',
+   864→   864→];
+   865→   865→
+   866→   866→/* ------------------------------------------------------------------ */
+   867→   867→/* Multi-turn context detector — sets the "context chip" label         */
+   868→   868→/* ------------------------------------------------------------------ */
+   869→   869→
+   870→   870→const CONTEXT_KEYWORDS: Array<{ ctx: string; words: string[] }> = [
+   871→   871→  { ctx: 'fleet discussion', words: ['fleet', 'agent', 'agent', 'sub-agent', 'spawn', 'orion', 'vega', 'atlas'] },
+   872→   872→  { ctx: 'revenue discussion', words: ['revenue', 'payment', 'money', 'income', 'payout', 'earning'] },
+   873→   873→  { ctx: 'task discussion', words: ['task', 'todo', 'ticket', 'pending', 'blocked', 'kanban'] },
+   874→   874→  { ctx: 'health discussion', words: ['health', 'error', 'fail', 'recovery', 'self-heal', 'stale'] },
+   875→   875→  { ctx: 'model discussion', words: ['model', 'provider', 'sync', 'fallback', 'token'] },
+   876→   876→  { ctx: 'comms discussion', words: ['message', 'notify', 'broadcast', 'comms', 'tell'] },
+   877→   877→];
+   878→   878→
+   879→   879→export function detectContext(text: string): string | null {
+   880→   880→  const t = (text || '').toLowerCase();
+   881→   881→  if (!t) return null;
+   882→   882→  for (const { ctx, words } of CONTEXT_KEYWORDS) {
+   883→   883→    if (words.some((w) => t.includes(w))) return ctx;
+   884→   884→  }
+   885→   885→  return null;
+   886→   886→}
+   887→   887→
+   888→   888→/* ------------------------------------------------------------------ */
+   889→   889→/* Quick command chips (the 8 enhanced chips)                          */
+   890→   890→/* ------------------------------------------------------------------ */
+   891→   891→
+   892→   892→export interface QuickCommand {
+   893→   893→  id: string;
+   894→   894→  label: string;
+   895→   895→  prompt: string;
+   896→   896→  intent: IntentName;
+   897→   897→  icon: string;
+   898→   898→  color: string;
+   899→   899→}
+   900→   900→
+   901→   901→export const QUICK_COMMANDS_V2: QuickCommand[] = [
+   902→   902→  { id: 'qc-fleet', label: 'Fleet Status', prompt: 'Fleet status', intent: 'query-fleet', icon: 'Bot', color: '#7DD3FC' },
+   903→   903→  { id: 'qc-revenue', label: 'Revenue Today', prompt: 'Revenue today', intent: 'query-revenue', icon: 'Wallet', color: '#34D399' },
+   904→   904→  { id: 'qc-tasks', label: 'Pending Tasks', prompt: "What's pending?", intent: 'query-tasks', icon: 'ListTodo', color: '#FBBF24' },
+   905→   905→  { id: 'qc-health', label: 'Health Check', prompt: 'Health check', intent: 'health-check', icon: 'HeartPulse', color: '#34D399' },
+   906→   906→  { id: 'qc-sync', label: 'Sync Models', prompt: 'Sync models', intent: 'sync-models', icon: 'RefreshCw', color: '#7DD3FC' },
+   907→   907→  { id: 'qc-task', label: 'Create Task…', prompt: 'Create a task to ', intent: 'create-task', icon: 'ListTodo', color: '#FBBF24' },
+   908→   908→  { id: 'qc-fleet-tab', label: 'Open Fleet Tab', prompt: 'Open fleet', intent: 'navigate', icon: 'Compass', color: '#7DD3FC' },
+   909→   909→  { id: 'qc-help', label: 'Help', prompt: 'Help', intent: 'help', icon: 'HelpCircle', color: '#FBBF24' },
+   910→   910→];
+   911→   911→

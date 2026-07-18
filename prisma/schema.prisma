@@ -645,3 +645,64 @@ model CronHistory {
   @@index([createdAt])
   @@index([status])
 }
+
+// ===== Task ID BUSINESS: CRM / Sales / Support automation =====
+// Client — a full CRM contact moving through the sales pipeline
+// (lead → contacted → qualified → proposal → negotiation → won | lost).
+// Lead — an early-stage prospect with a 0-100 score (auto-computed from
+// source + profile completeness by /api/leads). Leads can be promoted
+// to Clients via the CRM tab's "convert" action.
+// SupportTicket — customer support requests across chat/email/phone/telegram,
+// routed to the agent best suited for the channel + priority.
+//
+// These three tables back the CRM & Sales tab (`crm` TabKey) and the
+// create-lead / create-client / create-ticket / query-clients Orion intents.
+
+model Client {
+  id        String   @id @default(cuid())
+  name      String
+  company   String?
+  email     String?
+  phone     String?
+  status    String   @default("lead") // lead | contacted | qualified | proposal | negotiation | won | lost
+  source    String?  // web | referral | cold-outreach | inbound
+  value     Float    @default(0)
+  notes     String?
+  assignee  String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  @@index([status])
+  @@index([assignee])
+}
+
+model Lead {
+  id         String   @id @default(cuid())
+  clientName String
+  company    String?
+  email      String?
+  phone      String?
+  source     String   @default("web")
+  status     String   @default("new") // new | contacted | qualified | converted | lost
+  score      Int      @default(50) // 0-100 lead score
+  notes      String?
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+  @@index([status])
+  @@index([source])
+}
+
+model SupportTicket {
+  id         String   @id @default(cuid())
+  clientName String
+  subject    String
+  body       String
+  priority   String   @default("medium") // low | medium | high | urgent
+  status     String   @default("open") // open | in_progress | resolved | closed
+  channel    String   @default("chat") // chat | email | phone | telegram
+  assignee   String?
+  resolution String?
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+  @@index([status])
+  @@index([priority])
+}
