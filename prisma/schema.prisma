@@ -418,11 +418,19 @@ model EarningMethod {
   totalEarnings    Float    @default(0)
   feedback         String   @default("[]")
   tags             String   @default("[]")
-  createdAt        DateTime @default(now())
-  updatedAt        DateTime @updatedAt
+  // Approval flow fields
+  simulationResults String?  // JSON: results of simulation/testing
+  workflowSteps     String?  // JSON: step-by-step process ready for deployment
+  approvalQuestions String?  // JSON: Q&A between owner and CEO before approval
+  ownerNotes        String?  // owner's notes during review
+  approvalStatus    String   @default("draft") // draft | researching | simulating | ready | pending_approval | approved | rejected | deployed
+  deployedAt        DateTime?
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
   @@index([category])
   @@index([enabled])
   @@index([approved])
+  @@index([approvalStatus])
 }
 
 model SkillLearning {

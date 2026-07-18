@@ -40,6 +40,7 @@ import CommsTab from '@/components/tabs/CommsTab';
 import SkillRunnerTab from '@/components/tabs/SkillRunnerTab';
 import MemoryGraphTab from '@/components/tabs/MemoryGraphTab';
 import FleetTopologyTab from '@/components/tabs/FleetTopologyTab';
+import AgentNetworkTab from '@/components/tabs/AgentNetworkTab';
 import SkillChainTab from '@/components/tabs/SkillChainTab';
 import TaskDagTab from '@/components/tabs/TaskDagTab';
 import AutonomyTab from '@/components/tabs/AutonomyTab';
@@ -223,7 +224,8 @@ export type TabKey =
   | 'health' | 'monitoring' | 'scheduler'
   | 'payments' | 'earnings' | 'analytics' | 'services'
   | 'data-mgmt' | 'branding' | 'apptree'
-  | 'crm';
+  | 'crm'
+  | 'agent-network';
 
 interface TabDef {
   key: TabKey;
@@ -240,8 +242,9 @@ const TABS: TabDef[] = [
   { key: 'activity', label: 'Activity Feed', icon: History, group: 'Command', accent: JARVIS.colors.green },
   { key: 'insights', label: 'AI Insights', icon: Lightbulb, group: 'Command', accent: JARVIS.colors.cyan },
 
-  // ─── Agent Fleet (2) — merged 5→2 ───
+  // ─── Agent Fleet (3) — merged 5→2 + network viz ───
   { key: 'fleet', label: 'Agent Fleet', icon: Bot, group: 'Fleet', accent: JARVIS.colors.cyan },
+  { key: 'agent-network', label: 'Agent Network', icon: Share2, group: 'Fleet', accent: JARVIS.colors.cyan },
   { key: 'comms', label: 'Agent Comms', icon: MessagesSquare, group: 'Fleet', accent: JARVIS.colors.violet },
 
   // ─── Work & Tasks (2) — merged 4→2 ───
@@ -301,6 +304,7 @@ const TAB_MAP: Record<TabKey, () => JSX.Element> = {
   insights: InsightsTab,
   // Fleet (merged)
   fleet: FleetMergedTab,
+  'agent-network': AgentNetworkTab,
   comms: CommsTab,
   // Work (merged)
   tasks: TasksMergedTab,

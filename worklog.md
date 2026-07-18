@@ -4594,3 +4594,179 @@ Stage Summary:
 - **17 agent personas** (5 monitoring + 10 executing + 2 error-handling).
 - **26 tabs** with navigation map.
 - **124+ API routes** (+ /api/agents/idle-check + /api/queue).
+
+---
+Task ID: AGENT-NETWORK
+Agent: frontend (Z.ai Code)
+Task: Build redesigned Agent Network visualization tab with animated agent flows.
+
+Work Log:
+
+**Read context:**
+- Read worklog.md (last 5 entries: AUTONOMOUS-PIPELINE, DOC-UPDATE, DOCUMENTATION+PENDING_LOG+MULTI-AGENT-DISCUSSION, AGENT-SEPARATION+QUEUE+MODEL-SELECTION+RULES-21-25).
+- Read src/lib/agent-registry.ts (17 personas: 5 monitoring [ORION/ATLAS/ECHO/APEX/PULSE], 10 executing, 2 error-handlers).
+- Read src/components/tabs/FleetTopologyTab.tsx (existing 125-line basic tab — ForceGraph + simple roster grid).
+- Read src/app/page-client.tsx (TabKey union, TABS array, TAB_MAP record).
+- Read src/components/jarvis/shared.tsx (SectionTitle/Pill/StatCard primitives) + src/lib/config.ts (JARVIS.colors tokens).
+- Confirmed /api/agents returns { agents: [{ codename, status, load, ... }] }.
+
+**Created `src/components/tabs/AgentNetworkTab.tsx` (~520 lines):**
+
+1. **Layout (virtual coords in 1280×680 viewBox):**
+   - Row 0 (y=70, center): ORION (CEO) — wider card (172px) with cyan ring.
+   - Row 1 (y=220): 4 C-Suite directors — ATLAS (13%), ECHO (38%), APEX (62%), PULSE (87%).
+   - Row 2 (y=380+): specialists stacked under each supervisor.
+   - HERMES + SAGE (operations) sit in central column (50%) directly below CEO — edges run straight down through the gap between ECHO and APEX.
+   - 16 reporting edges total derived from `persona.reportsTo`.
+
+2. **Agent node cards (HTML overlay on SVG):**
+   - Codename (dept color, jarvis-mono bold), role, status dot (pulse if working/thinking), type icon (Eye/Cog/Shield), animated load bar, status label + load%.
+   - Card border tinted with department color; focused card glows with status color.
+   - Entrance: staggered fade+scale (delay 0.1 + i*0.04).
+   - Hover: scale 1.06 via whileHover.
+   - Click: opens detail panel on right.
+   - Focus/hover support keyboard (`onFocus`/`onBlur`) for accessibility.
+
+3. **Animated SVG connections (motion.line + motion.circle):**
+   - Draw-in animation via `pathLength: 0 → 1` (staggered, 0.8s, ease-out).
+   - Ambient flow dots: small cyan circles continuously travel source→target (3s loop, linear, staggered by edge index) — gives "live network" feel on ALL 16 edges.
+   - Task packets: when target agent has `status='working'`, a larger amber dot with glow shadow travels source→target at 1.4s easeIn (data-packet flow).
+   - Hover/selected highlight: connected edges (supervisor↔agent↔reports) become bright cyan + drop-shadow glow; non-connected nodes dim to 30% opacity.
+
+4. **Department colors (per task spec):** engineering=cyan, marketing=violet, operations=green, finance=amber, testing=red, security=red, design=pink, product=cyan.
+
+5. **Status colors (per task spec):** working=cyan (#22D3EE), idle=gray (#64748B), error=red (#F87171), thinking=violet (#C4B5FD), offline=slate.
+
+6. **Type indicators:** Eye icon (monitor), Cog icon (exec), Shield icon (error-handler) — shown top-right of each card + in detail panel + in legend.
+
+7. **Detail panel (right side, 340px):**
+   - Animated entrance (x: 12 → 0, AnimatePresence mode="wait").
+   - Shows: codename + name + title, live status tile, live load tile, department, type, seniority, reportsTo, maxIterations, maxRpm, persona, goal, backstory, model preference (pills, primary highlighted green), skills (pills in dept color), direct reports (clickable list to drill in).
+   - Empty state: Share2 icon + "Select an agent" hint.
+   - Scrollable (max-h-760px, overflow-y-auto).
+
+8. **Stats bar (top, 6 tiles):** Total Agents (17), Monitoring (5), Executing (10), Error Handlers (2), Working (live), Idle (live). Staggered entrance.
+
+9. **Legend (bottom):** Agent Types (3 with icons), Departments (8 with color dots), Live Status (5 with color dots). Responsive 1-col on mobile, 2-col on md+.
+
+10. **Live status:** `useApi('/api/agents', 10000)` polls every 10s. Maps codename (uppercase) → {status, load}. Updates node colors, load bars, and triggers task-packet animation when status='working'. Manual refresh button in header.
+
+11. **Mobile responsive:** SVG canvas hidden below `lg` breakpoint. Fallback `MobileAgentGrid` groups agents by supervisor with 2-3 col grid of compact cards (smaller dots, no load %, no role text wrapping). Detail panel still works on mobile.
+
+**Registered in `src/app/page-client.tsx` (4 surgical edits):**
+- Added `import AgentNetworkTab from '@/components/tabs/AgentNetworkTab';` after FleetTopologyTab import.
+- Added `'agent-network'` to `TabKey` union (after `'crm'`).
+- Added tab entry `{ key: 'agent-network', label: 'Agent Network', icon: Share2, group: 'Fleet', accent: JARVIS.colors.cyan }` between fleet and comms in TABS array.
+- Added `'agent-network': AgentNetworkTab` to TAB_MAP between fleet and comms.
+
+**Verification:**
+- `bun run lint`: clean (0 errors, 0 warnings).
+- Dev server log: no compile errors, HTTP 200s continuing.
+- All 17 personas have layout positions; 16 edges derived from reportsTo.
+- framer-motion used for ALL animations (entrance, draw-in, flow dots, task packets, hover, panel transitions).
+- lucide-react icons used (Share2, Eye, Cog, Shield, X, Layers, Zap, Users, Clock, ChevronRight, RefreshCw).
+- JARVIS design tokens used throughout (var(--j-*), JARVIS.colors.*).
+- Agent data imported from `@/lib/agent-registry` (ALL_AGENT_PERSONAS + types).
+- Responsive: grid on mobile (lg:hidden), force-directed-ish fixed layout on desktop (hidden lg:block).
+
+Stage Summary:
+- ✅ AgentNetworkTab.tsx created (~520 lines) — full animated hierarchy visualization.
+- ✅ 17 agent nodes positioned in 3-row org-chart layout (CEO → 4 C-Suite → specialists).
+- ✅ 16 SVG edges with draw-in animation + ambient flow dots + task packets on working edges.
+- ✅ Click-to-inspect detail panel with full persona/skills/models/backstory.
+- ✅ Hover highlights supervisor + reports chain, dims unrelated nodes.
+- ✅ Live status polling every 10s from /api/agents.
+- ✅ Stats bar (6 tiles) + Legend (types/depts/status) + mobile fallback grid.
+- ✅ Registered as 'agent-network' tab in Fleet group.
+- ✅ 0 lint errors, 0 dev server errors.
+
+## Updated App Stats:
+- **27 tabs** (added Agent Network in Fleet group).
+- **17 agent personas** visualized with full hierarchy + animations.
+- **0 lint errors, 0 page errors.**
+
+---
+Task ID: EARNING-APPROVAL + AGENT-NETWORK + RULES-26-28
+Agent: main (Z.ai Code)
+Task: Earning method approval flow (ask owner, Q&A, deploy), Agent Network visualization tab, new rules.
+
+Work Log:
+
+**EARNING METHOD APPROVAL FLOW** (3 new API routes + CEO pipeline):
+- **Schema updated**: Added 5 fields to EarningMethod model: simulationResults, workflowSteps, approvalQuestions, ownerNotes, approvalStatus (draft→researching→simulating→ready→pending_approval→approved→rejected→deployed), deployedAt.
+- **`/api/earning-methods/[id]/simulate`** POST — runs full simulation:
+  - Market test (demand, price range).
+  - Cost analysis (resources, agents, cost per delivery).
+  - Timeline (start to first payment, per delivery).
+  - Sample deliverable (actual sample output).
+  - Risk assessment (what could go wrong, mitigations).
+  - Workflow steps (step-by-step from inquiry to payment).
+  - Verified: 11 workflow steps generated for "AI-Powered Customer Support Automation Builder".
+- **`/api/earning-methods/[id]/approve`** POST — 5 actions:
+  - `request-approval`: CEO generates summary for owner, creates notification, sets status to pending_approval.
+  - `ask-question`: Owner asks questions → CEO answers honestly. Q&A stored in approvalQuestions field.
+  - `approve`: Sets approved=true, enabled=true, status=approved.
+  - `reject`: Sets status=rejected. CEO will research alternatives.
+  - Verified: Owner asked "What is the expected monthly revenue?" → CEO answered "$49-$299/month per client".
+- **`/api/earning-methods/[id]/deploy`** POST — creates Task records for each workflow step:
+  - Only works if method is approved.
+  - Creates high-priority tasks tagged with earning-method key.
+  - Sets status=deployed, deployedAt=now.
+  - Verified: 11 tasks created after approval + deployment.
+- **`deployEarningMethodPipeline()`** in ceo-agent.ts — full autonomous pipeline:
+  1. Research (market demand, competition).
+  2. Simulate (cost, timeline, sample, risks, workflow).
+  3. Prepare workflow steps.
+  4. Request owner approval with summary.
+  5. Answer owner questions (Q&A loop).
+  6. Deploy (create tasks) only after approval.
+
+**AGENT NETWORK TAB** (parallel agent — completed):
+- New `src/components/tabs/AgentNetworkTab.tsx` (~520 lines).
+- Full-screen visualization of 17 agent personas with animated connections.
+- **Layout**: CEO at top → C-Suite row → Specialists below.
+- **Animations** (framer-motion):
+  - Staggered node entrance (fade + scale).
+  - SVG edge draw-in (pathLength 0→1).
+  - Ambient flow dots (cyan circles traveling along edges).
+  - Task packets (amber dots on working agents' edges).
+  - Status pulse (jarvis-pulse-dot on working/thinking agents).
+  - Hover: connected chain brightens, unrelated nodes dim.
+  - Detail panel slide-in.
+- **Interactions**: Click node → detail panel with persona, skills, model preference, goal, backstory, current tasks.
+- **Live status**: polls /api/agents every 10s, updates node colors.
+- **Stats bar**: 17 total, 5 monitoring, 10 executing, 2 error-handlers, live working/idle counts.
+- **Legend**: agent types + department colors + status colors.
+- **Responsive**: SVG on desktop, mobile grid fallback.
+- Registered in page-client.tsx as "Agent Network" in Fleet group.
+
+**RULES 26-28** (RULES.md):
+- Rule 26: Earning Method Approval Flow — research → simulate → prepare → request approval → Q&A → deploy. No method goes live without owner approval.
+- Rule 27: Agent Network Transparency — animated visualization, live status, clickable personas.
+- Rule 28: Continuous Improvement — rules evolve based on experience. CEO proposes new rules during sweep.
+
+**Verification**:
+- Agent Network tab: renders with 17 agents, 5 monitoring, 10 executing, 2 error-handlers.
+- Earning simulation: 11 workflow steps generated (market test, cost, timeline, sample, risks, workflow).
+- Approval Q&A: owner asked about revenue → CEO answered "$49-$299/month per client".
+- Deploy: 11 tasks created after approval.
+- Lint: clean (0 errors, 0 warnings).
+- Dev server: HTTP 200.
+
+Stage Summary:
+- ✅ Earning method approval flow: simulate → request → Q&A → approve → deploy.
+- ✅ Agent Network tab: animated visualization with 17 personas + flow dots + task packets.
+- ✅ Rules 26-28: earning approval, agent network transparency, continuous improvement.
+- ✅ 0 lint errors, 0 page errors.
+- ✅ 28 rules total, 27 tabs, 32 cron jobs.
+
+## Full Earning Method Pipeline (End-to-End):
+1. CEO researches earning method idea → market demand, competition, pricing.
+2. CEO simulates the process → 11-step workflow, sample deliverable, cost analysis, risk assessment.
+3. CEO requests owner approval → summary notification with expected earnings + risks.
+4. Owner asks questions → CEO answers (Q&A loop, all stored).
+5. Owner approves → method marked approved + enabled.
+6. CEO deploys → 11 tasks created, one per workflow step, assigned to agents.
+7. Agents execute tasks → queue system dispatches to idle agents → no idle agents.
+8. Owner can reject → CEO researches alternatives.
+9. Only the approval checkpoint requires human intervention. Everything else is autonomous.

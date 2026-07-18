@@ -308,3 +308,29 @@ These rules are enforced by:
 - If a new Prisma model is added, the setup file must mention running `bunx prisma db push`.
 - If a new environment variable is required, the setup file must list it.
 - This rule applies to ALL future changes — not just this session.
+
+## Rule 26: Earning Method Approval Flow (Owner Checkpoint)
+- When agents create an earning method, they MUST:
+  1. **Research** the method (market demand, competition, pricing).
+  2. **Simulate** the process (cost analysis, timeline, sample deliverable, risk assessment).
+  3. **Prepare workflow** (step-by-step process from client inquiry to payment).
+  4. **Request approval** from the owner with a summary.
+  5. **Answer questions** — the owner can ask any questions before approving. The CEO answers honestly.
+  6. **Deploy** only after explicit owner approval.
+- The owner can **reject** a method — the CEO will research alternatives.
+- No earning method goes live without owner approval. This is a hard checkpoint.
+
+## Rule 27: Agent Network Transparency
+- The Agent Network tab visualizes all 17+ agent personas with animated flows.
+- Monitoring agents (CEO, C-Suite) are visually distinct from executing agents.
+- Task flows are animated — when a task is being worked on, packets flow along the hierarchy.
+- Agent status is live-updated (working/idle/thinking/error).
+- The owner can click any agent to see its full persona, skills, goals, and current tasks.
+
+## Rule 28: Continuous Improvement (Self-Evolving Rules)
+- The app MUST improvise rules based on experience.
+- If a rule causes problems, it should be revised (not removed).
+- If a pattern is observed that needs a rule, a new rule should be proposed.
+- Rules should be specific enough to be actionable, general enough to cover edge cases.
+- The CEO agent proposes new rules during its sweep — they go to the owner for approval.
+- This rule itself is the meta-rule that ensures the rule set evolves.

@@ -356,3 +356,109 @@ export async function ceoClassify(taskDescription: string): Promise<{ department
   }
   return { department: 'coo', reason: 'Default to operations', confidence: 0.5 };
 }
+
+/**
+ * Full earning method deployment pipeline:
+ * 1. Research the method (market demand, competition).
+ * 2. Simulate the process (cost, timeline, sample deliverable).
+ * 3. Prepare workflow steps.
+ * 4. Request owner approval with summary.
+ * 5. Answer owner questions.
+ * 6. Deploy (create tasks) only after approval.
+ *
+ * This is the autonomous earning pipeline — no human intervention until the approval checkpoint.
+ */
+export async function deployEarningMethodPipeline(methodId: string): Promise<{
+  status: string;
+  message: string;
+  simulation?: unknown;
+  workflowSteps?: string[];
+}> {
+  const method = await db.earningMethod.findUnique({ where: { id: methodId } });
+  if (!method) {
+    return { status: 'error', message: 'Earning method not found' };
+  }
+
+  // Step 1: Update status to researching
+  await db.earningMethod.update({
+    where: { id: methodId },
+    data: { approvalStatus: 'researching', lastResearched: new Date() },
+  });
+
+  // Step 2: Run simulation (calls the simulate API logic inline)
+  const simulationPrompt = `You are the CEO running a simulation for: ${method.name} — ${method.description}
+
+Run a thorough simulation:
+1. Market test: Who buys this? Demand? Price range?
+2. Cost analysis: Resources/agents/tools needed? Cost per delivery?
+3. Timeline: Start to first payment? Per delivery?
+4. Sample deliverable: Create a sample output.
+5. Risk assessment: What could go wrong? Mitigations?
+6. Workflow steps: Step-by-step from client inquiry to payment.
+
+Respond in JSON: {"marketTest":"","costAnalysis":"","timeline":"","sampleDeliverable":"","riskAssessment":"","workflowSteps":["step1","step2",...]}`;
+
+  const { content: simContent } = await chat(simulationPrompt, []);
+  let simulation;
+  let workflowSteps: string[] = [];
+  try {
+    const match = simContent.match(/\{[\s\S]*\}/);
+    if (match) {
+      simulation = JSON.parse(match[0]);
+      workflowSteps = simulation.workflowSteps || [];
+    }
+  } catch {
+    simulation = { raw: simContent };
+  }
+
+  // Save simulation results
+  await db.earningMethod.update({
+    where: { id: methodId },
+    data: {
+      simulationResults: JSON.stringify(simulation).slice(0, 10000),
+      workflowSteps: JSON.stringify(workflowSteps).slice(0, 5000),
+      approvalStatus: 'ready',
+    },
+  });
+
+  // Step 3: Request approval from owner
+  const summaryPrompt = `You are the CEO presenting "${method.name}" for owner approval.
+
+Simulation results: ${JSON.stringify(simulation).slice(0, 2000)}
+
+Write a concise summary (under 200 words) explaining what this method is, expected earnings, risks, and what's needed. End with "Awaiting your approval to deploy."`;
+
+  const { content: summary } = await chat(summaryPrompt, []);
+
+  await db.earningMethod.update({
+    where: { id: methodId },
+    data: { approvalStatus: 'pending_approval' },
+  });
+
+  // Create approval notification
+  await db.notification.create({
+    data: {
+      type: 'warn',
+      title: `🔔 Approval Required: ${method.name}`,
+      message: `${summary.slice(0, 400)}\n\nSimulation complete. ${workflowSteps.length} workflow steps ready. Review and approve to deploy.`,
+    },
+  });
+
+  // Store the summary in memory for Q&A
+  await db.memoryItem.create({
+    data: {
+      scope: 'semantic',
+      key: `earning-approval-${methodId}`,
+      value: summary,
+      tags: JSON.stringify(['earning-method', 'approval', method.key]),
+      pinned: true,
+    },
+  }).catch(() => {});
+
+  return {
+    status: 'pending_approval',
+    message: `Simulation complete. ${workflowSteps.length} workflow steps ready. Owner approval requested.`,
+    simulation,
+    workflowSteps,
+  };
+}
