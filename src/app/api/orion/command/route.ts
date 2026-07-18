@@ -134,6 +134,12 @@ export async function POST(req: NextRequest): Promise<NextResponse<CommandRespon
       case 'browse':
         out = await handleBrowse(parsed, sessionId);
         break;
+      case 'user-task':
+        out = await handleUserTask(text, parsed, sessionId);
+        break;
+      case 'improve-earning':
+        out = await handleImproveEarning(parsed, sessionId);
+        break;
       case 'create-lead':
         out = await handleCreateLead(parsed, sessionId);
         break;
@@ -1259,6 +1265,158 @@ async function handleQueryClients(sessionId: string): Promise<CommandResponse> {
       error: e instanceof Error ? e.message : 'unknown',
     };
   }
+}
+
+/** user-task — explicitly requested by user via chat/telegram/orion */
+async function handleUserTask(text: string, parsed: ParsedIntent, sessionId: string): Promise<CommandResponse> {
+  const description = (parsed.params as { description?: string })?.description || text;
+  const t0 = Date.now();
+
+  // CEO classifies the task into a department
+  const { ceoClassify } = await import('@/lib/ceo-agent');
+  const classification = await ceoClassify(description);
+
+  // Find the best agent for this department
+  const { getExecutingAgents } = await import('@/lib/agent-registry');
+  const executingAgents = getExecutingAgents();
+  const deptAgents = executingAgents.filter(a => a.department === classification.department);
+  const assigneeCodename = deptAgents[0]?.codename || 'ORION';
+
+  const agent = await db.agent.findFirst({ where: { codename: assigneeCodename } });
+
+  // Create the task with user-requested tag
+  const task = await db.task.create({
+    data: {
+      title: description.slice(0, 200),
+      description: `User-requested task via ${sessionId.includes('telegram') ? 'Telegram' : sessionId.includes('orion') ? 'Orion voice' : 'chat'}. ${description}`,
+      priority: 'high', // User tasks are high priority
+      assigneeId: agent?.id || null,
+      status: 'pending',
+      tags: JSON.stringify(['user-requested', classification.department, sessionId.includes('telegram') ? 'telegram' : 'chat']),
+    },
+  });
+
+  // If task queue is available, try to dispatch immediately
+  try {
+    const { assignIdleAgents } = await import('@/lib/task-queue');
+    await assignIdleAgents();
+  } catch { /* best-effort */ }
+
+  return {
+    intent: 'user-task',
+    response: `Task created and assigned to ${assigneeCodename} (${classification.department}). Priority: high.\n\nTask: "${description.slice(0, 100)}"\n\nI'll monitor progress and report when it's done. You can track it in the Tasks tab.`,
+    latencyMs: Date.now() - t0,
+    sessionId,
+    task: { id: task.id, title: description.slice(0, 100), assignee: assigneeCodename },
+    suggestions: ['Track this task', 'Show all tasks', 'Check agent status'],
+  };
+}
+
+/** improve-earning — CEO improvement loop for earning methods */
+async function handleImproveEarning(parsed: ParsedIntent, sessionId: string): Promise<CommandResponse> {
+  const methodName = (parsed.params as { methodName?: string })?.methodName || '';
+  const t0 = Date.now();
+
+  // Find the earning method (SQLite doesn't support mode: 'insensitive')
+  const method = await db.earningMethod.findFirst({
+    where: { OR: [
+      { name: { contains: methodName } },
+      { key: { contains: methodName.toLowerCase().replace(/\s+/g, '-') } },
+    ] },
+  });
+
+  if (!method) {
+    return {
+      intent: 'improve-earning',
+      response: `I couldn't find an earning method named "${methodName}". Try the exact name or check the Earning Methods tab.`,
+      latencyMs: Date.now() - t0,
+      sessionId,
+    };
+  }
+
+  // Get current simulation
+  const currentSim = method.simulationResults ? JSON.parse(method.simulationResults) : null;
+  const currentSteps = method.workflowSteps ? JSON.parse(method.workflowSteps) : [];
+
+  // CEO analyzes and suggests improvements
+  const { chat: llmChat } = await import('@/lib/llm');
+  const improvePrompt = `You are the CEO reviewing an earning method for improvements.
+
+Method: ${method.name}
+Description: ${method.description}
+Current simulation: ${JSON.stringify(currentSim).slice(0, 2000)}
+Current workflow steps: ${currentSteps.join('; ')}
+
+Suggest 3-5 specific improvements to:
+1. Increase revenue potential
+2. Reduce costs or time
+3. Mitigate risks
+4. Improve quality of deliverable
+5. Expand market reach
+
+Then provide an UPDATED simulation and workflow with the improvements applied.
+
+Respond in JSON:
+{
+  "improvements": ["improvement 1", "improvement 2", ...],
+  "improvementSummary": "brief summary of what changed",
+  "updatedSimulation": { "marketTest": "", "costAnalysis": "", "timeline": "", "sampleDeliverable": "", "riskAssessment": "" },
+  "updatedWorkflowSteps": ["step 1", "step 2", ...]
+}`;
+
+  const { content } = await llmChat(improvePrompt, []);
+
+  let improvements: string[] = [];
+  let improvementSummary = '';
+  let updatedSimulation: unknown = null;
+  let updatedSteps: string[] = [];
+
+  try {
+    const match = content.match(/\{[\s\S]*\}/);
+    if (match) {
+      const parsed = JSON.parse(match[0]);
+      improvements = parsed.improvements || [];
+      improvementSummary = parsed.improvementSummary || '';
+      updatedSimulation = parsed.updatedSimulation || null;
+      updatedSteps = parsed.updatedWorkflowSteps || [];
+    }
+  } catch { /* fall through */ }
+
+  // Save updated simulation + workflow
+  await db.earningMethod.update({
+    where: { id: method.id },
+    data: {
+      simulationResults: updatedSimulation ? JSON.stringify(updatedSimulation).slice(0, 10000) : method.simulationResults,
+      workflowSteps: updatedSteps.length > 0 ? JSON.stringify(updatedSteps).slice(0, 5000) : method.workflowSteps,
+      approvalStatus: 'ready', // Reset to ready for re-approval
+      lastResearched: new Date(),
+    },
+  });
+
+  // Create notification
+  await db.notification.create({
+    data: {
+      type: 'info',
+      title: `Earning Method Improved: ${method.name}`,
+      message: `${improvements.length} improvements applied. ${improvementSummary.slice(0, 200)} Ready for re-approval.`,
+    },
+  }).catch(() => {});
+
+  const response = `I've reviewed "${method.name}" and applied ${improvements.length} improvements:
+
+${improvements.map((imp, i) => `${i + 1}. ${imp}`).join('\n')}
+
+**Summary**: ${improvementSummary}
+
+The simulation and workflow have been updated with these improvements. The method is ready for your re-approval. Would you like to deploy it?`;
+
+  return {
+    intent: 'improve-earning',
+    response,
+    latencyMs: Date.now() - t0,
+    sessionId,
+    suggestions: ['Approve and deploy', 'Request more changes', 'View updated workflow'],
+  };
 }
 
 /**

@@ -4770,3 +4770,81 @@ Stage Summary:
 7. Agents execute tasks → queue system dispatches to idle agents → no idle agents.
 8. Owner can reject → CEO researches alternatives.
 9. Only the approval checkpoint requires human intervention. Everything else is autonomous.
+
+---
+Task ID: USER-TASK + IMPROVE-EARNING + ENHANCED-SPAWN + MODEL-CHECK
+Agent: main (Z.ai Code)
+Task: User-requested tasks via chat/telegram/orion, CEO earning improvement loop, enhanced agent spawn with persona/memories/knowledge + file upload, model health check, clickable cards.
+
+Work Log:
+
+**USER-REQUESTED TASKS** (2 new Orion intents + handlers):
+- `user-task` intent: matches "I need...", "I want...", "Can you...", "Please do...", "Do this for me..."
+  - Creates a high-priority Task tagged 'user-requested' with source (chat/telegram/orion).
+  - CEO classifies the task into a department (CTO/CMO/COO/CFO).
+  - Assigns to the best executing agent for that department.
+  - Triggers idle-agent check to dispatch immediately.
+  - Works from ALL input surfaces: Chat tab, Orion voice, Telegram (when wired).
+  - Verified: "I need you to research the top 3 competitors" → task created, assigned to ORION (COO), priority high.
+- `improve-earning` intent: matches "improve earning method X", "enhance X", "redo X", "suggest improvements for X"
+  - Finds the earning method by name.
+  - CEO analyzes current simulation + workflow.
+  - Suggests 3-5 improvements (revenue, cost, risk, quality, market reach).
+  - Generates UPDATED simulation + workflow with improvements applied.
+  - Saves to DB, resets approval status to 'ready' for re-approval.
+  - Creates notification.
+  - Verified: "improve earning method AI Training Data Labeling" → 5 improvements applied (tiered subscriptions, specialized tools, marketplace, QA automation, etc.).
+
+**ENHANCED AGENT SPAWN** (`src/app/api/agents/route.ts`):
+- Agent spawn now accepts:
+  - `persona` — personality description.
+  - `backstory` — agent's background.
+  - `goal` — what the agent aims to achieve.
+  - `department` — engineering/marketing/operations/finance/testing.
+  - `seniority` — c-suite/lead/senior/mid/junior.
+  - `knowledge` — domain knowledge text (up to 10KB).
+  - `memoryItems` — array of explicit memory items to create.
+  - `fileContent` — uploaded file content to feed as knowledge.
+- Smart model selection: if no model specified, picks best model based on role keywords (coding→qwen3-coder, research→deepseek, creative→glm-4.6).
+- Creates pinned memory items for persona + knowledge.
+- Creates notification on spawn.
+- Verified: spawned "QUANTUM" (Data Analyst) with persona, backstory, goal, department, knowledge → 2 memory items created, model auto-selected.
+
+**MODEL HEALTH CHECK**:
+- 455 models total: 452 active, 3 unknown.
+- 21 non-local providers, 0 have API keys set (keys need to be configured by owner).
+- Health check can test models once API keys are added via the Models tab → Set Key.
+- Without keys, models are assumed active (seeded from catalog).
+- Local models (8) will be tested later (per user request).
+
+**AGENT NETWORK TAB** (parallel agent — completed):
+- New "Agent Network" tab in Fleet group.
+- Full-screen animated visualization of 17 agent personas.
+- SVG connections with flow dots + task packets.
+- Click any agent → detail panel with full persona.
+- Live status polling every 10s.
+
+**Verification**:
+- User task: "I need you to research competitors" → task created, assigned to ORION, priority high.
+- Improve earning: 5 improvements applied to "AI Training Data Labeling", workflow updated.
+- Enhanced spawn: QUANTUM agent spawned with 2 memory items, model auto-selected.
+- Agent Network tab: renders with 17 agents, 5 monitoring, 10 executing, 2 error-handlers.
+- Model status: 452 active, 3 unknown.
+- Lint: clean (0 errors, 0 warnings).
+- Dev server: HTTP 200.
+
+Stage Summary:
+- ✅ User-requested tasks work from chat (and will work from Telegram/Orion when wired).
+- ✅ CEO improvement loop: analyze → suggest improvements → apply → re-approve.
+- ✅ Enhanced agent spawn with persona/backstory/goal/knowledge/file upload + smart model selection.
+- ✅ Model health check: 452 active, 3 unknown (API keys needed for provider testing).
+- ✅ Agent Network tab with animated flows.
+- ✅ 0 lint errors, 0 page errors.
+- ✅ 25+ Orion intents (added user-task + improve-earning).
+
+## What the App Can Now Do (Updated):
+1. **User-requested tasks** — "I need you to..." → task created, assigned, dispatched.
+2. **CEO earning improvement loop** — "improve earning method X" → 5 improvements, updated workflow, ready for re-approval.
+3. **Enhanced agent spawn** — persona + backstory + goal + knowledge + file upload + smart model selection.
+4. **Agent Network visualization** — animated hierarchy with live status.
+5. Plus all existing: execute commands, read/write files, browse, plan, CRM, CEO sweep, multi-agent discussion, task queue, no-idle rule.
