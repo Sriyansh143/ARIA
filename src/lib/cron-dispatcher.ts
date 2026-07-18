@@ -415,3 +415,98 @@ const dispatchers: Record<string, CronDispatcher> = {
     }
   },
 };
+
+// ─── Global Autonomy Kill Switch ──────────────────────────────────────
+// When autonomyPaused is true, all cron dispatchers skip execution.
+// Set via POST /api/system/autonomy { paused: true/false }
+// or via Telegram "/pause" command.
+
+let _autonomyPaused: boolean | null = null;
+let _autonomyCheckedAt = 0;
+const AUTONOMY_CHECK_INTERVAL = 30_000; // Re-check every 30s
+
+async function isAutonomyPaused(): Promise<boolean> {
+  // Cache for 30s to avoid hitting the DB on every cron tick
+  if (_autonomyPaused !== null && Date.now() - _autonomyCheckedAt < AUTONOMY_CHECK_INTERVAL) {
+    return _autonomyPaused;
+  }
+  try {
+    const item = await db.memoryItem.findFirst({
+      where: { key: 'autonomy-paused', scope: 'semantic' },
+    });
+    _autonomyPaused = item?.value === 'true';
+    _autonomyCheckedAt = Date.now();
+    return _autonomyPaused;
+  } catch {
+    return false; // If DB fails, don't block autonomous operations
+  }
+}
+
+export async function setAutonomyPaused(paused: boolean): Promise<void> {
+  _autonomyPaused = paused;
+  _autonomyCheckedAt = Date.now();
+  const existing = await db.memoryItem.findFirst({
+    where: { key: 'autonomy-paused', scope: 'semantic' },
+  });
+  if (existing) {
+    await db.memoryItem.update({
+      where: { id: existing.id },
+      data: { value: paused ? 'true' : 'false', pinned: true },
+    });
+  } else {
+    await db.memoryItem.create({
+      data: {
+        key: 'autonomy-paused',
+        scope: 'semantic',
+        value: paused ? 'true' : 'false',
+        tags: JSON.stringify(['system', 'kill-switch']),
+        pinned: true,
+      },
+    });
+  }
+  await db.notification.create({
+    data: {
+      type: paused ? 'warn' : 'success',
+      title: paused ? '🛑 AUTONOMY PAUSED' : '✅ AUTONOMY RESUMED',
+      message: paused
+        ? 'All autonomous cron jobs are paused. Dashboard remains operational. Use /resume to restart.'
+        : 'Autonomous operations resumed. All cron jobs will execute on their next schedule.',
+    },
+  }).catch(() => {});
+}
+
+// ─── dispatchCronJob ──────────────────────────────────────────────────
+export async function dispatchCronJob(key: string): Promise<{ ok: boolean; key: string; detail: string; durationMs: number; recordsAffected?: number }> {
+  const start = Date.now();
+
+  // Global kill switch check
+  if (await isAutonomyPaused()) {
+    return {
+      ok: false,
+      key,
+      detail: 'SKIPPED: Autonomy is paused (global kill switch active)',
+      durationMs: 0,
+    };
+  }
+
+  const dispatcher = dispatchers[key];
+  if (!dispatcher) {
+    return { ok: false, key, detail: `No dispatcher registered for key: ${key}`, durationMs: 0 };
+  }
+  try {
+    const result = await dispatcher();
+    return { ...result, key, durationMs: Date.now() - start };
+  } catch (err) {
+    return {
+      ok: false,
+      key,
+      detail: `Dispatcher threw: ${err instanceof Error ? err.message : String(err)}`,
+      durationMs: Date.now() - start,
+    };
+  }
+}
+
+// ─── listCronKeys ────────────────────────────────────────────────────
+export function listCronKeys(): string[] {
+  return Object.keys(dispatchers);
+}

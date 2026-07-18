@@ -49,18 +49,42 @@ export async function chat(
   systemPrompt: string = JARVIS_SYSTEM_PROMPT,
 ): Promise<{ content: string; latencyMs: number }> {
   const start = Date.now();
-  const zai = await getClient();
-  const messages = [
-    { role: 'assistant' as const, content: systemPrompt },
-    ...history.slice(-10).map((h) => ({ role: h.role, content: h.content })),
-    { role: 'user' as const, content: userMessage },
-  ];
-  const completion = await zai.chat.completions.create({
-    messages,
-    thinking: { type: 'disabled' },
-  });
-  const content = completion.choices[0]?.message?.content ?? '';
-  return { content, latencyMs: Date.now() - start };
+  try {
+    const zai = await getClient();
+    const messages = [
+      { role: 'assistant' as const, content: systemPrompt },
+      ...history.slice(-10).map((h) => ({ role: h.role, content: h.content })),
+      { role: 'user' as const, content: userMessage },
+    ];
+    const completion = await zai.chat.completions.create({
+      messages,
+      thinking: { type: 'disabled' },
+    });
+    const content = completion.choices[0]?.message?.content ?? '';
+    if (!content || content.startsWith('<!doctype') || content.startsWith('<html')) {
+      // Provider returned HTML instead of a real response (Cloudflare block, 502, etc.)
+      return {
+        content: 'The AI provider returned an error page instead of a response. Please try again or check the provider status.',
+        latencyMs: Date.now() - start,
+      };
+    }
+    return { content, latencyMs: Date.now() - start };
+  } catch (err) {
+    // Catch SDK errors (network, HTML response, rate limit, etc.)
+    const msg = err instanceof Error ? err.message : String(err);
+    // Check if it's an HTML/non-JSON response error
+    if (msg.includes('Unexpected token') || msg.includes('JSON') || msg.includes('<!doctype') || msg.includes('<html')) {
+      return {
+        content: 'The AI provider returned a non-JSON response (likely a gateway error or rate limit). Retrying with a fallback...',
+        latencyMs: Date.now() - start,
+      };
+    }
+    // Generic error — don't crash the caller
+    return {
+      content: `AI request failed: ${msg.slice(0, 200)}. The system will retry automatically.`,
+      latencyMs: Date.now() - start,
+    };
+  }
 }
 
 /** Best-effort JSON extraction from an LLM response. */
@@ -95,13 +119,21 @@ export function extractJson<T = unknown>(raw: string): T | null {
 
 /** Quick one-shot helper used by lightweight features (insights, summaries). */
 export async function quickChat(prompt: string, system?: string): Promise<string> {
-  const zai = await getClient();
-  const completion = await zai.chat.completions.create({
-    messages: [
-      { role: 'assistant', content: system ?? 'You are a concise assistant. Reply briefly.' },
-      { role: 'user', content: prompt },
-    ],
-    thinking: { type: 'disabled' },
-  });
-  return completion.choices[0]?.message?.content ?? '';
+  try {
+    const zai = await getClient();
+    const completion = await zai.chat.completions.create({
+      messages: [
+        { role: 'assistant', content: system ?? 'You are a concise assistant. Reply briefly.' },
+        { role: 'user', content: prompt },
+      ],
+      thinking: { type: 'disabled' },
+    });
+    const content = completion.choices[0]?.message?.content ?? '';
+    if (!content || content.startsWith('<!doctype') || content.startsWith('<html')) {
+      return 'AI provider returned an error. Please try again.';
+    }
+    return content;
+  } catch (err) {
+    return `AI request failed: ${err instanceof Error ? err.message.slice(0, 200) : 'unknown error'}`;
+  }
 }

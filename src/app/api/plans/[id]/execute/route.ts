@@ -119,6 +119,21 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
         data: { status: 'completed', result, verifiedAt: new Date() },
       });
       results.push({ stepId: step.id, status: 'completed', result: result.slice(0, 200) });
+
+      // Saga checkpoint: save progress after each step so we can resume after crash
+      const completedStepIds = results.filter(r => r.status === 'completed').map(r => r.stepId);
+      await db.plan.update({
+        where: { id },
+        data: {
+          checkpoint: JSON.stringify({
+            completedSteps: completedStepIds,
+            currentStep: step.stepNumber,
+            totalSteps: plan.steps.length,
+            context: { lastResult: result.slice(0, 500) },
+            updatedAt: new Date().toISOString(),
+          }),
+        },
+      });
     } catch (e) {
       await db.planStep.update({
         where: { id: step.id },

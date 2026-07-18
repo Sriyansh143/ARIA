@@ -725,6 +725,7 @@ model Plan {
   description String?
   goal        String
   status      String   @default("draft") // draft | executing | completed | failed | paused
+  checkpoint  String?  // JSON: { completedSteps: [], currentStep: N, context: {} }
   steps       PlanStep[]
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt

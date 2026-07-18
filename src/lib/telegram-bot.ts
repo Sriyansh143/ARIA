@@ -146,6 +146,48 @@ export async function handleTelegramUpdate(update: {
   // Handle text message (command from owner)
   if (update.message?.text) {
     const text = update.message.text;
+
+    // Handle special commands
+    if (text === '/pause' || text === '/stop') {
+      try {
+        await fetch('http://localhost:3000/api/system/autonomy', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ action: 'pause' }),
+        });
+        await sendToOwner('🛑 *Autonomy PAUSED*\n\nAll cron jobs are now paused. The dashboard remains operational. Send /resume to restart.');
+        return { ok: true, response: 'Autonomy paused' };
+      } catch {
+        return { ok: false, response: 'Failed to pause' };
+      }
+    }
+
+    if (text === '/resume' || text === '/start') {
+      try {
+        await fetch('http://localhost:3000/api/system/autonomy', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ action: 'resume' }),
+        });
+        await sendToOwner('✅ *Autonomy RESUMED*\n\nAll cron jobs are now active again.');
+        return { ok: true, response: 'Autonomy resumed' };
+      } catch {
+        return { ok: false, response: 'Failed to resume' };
+      }
+    }
+
+    if (text === '/status') {
+      try {
+        const r = await fetch('http://localhost:3000/api/system/autonomy');
+        const data = await r.json();
+        const status = data.paused ? 'PAUSED' : 'ACTIVE';
+        await sendToOwner(`📊 *System Status*\n\nAutonomy: ${status}\nTime: ${new Date().toISOString()}`);
+        return { ok: true, response: `Status: ${status}` };
+      } catch {
+        return { ok: false, response: 'Failed to get status' };
+      }
+    }
+
     // Forward to the Orion command API
     try {
       const r = await fetch('http://localhost:3000/api/orion/command', {
