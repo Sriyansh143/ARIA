@@ -2,7 +2,10 @@
 
 import { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Bot, Plus, X, RefreshCw, Power } from 'lucide-react';
+import {
+  Bot, Plus, X, RefreshCw, Power, MessageSquare, ListTodo, Copy,
+  Activity, Settings, Send, Loader2, ChevronRight, Clock, Cpu,
+} from 'lucide-react';
 import { useApi, postJson, patchJson } from '@/lib/hooks/use-api';
 import { JARVIS, STATUS_COLORS } from '@/lib/config';
 import { SectionTitle, StatusDot, Pill, EmptyState } from '@/components/jarvis/shared';
@@ -10,12 +13,18 @@ import { useToast } from '@/hooks/use-toast';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Button } from '@/components/ui/button';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { useTabNav } from '@/lib/nav-store';
 
 interface Agent {
   id: string; name: string; codename: string; role: string; status: string;
   skills: string; model: string; taskCount: number; logCount: number;
   successRate: number; load: number; lastActive: string;
   logs?: Array<{ id: string; level: string; message: string; createdAt: string }>;
+}
+
+interface Task {
+  id: string; title: string; status: string; priority: string; assigneeId: string | null;
 }
 
 const STATUS_CYCLE = ['idle', 'thinking', 'working', 'error', 'offline'] as const;
@@ -25,6 +34,8 @@ export default function FleetTab() {
   const { toast } = useToast();
   const [selected, setSelected] = useState<Agent | null>(null);
   const [spawnOpen, setSpawnOpen] = useState(false);
+  const [q, setQ] = useState('');
+  const [statusFilter, setStatusFilter] = useState<string>('all');
 
   const cycleStatus = async (a: Agent) => {
     const idx = STATUS_CYCLE.indexOf(a.status as never);
@@ -33,6 +44,20 @@ export default function FleetTab() {
     toast({ title: `${a.codename} → ${next}` });
     refresh();
   };
+
+  const filtered = (data?.agents ?? []).filter((a) => {
+    if (statusFilter !== 'all' && a.status !== statusFilter) return false;
+    if (q) {
+      const ql = q.toLowerCase();
+      return a.codename.toLowerCase().includes(ql) || a.name.toLowerCase().includes(ql) || a.role.toLowerCase().includes(ql);
+    }
+    return true;
+  });
+
+  const statusCounts = (data?.agents ?? []).reduce<Record<string, number>>((acc, a) => {
+    acc[a.status] = (acc[a.status] ?? 0) + 1;
+    return acc;
+  }, {});
 
   return (
     <div className="space-y-4">
@@ -52,22 +77,71 @@ export default function FleetTab() {
         }
       />
 
+      {/* Filter bar */}
+      <div className="flex flex-wrap items-center gap-2">
+        <Input
+          value={q}
+          onChange={(e) => setQ(e.target.value)}
+          placeholder="Search agents by codename, name, or role…"
+          className="bg-[var(--j-panel-soft)] border-[var(--j-border)] max-w-xs h-8 text-xs"
+        />
+        <div className="flex gap-1 flex-wrap">
+          {['all', 'idle', 'thinking', 'working', 'error', 'offline'].map((s) => {
+            const count = s === 'all' ? (data?.agents?.length ?? 0) : (statusCounts[s] ?? 0);
+            const active = statusFilter === s;
+            const color = s === 'all' ? JARVIS.colors.cyan : (STATUS_COLORS[s as keyof typeof STATUS_COLORS] ?? JARVIS.colors.textDim);
+            return (
+              <button
+                key={s}
+                onClick={() => setStatusFilter(s)}
+                className={`jarvis-mono text-[9px] uppercase px-2 py-1 rounded border transition-all flex items-center gap-1.5 ${
+                  active ? 'bg-[var(--j-panel-soft)] text-[var(--j-text)]' : 'text-[var(--j-text-mute)] hover:text-[var(--j-text)]'
+                }`}
+                style={active ? { borderColor: color, color } : { borderColor: 'var(--j-border-soft)' }}
+              >
+                {s}
+                <span className="text-[8px] opacity-70">{count}</span>
+              </button>
+            );
+          })}
+        </div>
+        <div className="ml-auto jarvis-mono text-[10px] uppercase text-[var(--j-text-mute)]">
+          {filtered.length} / {data?.agents?.length ?? 0} agents
+        </div>
+      </div>
+
       {loading && !data ? (
-        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">{Array.from({ length: 6 }).map((_, i) => <div key={i} className="jarvis-panel h-40 animate-pulse" />)}</div>
-      ) : data?.agents?.length ? (
+        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">{Array.from({ length: 6 }).map((_, i) => (
+          <div key={i} className="jarvis-panel h-40 animate-pulse">
+            <div className="h-full flex flex-col">
+              <div className="h-8 bg-[var(--j-panel-soft)] m-3 rounded" />
+              <div className="h-3 bg-[var(--j-panel-soft)] mx-3 rounded w-2/3" />
+              <div className="grid grid-cols-3 gap-2 p-3 mt-auto">
+                <div className="h-10 bg-[var(--j-panel-soft)] rounded" />
+                <div className="h-10 bg-[var(--j-panel-soft)] rounded" />
+                <div className="h-10 bg-[var(--j-panel-soft)] rounded" />
+              </div>
+            </div>
+          </div>
+        ))}</div>
+      ) : filtered.length ? (
         <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
-          {data.agents.map((a, i) => {
+          {filtered.map((a, i) => {
             const skills: string[] = JSON.parse(a.skills || '[]');
             const color = STATUS_COLORS[a.status as keyof typeof STATUS_COLORS] ?? JARVIS.colors.textDim;
+            const loadColor = a.load > 80 ? JARVIS.colors.red : a.load > 50 ? JARVIS.colors.amber : JARVIS.colors.green;
             return (
               <motion.div
                 key={a.id}
                 initial={{ opacity: 0, y: 10 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: i * 0.03 }}
-                className="jarvis-panel jarvis-card-hover p-4 cursor-pointer"
+                className="jarvis-panel jarvis-card-hover p-4 cursor-pointer group relative overflow-hidden"
                 onClick={() => openDetail(a, setSelected)}
               >
+                {/* Status accent bar */}
+                <div className="absolute top-0 left-0 right-0 h-[2px]" style={{ background: `linear-gradient(90deg, ${color}, transparent)` }} />
+
                 <div className="flex items-start justify-between mb-3">
                   <div className="flex items-center gap-2.5">
                     <StatusDot status={a.status as never} size={10} />
@@ -84,9 +158,20 @@ export default function FleetTab() {
                 <div className="text-xs text-[var(--j-text-dim)] mb-3">{a.role}</div>
 
                 <div className="grid grid-cols-3 gap-2 mb-3">
-                  <MiniStat label="Load" value={`${Math.round(a.load)}%`} color={JARVIS.colors.cyan} />
+                  <MiniStat label="Load" value={`${Math.round(a.load)}%`} color={loadColor} />
                   <MiniStat label="Success" value={`${a.successRate}%`} color={JARVIS.colors.green} />
                   <MiniStat label="Tasks" value={String(a.taskCount)} color={JARVIS.colors.amber} />
+                </div>
+
+                {/* Load bar */}
+                <div className="h-1 rounded-full bg-[var(--j-border)] overflow-hidden mb-3">
+                  <motion.div
+                    className="h-full rounded-full"
+                    style={{ background: `linear-gradient(90deg, ${loadColor}, ${loadColor}aa)` }}
+                    initial={{ width: 0 }}
+                    animate={{ width: `${Math.min(100, a.load)}%` }}
+                    transition={{ duration: 0.6, delay: i * 0.03 }}
+                  />
                 </div>
 
                 <div className="flex flex-wrap gap-1">
@@ -97,7 +182,9 @@ export default function FleetTab() {
                 </div>
 
                 <div className="flex items-center justify-between mt-3 pt-3 border-t border-[var(--j-border-soft)]">
-                  <span className="jarvis-mono text-[9px] uppercase text-[var(--j-text-mute)]">{a.model}</span>
+                  <span className="jarvis-mono text-[9px] uppercase text-[var(--j-text-mute)] flex items-center gap-1">
+                    <Cpu className="h-3 w-3" /> {a.model}
+                  </span>
                   <button
                     onClick={(e) => { e.stopPropagation(); cycleStatus(a); }}
                     className="jarvis-mono text-[9px] uppercase text-[var(--j-cyan)] hover:underline flex items-center gap-1"
@@ -105,18 +192,23 @@ export default function FleetTab() {
                     <Power className="h-3 w-3" /> cycle
                   </button>
                 </div>
+
+                {/* Hover hint */}
+                <div className="absolute bottom-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                  <ChevronRight className="h-3 w-3 text-[var(--j-cyan)]" />
+                </div>
               </motion.div>
             );
           })}
         </div>
       ) : (
-        <EmptyState icon={Bot} message="No agents deployed" />
+        <EmptyState icon={Bot} message="No agents match your filters" />
       )}
 
       {/* Detail modal */}
       <AnimatePresence>
         {selected && (
-          <DetailModal agent={selected} onClose={() => setSelected(null)} onCycle={cycleStatus} />
+          <DetailModal agent={selected} onClose={() => setSelected(null)} onCycle={cycleStatus} onUpdated={() => refresh()} />
         )}
       </AnimatePresence>
 
@@ -147,55 +239,392 @@ function MiniStat({ label, value, color }: { label: string; value: string; color
   );
 }
 
-function DetailModal({ agent, onClose, onCycle }: { agent: Agent; onClose: () => void; onCycle: (a: Agent) => void }) {
+type DetailTab = 'overview' | 'logs' | 'actions';
+
+function DetailModal({ agent, onClose, onCycle, onUpdated }: { agent: Agent; onClose: () => void; onCycle: (a: Agent) => void; onUpdated: () => void }) {
+  const [tab, setTab] = useState<DetailTab>('overview');
   const skills: string[] = JSON.parse(agent.skills || '[]');
   const color = STATUS_COLORS[agent.status as keyof typeof STATUS_COLORS] ?? JARVIS.colors.textDim;
+
   return (
     <motion.div className="fixed inset-0 z-50 flex items-center justify-center p-4" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
       <div className="absolute inset-0 bg-black/70 backdrop-blur-sm" onClick={onClose} />
-      <motion.div initial={{ scale: 0.96, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.96, opacity: 0 }} className="relative w-full max-w-lg jarvis-panel p-0 overflow-hidden max-h-[85vh] flex flex-col">
+      <motion.div
+        initial={{ scale: 0.96, opacity: 0, y: 10 }}
+        animate={{ scale: 1, opacity: 1, y: 0 }}
+        exit={{ scale: 0.96, opacity: 0, y: 10 }}
+        className="relative w-full max-w-2xl jarvis-panel p-0 overflow-hidden max-h-[88vh] flex flex-col"
+      >
+        {/* Header with gradient accent */}
+        <div className="absolute top-0 left-0 right-0 h-[3px]" style={{ background: `linear-gradient(90deg, ${color}, ${color}40, transparent)` }} />
+
         <div className="flex items-center justify-between p-4 border-b border-[var(--j-border)]">
           <div className="flex items-center gap-3">
-            <StatusDot status={agent.status as never} size={12} />
+            <div className="relative">
+              <StatusDot status={agent.status as never} size={12} />
+              <div className="absolute inset-0 rounded-full animate-ping opacity-30" style={{ background: color }} />
+            </div>
             <div>
               <div className="jarvis-mono text-lg font-bold" style={{ color }}>{agent.codename}</div>
-              <div className="text-xs text-[var(--j-text-dim)]">{agent.role}</div>
+              <div className="text-xs text-[var(--j-text-dim)]">{agent.role} · {agent.name}</div>
             </div>
           </div>
-          <button onClick={onClose} className="text-[var(--j-text-mute)] hover:text-[var(--j-text)]"><X className="h-4 w-4" /></button>
+          <button onClick={onClose} className="text-[var(--j-text-mute)] hover:text-[var(--j-text)] transition-colors"><X className="h-4 w-4" /></button>
         </div>
-        <div className="p-4 overflow-y-auto jarvis-scroll space-y-4">
-          <div className="grid grid-cols-4 gap-2">
-            <MiniStat label="Load" value={`${Math.round(agent.load)}%`} color={JARVIS.colors.cyan} />
-            <MiniStat label="Success" value={`${agent.successRate}%`} color={JARVIS.colors.green} />
-            <MiniStat label="Tasks" value={String(agent.taskCount)} color={JARVIS.colors.amber} />
-            <MiniStat label="Logs" value={String(agent.logCount)} color={JARVIS.colors.violet} />
-          </div>
-          <div>
-            <div className="jarvis-mono text-[10px] uppercase text-[var(--j-text-mute)] mb-1.5">Skills</div>
-            <div className="flex flex-wrap gap-1.5">
-              {skills.map((s) => <span key={s} className="jarvis-mono text-[10px] uppercase px-2 py-1 rounded bg-[var(--j-panel-soft)] text-[var(--j-cyan)] border border-[var(--j-border)]">{s}</span>)}
-            </div>
-          </div>
-          <div>
-            <div className="jarvis-mono text-[10px] uppercase text-[var(--j-text-mute)] mb-1.5">Recent Logs</div>
-            <div className="space-y-1.5 max-h-48 overflow-y-auto jarvis-scroll">
-              {agent.logs?.length ? agent.logs.map((l) => (
-                <div key={l.id} className="flex items-start gap-2 text-xs">
-                  <span className="jarvis-mono text-[9px] uppercase px-1 py-0.5 rounded shrink-0" style={{ color: levelColor(l.level), background: `${levelColor(l.level)}1a`, border: `1px solid ${levelColor(l.level)}33` }}>{l.level}</span>
-                  <span className="text-[var(--j-text-dim)]">{l.message}</span>
-                </div>
-              )) : <div className="text-xs text-[var(--j-text-mute)]">No recent logs</div>}
-            </div>
-          </div>
-          <div className="flex gap-2">
-            <Button size="sm" className="flex-1 jarvis-btn-accent border-0" onClick={() => onCycle(agent)}>
-              <Power className="h-3.5 w-3.5 mr-1" /> Cycle Status
-            </Button>
-          </div>
+
+        {/* Tab strip */}
+        <div className="flex border-b border-[var(--j-border)] bg-[var(--j-panel-soft)]/30">
+          {([
+            { key: 'overview' as const, label: 'Overview', icon: Activity },
+            { key: 'logs' as const, label: `Logs (${agent.logCount})`, icon: ListTodo },
+            { key: 'actions' as const, label: 'Actions', icon: Settings },
+          ]).map((t) => {
+            const active = tab === t.key;
+            return (
+              <button
+                key={t.key}
+                onClick={() => setTab(t.key)}
+                className={`flex-1 flex items-center justify-center gap-1.5 py-2.5 text-xs jarvis-mono uppercase transition-all relative ${
+                  active ? 'text-[var(--j-cyan)]' : 'text-[var(--j-text-mute)] hover:text-[var(--j-text-dim)]'
+                }`}
+              >
+                <t.icon className="h-3.5 w-3.5" />
+                {t.label}
+                {active && (
+                  <motion.div
+                    layoutId="detail-tab-indicator"
+                    className="absolute bottom-0 left-0 right-0 h-[2px]"
+                    style={{ background: JARVIS.colors.cyan }}
+                  />
+                )}
+              </button>
+            );
+          })}
+        </div>
+
+        <div className="p-4 overflow-y-auto jarvis-scroll flex-1">
+          <AnimatePresence mode="wait">
+            <motion.div
+              key={tab}
+              initial={{ opacity: 0, x: 8 }}
+              animate={{ opacity: 1, x: 0 }}
+              exit={{ opacity: 0, x: -8 }}
+              transition={{ duration: 0.15 }}
+            >
+              {tab === 'overview' && <OverviewPane agent={agent} skills={skills} color={color} />}
+              {tab === 'logs' && <LogsPane agent={agent} />}
+              {tab === 'actions' && (
+                <ActionsPane agent={agent} onCycle={onCycle} onUpdated={onUpdated} onClose={onClose} />
+              )}
+            </motion.div>
+          </AnimatePresence>
         </div>
       </motion.div>
     </motion.div>
+  );
+}
+
+function OverviewPane({ agent, skills, color }: { agent: Agent; skills: string[]; color: string }) {
+  const loadColor = agent.load > 80 ? JARVIS.colors.red : agent.load > 50 ? JARVIS.colors.amber : JARVIS.colors.green;
+  return (
+    <div className="space-y-4">
+      {/* Stats grid */}
+      <div className="grid grid-cols-4 gap-2">
+        <MiniStat label="Load" value={`${Math.round(agent.load)}%`} color={loadColor} />
+        <MiniStat label="Success" value={`${agent.successRate}%`} color={JARVIS.colors.green} />
+        <MiniStat label="Tasks" value={String(agent.taskCount)} color={JARVIS.colors.amber} />
+        <MiniStat label="Logs" value={String(agent.logCount)} color={JARVIS.colors.violet} />
+      </div>
+
+      {/* Load + success bars */}
+      <div className="space-y-2">
+        <div>
+          <div className="flex justify-between text-[10px] jarvis-mono uppercase text-[var(--j-text-mute)] mb-1">
+            <span>Load</span><span style={{ color: loadColor }}>{Math.round(agent.load)}%</span>
+          </div>
+          <div className="h-2 rounded-full bg-[var(--j-border)] overflow-hidden">
+            <motion.div className="h-full rounded-full" style={{ background: loadColor }} initial={{ width: 0 }} animate={{ width: `${agent.load}%` }} transition={{ duration: 0.5 }} />
+          </div>
+        </div>
+        <div>
+          <div className="flex justify-between text-[10px] jarvis-mono uppercase text-[var(--j-text-mute)] mb-1">
+            <span>Success Rate</span><span style={{ color: JARVIS.colors.green }}>{agent.successRate}%</span>
+          </div>
+          <div className="h-2 rounded-full bg-[var(--j-border)] overflow-hidden">
+            <motion.div className="h-full rounded-full" style={{ background: JARVIS.colors.green }} initial={{ width: 0 }} animate={{ width: `${agent.successRate}%` }} transition={{ duration: 0.5 }} />
+          </div>
+        </div>
+      </div>
+
+      {/* Status + model */}
+      <div className="grid grid-cols-2 gap-3">
+        <div className="p-3 rounded bg-[var(--j-panel-soft)]/50 border border-[var(--j-border-soft)]">
+          <div className="jarvis-mono text-[9px] uppercase text-[var(--j-text-mute)] mb-1">Status</div>
+          <div className="flex items-center gap-2">
+            <span className="h-2 w-2 rounded-full" style={{ background: color, boxShadow: `0 0 8px ${color}` }} />
+            <span className="text-sm font-semibold" style={{ color }}>{agent.status}</span>
+          </div>
+        </div>
+        <div className="p-3 rounded bg-[var(--j-panel-soft)]/50 border border-[var(--j-border-soft)]">
+          <div className="jarvis-mono text-[9px] uppercase text-[var(--j-text-mute)] mb-1">Model</div>
+          <div className="text-sm font-semibold text-[var(--j-text)] flex items-center gap-1.5">
+            <Cpu className="h-3.5 w-3.5 text-[var(--j-cyan)]" /> {agent.model}
+          </div>
+        </div>
+      </div>
+
+      {/* Last active */}
+      <div className="flex items-center gap-2 text-xs text-[var(--j-text-mute)]">
+        <Clock className="h-3 w-3" />
+        <span>Last active: {new Date(agent.lastActive).toLocaleString()}</span>
+      </div>
+
+      {/* Skills */}
+      <div>
+        <div className="jarvis-mono text-[10px] uppercase text-[var(--j-text-mute)] mb-1.5">Skills ({skills.length})</div>
+        <div className="flex flex-wrap gap-1.5">
+          {skills.length ? skills.map((s) => (
+            <span key={s} className="jarvis-mono text-[10px] uppercase px-2 py-1 rounded bg-[var(--j-panel-soft)] text-[var(--j-cyan)] border border-[var(--j-border)]">{s}</span>
+          )) : <span className="text-xs text-[var(--j-text-mute)]">No skills assigned</span>}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function LogsPane({ agent }: { agent: Agent }) {
+  const { data, loading } = useApi<{ logs: Array<{ id: string; level: string; message: string; createdAt: string }> }>(
+    `/api/logs?agent=${agent.codename}&limit=50`,
+    10000,
+  );
+  const logs = data?.logs ?? agent.logs ?? [];
+
+  if (loading && !data) {
+    return <div className="space-y-2">{Array.from({ length: 4 }).map((_, i) => <div key={i} className="h-8 bg-[var(--j-panel-soft)] animate-pulse rounded" />)}</div>;
+  }
+
+  return (
+    <div className="space-y-1.5 max-h-96 overflow-y-auto jarvis-scroll">
+      {logs.length ? logs.map((l) => (
+        <div key={l.id} className="flex items-start gap-2 text-xs p-2 rounded hover:bg-[var(--j-panel-soft)]/50 transition-colors">
+          <span className="jarvis-mono text-[9px] uppercase px-1.5 py-0.5 rounded shrink-0" style={{ color: levelColor(l.level), background: `${levelColor(l.level)}1a`, border: `1px solid ${levelColor(l.level)}33` }}>
+            {l.level}
+          </span>
+          <span className="text-[var(--j-text-dim)] flex-1">{l.message}</span>
+          <span className="jarvis-mono text-[9px] text-[var(--j-text-mute)] shrink-0">{new Date(l.createdAt).toLocaleTimeString()}</span>
+        </div>
+      )) : <div className="text-xs text-[var(--j-text-mute)] text-center py-8">No logs recorded for this agent</div>}
+    </div>
+  );
+}
+
+function ActionsPane({ agent, onCycle, onUpdated, onClose }: { agent: Agent; onCycle: (a: Agent) => void; onUpdated: () => void; onClose: () => void }) {
+  const navigate = useTabNav();
+  const { toast } = useToast();
+  const [busy, setBusy] = useState<string | null>(null);
+
+  // Assign task form state
+  const [taskTitle, setTaskTitle] = useState('');
+  const [taskPriority, setTaskPriority] = useState('medium');
+
+  // Send comms form state
+  const [commsSubject, setCommsSubject] = useState('');
+  const [commsBody, setCommsBody] = useState('');
+  const [commsPriority, setCommsPriority] = useState('normal');
+
+  // Edit model state
+  const [model, setModel] = useState(agent.model);
+
+  const assignTask = async () => {
+    if (!taskTitle.trim()) { toast({ title: 'Task title required', variant: 'destructive' }); return; }
+    setBusy('task');
+    try {
+      const res = await postJson('/api/tasks', { title: taskTitle, priority: taskPriority, assigneeId: agent.id });
+      toast({ title: `Task assigned to ${agent.codename}`, description: taskTitle });
+      setTaskTitle('');
+      onUpdated();
+    } catch (e) {
+      toast({ title: 'Assign failed', description: e instanceof Error ? e.message : '', variant: 'destructive' });
+    } finally {
+      setBusy(null);
+    }
+  };
+
+  const sendComms = async () => {
+    if (!commsSubject.trim() || !commsBody.trim()) { toast({ title: 'Subject and body required', variant: 'destructive' }); return; }
+    setBusy('comms');
+    try {
+      await postJson('/api/comms', {
+        fromAgent: 'ORION',
+        toAgent: agent.codename,
+        subject: commsSubject,
+        body: commsBody,
+        priority: commsPriority,
+        thread: 'ops',
+      });
+      toast({ title: `Message sent to ${agent.codename}` });
+      setCommsSubject('');
+      setCommsBody('');
+      onUpdated();
+    } catch (e) {
+      toast({ title: 'Send failed', description: e instanceof Error ? e.message : '', variant: 'destructive' });
+    } finally {
+      setBusy(null);
+    }
+  };
+
+  const spawnSubAgent = async () => {
+    setBusy('spawn');
+    try {
+      await postJson('/api/agents/spawn', {
+        parentCodename: agent.codename,
+        role: `Sub-agent under ${agent.codename}`,
+        reason: 'Manual spawn from fleet detail',
+      });
+      toast({ title: `Sub-agent spawned under ${agent.codename}` });
+      navigate('spawned');
+      onClose();
+    } catch (e) {
+      toast({ title: 'Spawn failed', description: e instanceof Error ? e.message : '', variant: 'destructive' });
+    } finally {
+      setBusy(null);
+    }
+  };
+
+  const updateModel = async () => {
+    if (!model.trim()) return;
+    setBusy('model');
+    try {
+      await patchJson(`/api/agents/${agent.id}`, { model });
+      toast({ title: `Model updated to ${model}` });
+      onUpdated();
+    } catch (e) {
+      toast({ title: 'Update failed', description: e instanceof Error ? e.message : '', variant: 'destructive' });
+    } finally {
+      setBusy(null);
+    }
+  };
+
+  return (
+    <div className="space-y-4">
+      {/* Assign Task */}
+      <div className="p-3 rounded border border-[var(--j-border-soft)] bg-[var(--j-panel-soft)]/30">
+        <div className="flex items-center gap-2 mb-2">
+          <ListTodo className="h-3.5 w-3.5 text-[var(--j-amber)]" />
+          <span className="jarvis-mono text-[10px] uppercase text-[var(--j-text)]">Assign New Task</span>
+        </div>
+        <div className="space-y-2">
+          <Input
+            value={taskTitle}
+            onChange={(e) => setTaskTitle(e.target.value)}
+            placeholder="Task title…"
+            className="bg-[var(--j-panel)] border-[var(--j-border)] h-8 text-xs"
+          />
+          <div className="flex gap-2">
+            <Select value={taskPriority} onValueChange={setTaskPriority}>
+              <SelectTrigger className="bg-[var(--j-panel)] border-[var(--j-border)] h-8 text-xs flex-1">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="low">Low</SelectItem>
+                <SelectItem value="medium">Medium</SelectItem>
+                <SelectItem value="high">High</SelectItem>
+                <SelectItem value="critical">Critical</SelectItem>
+              </SelectContent>
+            </Select>
+            <Button size="sm" onClick={assignTask} disabled={busy === 'task'} className="jarvis-btn-accent border-0">
+              {busy === 'task' ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Plus className="h-3.5 w-3.5 mr-1" />}
+              Assign
+            </Button>
+          </div>
+        </div>
+      </div>
+
+      {/* Send Comms */}
+      <div className="p-3 rounded border border-[var(--j-border-soft)] bg-[var(--j-panel-soft)]/30">
+        <div className="flex items-center gap-2 mb-2">
+          <MessageSquare className="h-3.5 w-3.5 text-[var(--j-violet)]" />
+          <span className="jarvis-mono text-[10px] uppercase text-[var(--j-text)]">Send Message</span>
+        </div>
+        <div className="space-y-2">
+          <Input
+            value={commsSubject}
+            onChange={(e) => setCommsSubject(e.target.value)}
+            placeholder="Subject…"
+            className="bg-[var(--j-panel)] border-[var(--j-border)] h-8 text-xs"
+          />
+          <Textarea
+            value={commsBody}
+            onChange={(e) => setCommsBody(e.target.value)}
+            placeholder="Message body…"
+            className="bg-[var(--j-panel)] border-[var(--j-border)] min-h-[60px] text-xs"
+          />
+          <div className="flex gap-2">
+            <Select value={commsPriority} onValueChange={setCommsPriority}>
+              <SelectTrigger className="bg-[var(--j-panel)] border-[var(--j-border)] h-8 text-xs flex-1">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="normal">Normal</SelectItem>
+                <SelectItem value="high">High</SelectItem>
+                <SelectItem value="urgent">Urgent</SelectItem>
+              </SelectContent>
+            </Select>
+            <Button size="sm" onClick={sendComms} disabled={busy === 'comms'} className="jarvis-btn-accent border-0">
+              {busy === 'comms' ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Send className="h-3.5 w-3.5 mr-1" />}
+              Send
+            </Button>
+          </div>
+        </div>
+      </div>
+
+      {/* Spawn Sub-Agent */}
+      <div className="p-3 rounded border border-[var(--j-border-soft)] bg-[var(--j-panel-soft)]/30">
+        <div className="flex items-center gap-2 mb-2">
+          <Copy className="h-3.5 w-3.5 text-[var(--j-cyan)]" />
+          <span className="jarvis-mono text-[10px] uppercase text-[var(--j-text)]">Spawn Sub-Agent</span>
+        </div>
+        <p className="text-[11px] text-[var(--j-text-mute)] mb-2">
+          Create an ephemeral child agent under {agent.codename} for parallel task execution. Sub-agents inherit the parent's skills + model.
+        </p>
+        <Button size="sm" onClick={spawnSubAgent} disabled={busy === 'spawn'} className="w-full jarvis-btn-accent border-0">
+          {busy === 'spawn' ? <Loader2 className="h-3.5 w-3.5 animate-spin mr-1" /> : <Copy className="h-3.5 w-3.5 mr-1" />}
+          Spawn Under {agent.codename}
+        </Button>
+      </div>
+
+      {/* Edit Model */}
+      <div className="p-3 rounded border border-[var(--j-border-soft)] bg-[var(--j-panel-soft)]/30">
+        <div className="flex items-center gap-2 mb-2">
+          <Cpu className="h-3.5 w-3.5 text-[var(--j-green)]" />
+          <span className="jarvis-mono text-[10px] uppercase text-[var(--j-text)]">Model Configuration</span>
+        </div>
+        <div className="flex gap-2">
+          <Input
+            value={model}
+            onChange={(e) => setModel(e.target.value)}
+            className="bg-[var(--j-panel)] border-[var(--j-border)] h-8 text-xs flex-1"
+          />
+          <Button size="sm" onClick={updateModel} disabled={busy === 'model' || model === agent.model} className="jarvis-btn-accent border-0">
+            {busy === 'model' ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Settings className="h-3.5 w-3.5 mr-1" />}
+            Save
+          </Button>
+        </div>
+      </div>
+
+      {/* Quick actions */}
+      <div className="flex gap-2 pt-2 border-t border-[var(--j-border-soft)]">
+        <Button size="sm" variant="outline" onClick={() => onCycle(agent)} className="flex-1 border-[var(--j-border)] bg-transparent">
+          <Power className="h-3.5 w-3.5 mr-1" /> Cycle Status
+        </Button>
+        <Button size="sm" variant="outline" onClick={() => { navigate('comms'); onClose(); }} className="flex-1 border-[var(--j-border)] bg-transparent">
+          <MessageSquare className="h-3.5 w-3.5 mr-1" /> Comms
+        </Button>
+        <Button size="sm" variant="outline" onClick={() => { navigate('tasks', { assigneeId: agent.id }); onClose(); }} className="flex-1 border-[var(--j-border)] bg-transparent">
+          <ListTodo className="h-3.5 w-3.5 mr-1" /> Tasks
+        </Button>
+      </div>
+    </div>
   );
 }
 

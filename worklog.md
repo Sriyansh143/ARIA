@@ -2258,3 +2258,119 @@ Stage Summary:
 - **14 Orion intents** with structured responses + contextual suggestions
 - **Global nav store** (Zustand) for click-to-navigate from any component
 - **0 lint errors, 0 page errors, 0 console errors**
+
+---
+Task ID: CRON-WEBDEVREVIEW-2
+Agent: main (Z.ai Code) — webDevReview cron run #2
+Task: Assess project status, perform QA via agent-browser, fix bugs, add features, improve styling.
+
+Work Log:
+- Read worklog tail (INTEGRATION-FINAL entry) — prior session built 6 major features (Fleet Health, Payment Methods, Demo Data, Model Sync, User Action Tracking, Smarter Orion Shell) + intelligent sidebar regrouping + clickable cards.
+- **QA Assessment**:
+  - Dev server: HTTP 200, all 17 API endpoints return 200, 0 errors in dev.log.
+  - Lint: clean (0 errors, 0 warnings).
+  - Prisma schema drift (noted in prior worklog): VERIFIED RESOLVED — `bunx prisma db push` reports "database is already in sync".
+  - agent-browser sweep of 10+ tabs (Overview, Fleet, Tasks, Kanban, Memory, Comms, Analytics, Reports, Services, Insights, Health, Models, Agent Monitor): ALL render cleanly, 0 page errors, 0 console errors.
+  - AI Insights LLM response loads correctly ("All agents idle while tasks pending indicates workflow disruption…").
+  - All clickable cards navigate correctly (stat cards, system rows, agent list, task list, notifications).
+  - Sticky footer verified: pushes down naturally on long content, sticks to viewport on short content.
+  - Responsive: sidebar hidden on mobile viewport, visible on desktop.
+- **Identified enhancement opportunities** (no bugs found, app is stable):
+  1. Agent Detail Modal too basic — only "Cycle Status" button, missing Assign Task / Send Comms / Spawn Sub-Agent / Edit Model / View Full Logs actions.
+  2. No live activity ticker in header — operator has no real-time event stream.
+  3. Analytics tab missing cross-domain revenue trend chart.
+  4. Leaderboards not clickable to navigate to fleet.
+  5. Styling could use more micro-animations (skeleton loaders, success flashes, error shakes, pulse glows).
+
+**FEATURE 1: Enhanced Agent Detail Modal** (`src/components/tabs/FleetTab.tsx` — full rewrite):
+- Added **search + status filter bar** at the top: text search by codename/name/role + 6 status filter chips (ALL/IDLE/THINKING/WORKING/OFFLINE) with live counts. Shows "N / M agents" filtered count.
+- Agent cards enhanced: status accent bar at top, animated load bar (color-coded: green<50%, amber<80%, red>80%), hover chevron indicator, group-hover effects.
+- Loading skeleton: 6 card placeholders with structured shimmer (header + text + 3 stat boxes).
+- **Detail modal redesigned** with 3 tabs (animated indicator using framer-motion `layoutId`):
+  - **Overview**: 4 stat mini-cards, animated load + success rate bars, status + model info cards with colored dots, last-active timestamp, skills chips with count.
+  - **Logs**: fetches `/api/logs?agent={codename}&limit=50` (was only showing 5 inline logs before), scrollable list with level badges + timestamps, hover highlight per row, loading skeleton state.
+  - **Actions**: 4 action panels + 3 quick-action buttons:
+    - **Assign New Task**: title input + priority select (low/medium/high/critical) + Assign button → POST /api/tasks with assigneeId.
+    - **Send Message**: subject input + body textarea + priority select (normal/high/urgent) + Send button → POST /api/comms (fromAgent=ORION, toAgent=agent.codename).
+    - **Spawn Sub-Agent**: description + Spawn button → POST /api/agents/spawn with parentCodename. Navigates to Spawned Agents tab on success.
+    - **Model Configuration**: model input + Save button → PATCH /api/agents/{id} with new model.
+    - Quick actions: Cycle Status, Comms (navigate), Tasks (navigate with assigneeId context).
+  - All actions use loading spinners (Loader2 animate-spin), toast feedback, and refresh the fleet list on success.
+  - Modal has gradient accent bar at top matching agent status color, animated status dot with ping ring.
+
+**FEATURE 2: Live Activity Ticker** (`src/app/page-client.tsx` — new `ActivityTicker` component):
+- Thin 28px scrolling marquee below the header (inside the `<header>` element).
+- Polls `/api/activity?limit=15` every 10s.
+- "LIVE" badge on the left with pulsing green dot + border-right separator.
+- Infinite horizontal scroll using framer-motion `animate={{ x: ['0%', '-50%'] }}` with duration based on item count (min 20s).
+- Each event: colored icon (error=red AlertCircle, success=green CheckCircle, warn=amber AlertTriangle, comms=violet MessageSquare, task=amber ListTodo, agent=cyan Bot, spawn=green Copy, skill=cyan Sparkles, notification=Bell) + type label + title + relative time.
+- Clicking an event navigates to the relevant tab via `useNavStore` (error→logs, comms→comms, task→tasks, agent→fleet, spawn→spawned, skill→runner, notification→activity).
+- Handles `level` field for color (success/warn/error) in addition to `type`.
+- Added 3 new lucide-react imports: `AlertCircle`, `AlertTriangle`, `CheckCircle`.
+
+**FEATURE 3: Analytics Revenue Trend + Clickable Leaderboards** (`src/components/tabs/AnalyticsTab.tsx`):
+- New `RevenueTrendPanel` component at the bottom of Analytics tab:
+  - Fetches `/api/payments/trend` (14-day series) with 60s polling.
+  - Area chart with green gradient fill, CartesianGrid, XAxis (date labels), YAxis (₹k formatting), custom Tooltip.
+  - 3 summary stats in the header: Total (₹38,290), Daily Avg (₹2,735), Best Day (₹10,998).
+  - Entire panel is clickable → navigates to Payments tab via `useTabNav()`.
+  - "→ Click to view Payments tab" hint with group-hover color change.
+  - Loading skeleton state.
+- Leaderboards made clickable: each agent row is now a `<motion.button>` that navigates to fleet tab with `{ codename }` context.
+- #1 performer now shows a gold star (★) instead of "#1".
+- Agent codename highlights on hover (text color transition).
+- Added imports: `DollarSign`, `TrendingUp`, `AreaChart`, `Area`, `useTabNav`.
+
+**FEATURE 4: Styling Polish** (`src/app/globals.css` — 14 new CSS classes + keyframes):
+- `.jarvis-skeleton` — shimmer skeleton loader (gradient background sliding 200%).
+- `.jarvis-panel-interactive` — gradient border on hover (mask-composite technique).
+- `.jarvis-flash-success` — green background flash for completed actions (1s).
+- `.jarvis-shake` — error shake animation for failed actions (0.4s).
+- `.jarvis-enter` — fade-in-up entrance for new items (0.3s).
+- `.jarvis-pulse-glow` — pulsing box-shadow glow for important badges (2s infinite).
+- `.jarvis-critical-pulse` — red pulsing glow for error/critical badges (1.5s infinite).
+- `.jarvis-progress-animated` — animated gradient slide for progress bars (2s).
+- `.jarvis-lift` — hover lift with transition (translateY -3px).
+- `.jarvis-focus-ring` — accessible focus-visible outline (2px cyan).
+- `.jarvis-scroll-smooth` — smooth scroll + cyan scrollbar thumb with hover.
+- `.jarvis-tooltip-arrow` — tooltip arrow pseudo-element.
+- `.jarvis-glass` — glass morphism (blur 20px + saturate 180%).
+- `.jarvis-bar-loading` — status bar shimmer for loading states (1.5s).
+- `@keyframes jarvis-marquee` — for activity ticker.
+- All animations respect `prefers-reduced-motion: reduce` (added new classes to the media query).
+
+**Verification (agent-browser)**:
+- App loads HTTP 200, 0 page errors, 0 console errors.
+- Activity ticker shows "LIVE" badge + scrolling events (Self-Heal Executed, Cron: Agent Monitors Sweep, Task pending notifications, etc.).
+- Fleet tab: search + status filters work. Agent cards have load bars + hover effects.
+- Agent detail modal: 3 tabs (Overview/Logs/Actions) with animated indicator. Actions tab shows all 4 action panels (Assign Task, Send Message, Spawn Sub-Agent, Model Configuration) + 3 quick-action buttons.
+- Analytics tab: Revenue Trend (14d) chart renders with ₹38,290 total, area chart with green gradient. Leaderboards are clickable buttons.
+- Sticky footer verified (visible at viewport bottom on short content, pushes down on long content).
+- Lint: clean (0 errors, 0 warnings).
+
+Stage Summary:
+- ✅ QA: app stable, 0 bugs, all endpoints 200, lint clean.
+- ✅ FEATURE 1: Enhanced Agent Detail Modal — 3 tabs (Overview/Logs/Actions) with Assign Task, Send Comms, Spawn Sub-Agent, Edit Model, View Full Logs (50), quick-action navigation buttons. Search + status filter bar added to fleet.
+- ✅ FEATURE 2: Live Activity Ticker — scrolling marquee in header, polls /api/activity, clickable events navigate to relevant tabs.
+- ✅ FEATURE 3: Analytics Revenue Trend chart (14-day, clickable to Payments) + clickable leaderboards (navigate to fleet with codename context).
+- ✅ FEATURE 4: 14 new CSS micro-animation classes (skeleton, flash-success, shake, enter, pulse-glow, critical-pulse, progress-animated, lift, focus-ring, glass, etc.) — all reduced-motion friendly.
+- ✅ Dev server restarted (was killed by OOM), now stable HTTP 200.
+- ✅ Lint clean. 0 page errors. All features verified via agent-browser.
+
+## Updated App Stats
+- **41 tabs** across 8 intelligent groups
+- **Enhanced Fleet tab**: search + filters + 3-tab detail modal with 4 action panels
+- **Live activity ticker** in header (scrolling marquee, clickable)
+- **Analytics**: + Revenue Trend chart + clickable leaderboards
+- **14 new CSS micro-animation classes** for polish
+- **0 lint errors, 0 page errors, 0 console errors**
+
+## Pending Works (for next cron run)
+1. Add WebSocket mini-service for true real-time updates (currently polling 10-30s).
+2. Wire skill execution to actually invoke web-search/web-reader skills (currently skill runner is a stub).
+3. Add Task Kanban drag-and-drop enhancement (visual feedback on drag).
+4. Add Memory Graph force-directed visualization improvements.
+5. Add more comprehensive Reports (PDF export, scheduled email reports).
+6. Add light theme polish (some elements may need contrast adjustments).
+7. Add keyboard shortcuts overlay (press `?` to show all shortcuts).
+8. Add export/import for agent configurations (JSON backup/restore).

@@ -10,7 +10,7 @@ import {
   Terminal, Sun, Moon, Share2, Workflow, Sliders, Eye, EyeOff, ChevronUp, ChevronDown, Pin, GitBranch, Rocket, BarChart3, Loader2, Star, FileText,
   Copy, DollarSign, Palette, GraduationCap,
   Building2, Gavel, Puzzle, Briefcase, Target,
-  CreditCard,
+  CreditCard, AlertCircle, AlertTriangle, CheckCircle,
 } from 'lucide-react';
 import { JARVIS, fmtTime } from '@/lib/config';
 import { useApi } from '@/lib/hooks/use-api';
@@ -453,6 +453,8 @@ export default function MissionControlDashboard() {
           <NotificationsBell open={notifOpen} setOpen={setNotifOpen} />
         </div>
         <div className="h-px jarvis-hr" />
+        {/* Live activity ticker — scrolling marquee of recent events */}
+        <ActivityTicker />
       </header>
 
       <div className="flex flex-1 relative z-10">
@@ -660,6 +662,107 @@ function MiniMetric({ icon: Icon, label, value, color }: { icon: typeof Cpu; lab
       <span className="jarvis-mono text-[11px] tabular-nums" style={{ color }}>{value}</span>
     </div>
   );
+}
+
+/**
+ * Live activity ticker — a thin scrolling marquee below the header that shows
+ * the most recent fleet events (agent status changes, task completions, comms,
+ * errors). Polls /api/activity every 10s. Clicking an item navigates to the
+ * relevant tab.
+ */
+function ActivityTicker() {
+  const { data } = useApi<{ events: Array<{ id: string; type: string; level: string; title: string; detail?: string; time: string }> }>(
+    '/api/activity?limit=15',
+    10000,
+  );
+  const navigate = useNavStore((s) => s.navigate);
+  const events = data?.events ?? [];
+
+  if (events.length === 0) return null;
+
+  // Duplicate the events for seamless infinite scroll
+  const items = [...events, ...events];
+
+  return (
+    <div className="h-7 border-b border-[var(--j-border)] bg-[var(--j-panel-soft)]/40 overflow-hidden relative">
+      <div className="absolute left-0 top-0 bottom-0 z-10 flex items-center px-2 bg-[var(--j-panel-soft)] border-r border-[var(--j-border)]">
+        <span className="h-1.5 w-1.5 rounded-full bg-[var(--j-green)] jarvis-blink mr-1.5" />
+        <span className="jarvis-mono text-[9px] uppercase text-[var(--j-green)] tracking-widest">LIVE</span>
+      </div>
+      <div className="flex items-center h-full pl-20 overflow-hidden">
+        <motion.div
+          className="flex items-center gap-6 shrink-0 whitespace-nowrap"
+          animate={{ x: ['0%', '-50%'] }}
+          transition={{ duration: Math.max(20, events.length * 3), repeat: Infinity, ease: 'linear' }}
+        >
+          {items.map((item, i) => {
+            const color = activityColor(item.level || item.type);
+            const Icon = activityIcon(item.type);
+            return (
+              <button
+                key={`${item.id}-${i}`}
+                onClick={() => navigate(activityTab(item.type))}
+                className="flex items-center gap-1.5 text-[10px] text-[var(--j-text-dim)] hover:text-[var(--j-cyan)] transition-colors group"
+              >
+                <Icon className="h-3 w-3 shrink-0" style={{ color }} />
+                <span className="jarvis-mono text-[9px] uppercase shrink-0" style={{ color }}>{item.type}</span>
+                <span className="truncate max-w-[200px] group-hover:text-[var(--j-text)]">{item.title}</span>
+                {item.time && <span className="jarvis-mono text-[9px] text-[var(--j-text-mute)]">· {item.time}</span>}
+              </button>
+            );
+          })}
+        </motion.div>
+      </div>
+    </div>
+  );
+}
+
+function activityColor(typeOrLevel: string): string {
+  switch (typeOrLevel) {
+    case 'error': return JARVIS.colors.red;
+    case 'success': return JARVIS.colors.green;
+    case 'warn': return JARVIS.colors.amber;
+    case 'warning': return JARVIS.colors.amber;
+    case 'comms': return JARVIS.colors.violet;
+    case 'task': return JARVIS.colors.amber;
+    case 'agent': return JARVIS.colors.cyan;
+    case 'spawn': return JARVIS.colors.green;
+    case 'skill': return JARVIS.colors.cyan;
+    case 'notification': return JARVIS.colors.cyan;
+    case 'info': return JARVIS.colors.cyan;
+    default: return JARVIS.colors.cyan;
+  }
+}
+
+function activityIcon(type: string): typeof Activity {
+  switch (type) {
+    case 'error': return AlertCircle;
+    case 'success': return CheckCircle;
+    case 'warn': return AlertTriangle;
+    case 'warning': return AlertTriangle;
+    case 'comms': return MessageSquare;
+    case 'task': return ListTodo;
+    case 'agent': return Bot;
+    case 'spawn': return Copy;
+    case 'skill': return Sparkles;
+    case 'notification': return Bell;
+    case 'info': return Activity;
+    default: return Activity;
+  }
+}
+
+function activityTab(type: string): string {
+  switch (type) {
+    case 'error': return 'logs';
+    case 'comms': return 'comms';
+    case 'task': return 'tasks';
+    case 'agent': return 'fleet';
+    case 'spawn': return 'spawned';
+    case 'skill': return 'runner';
+    case 'notification': return 'activity';
+    case 'info': return 'activity';
+    default: return 'activity';
+  }
 }
 
 function NotificationsBell({ open, setOpen }: { open: boolean; setOpen: (o: boolean) => void }) {

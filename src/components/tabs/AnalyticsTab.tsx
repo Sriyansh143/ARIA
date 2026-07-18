@@ -2,11 +2,12 @@
 
 import { useState } from 'react';
 import { motion } from 'framer-motion';
-import { BarChart3, Bot, Target, Zap, MessageSquare, Activity, Trophy, Award, Radio, Calendar, Download } from 'lucide-react';
-import { BarChart, Bar, PieChart, Pie, Cell, XAxis, YAxis, ResponsiveContainer, Tooltip, CartesianGrid, RadarChart, PolarGrid, PolarAngleAxis, PolarRadiusAxis, Radar, LineChart, Line, Legend } from 'recharts';
+import { BarChart3, Bot, Target, Zap, MessageSquare, Activity, Trophy, Award, Radio, Calendar, Download, DollarSign, TrendingUp } from 'lucide-react';
+import { BarChart, Bar, PieChart, Pie, Cell, XAxis, YAxis, ResponsiveContainer, Tooltip, CartesianGrid, RadarChart, PolarGrid, PolarAngleAxis, PolarRadiusAxis, Radar, LineChart, Line, Legend, AreaChart, Area } from 'recharts';
 import { useApi } from '@/lib/hooks/use-api';
 import { JARVIS } from '@/lib/config';
 import { SectionTitle, StatCard, Pill, EmptyState } from '@/components/jarvis/shared';
+import { useTabNav } from '@/lib/nav-store';
 
 interface PerAgent {
   codename: string; name: string; role: string; status: string; load: number; successRate: number;
@@ -235,6 +236,76 @@ export default function AnalyticsTab() {
           </div>
         </div>
       )}
+
+      {/* Revenue trend (cross-domain insight) */}
+      <RevenueTrendPanel />
+    </div>
+  );
+}
+
+/**
+ * Revenue trend panel — pulls the 14-day payment trend and renders it as a
+ * composed area+line chart. Clickable to navigate to the Payments tab.
+ */
+function RevenueTrendPanel() {
+  const navigate = useTabNav();
+  const { data, loading } = useApi<{
+    series: Array<{ date: string; label: string; total: number; count: number }>;
+    summary?: { total: number; dailyAvg: number; bestDay: number };
+  }>('/api/payments/trend', 60000);
+
+  if (loading && !data) {
+    return <div className="jarvis-panel p-4 h-56 animate-pulse" />;
+  }
+  if (!data || data.series.length === 0) return null;
+
+  const total = data.summary?.total ?? data.series.reduce((s, d) => s + d.total, 0);
+  const bestDay = data.summary?.bestDay ?? Math.max(...data.series.map((d) => d.total));
+  const dailyAvg = data.summary?.dailyAvg ?? Math.round(total / data.series.length);
+
+  return (
+    <div className="jarvis-panel p-4 cursor-pointer group" onClick={() => navigate('payments')}>
+      <SectionTitle
+        title="Revenue Trend (14d)"
+        icon={TrendingUp}
+        accent={JARVIS.colors.green}
+        action={
+          <div className="flex gap-3">
+            <div className="text-right">
+              <div className="jarvis-mono text-[9px] uppercase text-[var(--j-text-mute)]">Total</div>
+              <div className="jarvis-mono text-sm text-[var(--j-green)]">₹{total.toLocaleString()}</div>
+            </div>
+            <div className="text-right">
+              <div className="jarvis-mono text-[9px] uppercase text-[var(--j-text-mute)]">Daily Avg</div>
+              <div className="jarvis-mono text-sm text-[var(--j-cyan)]">₹{dailyAvg.toLocaleString()}</div>
+            </div>
+            <div className="text-right">
+              <div className="jarvis-mono text-[9px] uppercase text-[var(--j-text-mute)]">Best Day</div>
+              <div className="jarvis-mono text-sm text-[var(--j-amber)]">₹{bestDay.toLocaleString()}</div>
+            </div>
+          </div>
+        }
+      />
+      <div className="h-52">
+        <ResponsiveContainer width="100%" height="100%">
+          <AreaChart data={data.series} margin={{ top: 4, right: 8, left: -10, bottom: 0 }}>
+            <defs>
+              <linearGradient id="revGrad" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="0%" stopColor={JARVIS.colors.green} stopOpacity={0.4} />
+                <stop offset="100%" stopColor={JARVIS.colors.green} stopOpacity={0} />
+              </linearGradient>
+            </defs>
+            <CartesianGrid strokeDasharray="3 3" stroke="#1B2330" vertical={false} />
+            <XAxis dataKey="label" tick={{ fill: '#64748B', fontSize: 10 }} axisLine={false} tickLine={false} minTickGap={20} />
+            <YAxis tick={{ fill: '#64748B', fontSize: 10 }} axisLine={false} tickLine={false} tickFormatter={(v) => `₹${v / 1000}k`} />
+            <Tooltip contentStyle={{ background: '#0E1218', border: '1px solid #1B2330', borderRadius: 8, fontSize: 12 }} labelStyle={{ color: '#94A3B8' }} formatter={(v: number) => [`₹${v.toLocaleString()}`, 'Revenue']} />
+            <Area type="monotone" dataKey="total" name="Revenue" stroke={JARVIS.colors.green} strokeWidth={2} fill="url(#revGrad)" />
+          </AreaChart>
+        </ResponsiveContainer>
+      </div>
+      <div className="jarvis-mono text-[9px] uppercase text-[var(--j-text-mute)] mt-2 group-hover:text-[var(--j-cyan)] transition-colors">
+        → Click to view Payments tab
+      </div>
     </div>
   );
 }
@@ -247,20 +318,30 @@ function Leaderboard({ title, icon: Icon, accent, agents, metric, sub }: {
   metric: (a: PerAgent) => string;
   sub: (a: PerAgent) => string;
 }) {
+  const navigate = useTabNav();
   return (
     <div className="jarvis-panel p-4">
       <SectionTitle title={title} icon={Icon} accent={accent} />
       {agents.length > 0 ? (
         <div className="space-y-2">
           {agents.map((a, i) => (
-            <motion.div key={a.codename} initial={{ opacity: 0, x: -8 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: i * 0.05 }} className="flex items-center gap-3 p-2 rounded-md hover:bg-[var(--j-panel-soft)]/60">
-              <span className="jarvis-mono text-xs font-bold w-5 text-center" style={{ color: i === 0 ? JARVIS.colors.amber : 'var(--j-text-mute)' }}>#{i + 1}</span>
+            <motion.button
+              key={a.codename}
+              initial={{ opacity: 0, x: -8 }}
+              animate={{ opacity: 1, x: 0 }}
+              transition={{ delay: i * 0.05 }}
+              onClick={() => navigate('fleet', { codename: a.codename })}
+              className="flex items-center gap-3 p-2 rounded-md hover:bg-[var(--j-panel-soft)]/60 w-full text-left transition-colors group"
+            >
+              <span className="jarvis-mono text-xs font-bold w-5 text-center" style={{ color: i === 0 ? JARVIS.colors.amber : 'var(--j-text-mute)' }}>
+                {i === 0 ? '★' : `#${i + 1}`}
+              </span>
               <div className="min-w-0 flex-1">
-                <div className="jarvis-mono text-xs text-[var(--j-cyan)]">{a.codename}</div>
+                <div className="jarvis-mono text-xs text-[var(--j-cyan)] group-hover:text-[var(--j-text)] transition-colors">{a.codename}</div>
                 <div className="text-[10px] text-[var(--j-text-mute)] truncate">{sub(a)}</div>
               </div>
               <span className="jarvis-mono text-sm font-semibold" style={{ color: accent }}>{metric(a)}</span>
-            </motion.div>
+            </motion.button>
           ))}
         </div>
       ) : <EmptyState icon={Icon} message="No data" />}

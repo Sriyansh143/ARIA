@@ -474,10 +474,164 @@ html.light .jarvis-scroll::-webkit-scrollbar-thumb:hover { background: #0284C7; 
   text-shadow: 0 0 12px currentColor;
 }
 
+/* ===== Enhanced micro-interactions ===== */
+
+/* Shimmer skeleton loader for async content */
+@keyframes jarvis-skeleton {
+  0% { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
+}
+.jarvis-skeleton {
+  background: linear-gradient(
+    90deg,
+    rgba(27, 35, 48, 0.4) 25%,
+    rgba(40, 50, 65, 0.6) 50%,
+    rgba(27, 35, 48, 0.4) 75%
+  );
+  background-size: 200% 100%;
+  animation: jarvis-skeleton 1.8s ease-in-out infinite;
+}
+
+/* Gradient border on hover for interactive panels */
+.jarvis-panel-interactive {
+  position: relative;
+  transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+}
+.jarvis-panel-interactive::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  padding: 1px;
+  background: linear-gradient(135deg, transparent, rgba(125, 211, 252, 0.3), transparent);
+  -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+  -webkit-mask-composite: xor;
+  mask-composite: exclude;
+  opacity: 0;
+  transition: opacity 0.25s ease;
+  pointer-events: none;
+}
+.jarvis-panel-interactive:hover::before { opacity: 1; }
+
+/* Success flash animation for completed actions */
+@keyframes jarvis-success-flash {
+  0% { background-color: transparent; }
+  20% { background-color: rgba(74, 222, 128, 0.15); }
+  100% { background-color: transparent; }
+}
+.jarvis-flash-success { animation: jarvis-success-flash 1s ease-out; }
+
+/* Error shake animation for failed actions */
+@keyframes jarvis-shake {
+  0%, 100% { transform: translateX(0); }
+  20% { transform: translateX(-4px); }
+  40% { transform: translateX(4px); }
+  60% { transform: translateX(-3px); }
+  80% { transform: translateX(3px); }
+}
+.jarvis-shake { animation: jarvis-shake 0.4s ease-in-out; }
+
+/* Fade-in-up entrance for new items */
+@keyframes jarvis-enter {
+  from { opacity: 0; transform: translateY(8px) scale(0.98); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+.jarvis-enter { animation: jarvis-enter 0.3s cubic-bezier(0.4, 0, 0.2, 1); }
+
+/* Pulse glow for important badges */
+@keyframes jarvis-pulse-glow {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(125, 211, 252, 0.4); }
+  50% { box-shadow: 0 0 0 6px rgba(125, 211, 252, 0); }
+}
+.jarvis-pulse-glow { animation: jarvis-pulse-glow 2s ease-out infinite; }
+
+/* Critical pulse for error/critical badges */
+@keyframes jarvis-critical-pulse {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(248, 113, 113, 0.5); }
+  50% { box-shadow: 0 0 0 8px rgba(248, 113, 113, 0); }
+}
+.jarvis-critical-pulse { animation: jarvis-critical-pulse 1.5s ease-out infinite; }
+
+/* Smooth gradient slide for progress bars */
+@keyframes jarvis-progress-slide {
+  0% { background-position: 0% 50%; }
+  100% { background-position: 100% 50%; }
+}
+.jarvis-progress-animated {
+  background-size: 200% 100%;
+  animation: jarvis-progress-slide 2s linear infinite;
+}
+
+/* Hover lift with accent shadow */
+.jarvis-lift {
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+.jarvis-lift:hover {
+  transform: translateY(-3px);
+}
+
+/* Focus ring for accessibility */
+.jarvis-focus-ring:focus-visible {
+  outline: 2px solid var(--j-cyan);
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+
+/* Scrollbar enhancements for data tables */
+.jarvis-scroll-smooth {
+  scroll-behavior: smooth;
+}
+.jarvis-scroll-smooth::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+.jarvis-scroll-smooth::-webkit-scrollbar-thumb {
+  background: rgba(125, 211, 252, 0.2);
+  border-radius: 3px;
+}
+.jarvis-scroll-smooth::-webkit-scrollbar-thumb:hover {
+  background: rgba(125, 211, 252, 0.4);
+}
+
+/* Tooltip arrow */
+.jarvis-tooltip-arrow::after {
+  content: "";
+  position: absolute;
+  bottom: -4px;
+  left: 50%;
+  transform: translateX(-50%) rotate(45deg);
+  width: 8px;
+  height: 8px;
+  background: inherit;
+}
+
+/* Glass morphism for modals */
+.jarvis-glass {
+  background: rgba(14, 18, 24, 0.85);
+  backdrop-filter: blur(20px) saturate(180%);
+  -webkit-backdrop-filter: blur(20px) saturate(180%);
+}
+
+/* Activity ticker marquee smooth scroll */
+@keyframes jarvis-marquee {
+  0% { transform: translateX(0); }
+  100% { transform: translateX(-50%); }
+}
+
+/* Status bar shimmer for loading states */
+@keyframes jarvis-bar-load {
+  0% { width: 0%; opacity: 0.7; }
+  50% { opacity: 1; }
+  100% { width: 100%; opacity: 0.7; }
+}
+.jarvis-bar-loading { animation: jarvis-bar-load 1.5s ease-in-out infinite; }
+
 /* Reduced-motion friendliness */
 @media (prefers-reduced-motion: reduce) {
   .jarvis-blink, .jarvis-pulse-dot, .jarvis-bg::before, .jarvis-scan::before,
-  .jarvis-text-gradient, .jarvis-spin-slow, .jarvis-float { animation: none !important; }
+  .jarvis-text-gradient, .jarvis-spin-slow, .jarvis-float,
+  .jarvis-skeleton, .jarvis-pulse-glow, .jarvis-critical-pulse,
+  .jarvis-progress-animated, .jarvis-marquee, .jarvis-bar-loading { animation: none !important; }
 }
 
 
