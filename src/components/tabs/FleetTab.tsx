@@ -1108,7 +1108,40 @@ interface CompareAgent {
   lastActive: string;
 }
 
+/**
+ * downloadFile — creates a Blob from the given content, triggers a browser
+ * download via an ephemeral <a> element, then revokes the object URL.
+ */
+function downloadFile(content: string, filename: string, mimeType: string) {
+  const blob = new Blob([content], { type: mimeType });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+}
+
+/** Returns a YYYY-MM-DD stamp for filenames (in local time). */
+function dateStamp(): string {
+  const d = new Date();
+  const pad = (n: number) => String(n).padStart(2, '0');
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+}
+
+/** Escapes a single CSV cell per RFC 4180 (quote when needed, double inner quotes). */
+function csvCell(value: string | number | null | undefined): string {
+  const s = value == null ? '' : String(value);
+  if (/[",\n\r]/.test(s)) {
+    return `"${s.replace(/"/g, '""')}"`;
+  }
+  return s;
+}
+
 function CompareModal({ agents, onClose }: { agents: Agent[]; onClose: () => void }) {
+  const { toast } = useToast();
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [search, setSearch] = useState('');
   const { data, loading } = useApi<{ agents: CompareAgent[]; winners: Record<string, string> }>(
@@ -1134,6 +1167,79 @@ function CompareModal({ agents, onClose }: { agents: Agent[]; onClose: () => voi
 
   const comparison = data?.agents ?? [];
   const winners = data?.winners ?? {};
+
+  /** Build a normalized row for each compared agent (used by both JSON + CSV). */
+  const exportRows = () =>
+    comparison.map((a) => ({
+      codename: a.codename,
+      name: a.name,
+      role: a.role,
+      status: a.status,
+      model: a.model,
+      healthScore: a.healthScore,
+      successRate: a.successRate,
+      load: Math.round(a.load),
+      tasksTotal: a.metrics.tasks.total,
+      tasksCompleted: a.metrics.tasks.completed,
+      completionRate: a.metrics.tasks.completionRate,
+      logsTotal: a.metrics.logs.total,
+      logErrors: a.metrics.logs.errors,
+      logSuccesses: a.metrics.logs.successes,
+      logWarnings: a.metrics.logs.warnings,
+      commsSent: a.metrics.comms.sent,
+      commsReceived: a.metrics.comms.received,
+      commsTotal: a.metrics.comms.total,
+      skillRuns: a.metrics.skills.totalRuns,
+      skillSuccesses: a.metrics.skills.successes,
+      skillSuccessRate: a.metrics.skills.successRate,
+      skillAvgLatency: a.metrics.skills.avgLatency,
+      lastActive: a.lastActive,
+    }));
+
+  /** Export the full comparison payload (agents + winners) as a JSON file. */
+  const exportJson = () => {
+    if (comparison.length === 0) return;
+    const payload = {
+      exportedAt: new Date().toISOString(),
+      selectedIds,
+      agents: exportRows(),
+      winners,
+      summary: {
+        agentCount: comparison.length,
+        bestHealthScore: winners.healthScore ?? null,
+        bestSuccessRate: winners.successRate ?? null,
+      },
+    };
+    downloadFile(
+      JSON.stringify(payload, null, 2),
+      `agent-comparison-${dateStamp()}.json`,
+      'application/json',
+    );
+    toast({ title: 'Export complete', description: `agent-comparison-${dateStamp()}.json` });
+  };
+
+  /** Export the comparison as a CSV with the canonical column set. */
+  const exportCsv = () => {
+    if (comparison.length === 0) return;
+    const headers = [
+      'Codename', 'Role', 'Status', 'Health Score', 'Success Rate', 'Load',
+      'Tasks Total', 'Tasks Completed', 'Completion Rate',
+      'Logs Total', 'Log Errors', 'Comms Sent', 'Comms Received',
+      'Skill Runs', 'Skill Success Rate',
+    ];
+    const rows = comparison.map((a) => [
+      a.codename, a.role, a.status, a.healthScore, a.successRate, Math.round(a.load),
+      a.metrics.tasks.total, a.metrics.tasks.completed, a.metrics.tasks.completionRate,
+      a.metrics.logs.total, a.metrics.logs.errors,
+      a.metrics.comms.sent, a.metrics.comms.received,
+      a.metrics.skills.totalRuns, a.metrics.skills.successRate,
+    ]);
+    const csv = [headers, ...rows]
+      .map((row) => row.map(csvCell).join(','))
+      .join('\n');
+    downloadFile(csv, `agent-comparison-${dateStamp()}.csv`, 'text/csv;charset=utf-8;');
+    toast({ title: 'Export complete', description: `agent-comparison-${dateStamp()}.csv` });
+  };
 
   return (
     <motion.div className="fixed inset-0 z-50 flex items-center justify-center p-4" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
@@ -1338,9 +1444,36 @@ function CompareModal({ agents, onClose }: { agents: Agent[]; onClose: () => voi
         </div>
 
         {/* Footer */}
-        <div className="px-4 py-2.5 border-t border-[var(--j-border)] bg-[var(--j-panel-soft)]/40 flex items-center justify-between jarvis-mono text-[9px] uppercase text-[var(--j-text-mute)]">
-          <span>{selectedIds.length}/5 agents selected</span>
-          <button onClick={onClose} className="text-[var(--j-cyan)] hover:underline">Done</button>
+        <div className="px-4 py-2.5 border-t border-[var(--j-border)] bg-[var(--j-panel-soft)]/40 flex items-center justify-between">
+          <span className="jarvis-mono text-[9px] uppercase text-[var(--j-text-mute)]">
+            {selectedIds.length}/5 agents selected
+          </span>
+          <div className="flex items-center gap-1.5">
+            <button
+              onClick={exportJson}
+              disabled={comparison.length === 0}
+              className="flex items-center gap-1.5 jarvis-mono text-[9px] uppercase px-2 py-1 rounded border border-[var(--j-border)] text-[var(--j-text-mute)] hover:text-[var(--j-cyan)] hover:border-[var(--j-cyan)]/50 transition-colors disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:text-[var(--j-text-mute)] disabled:hover:border-[var(--j-border)]"
+              title={comparison.length === 0 ? 'Select 2+ agents to enable export' : 'Download as JSON'}
+            >
+              <Download className="h-3 w-3" />
+              JSON
+            </button>
+            <button
+              onClick={exportCsv}
+              disabled={comparison.length === 0}
+              className="flex items-center gap-1.5 jarvis-mono text-[9px] uppercase px-2 py-1 rounded border border-[var(--j-border)] text-[var(--j-text-mute)] hover:text-[var(--j-cyan)] hover:border-[var(--j-cyan)]/50 transition-colors disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:text-[var(--j-text-mute)] disabled:hover:border-[var(--j-border)]"
+              title={comparison.length === 0 ? 'Select 2+ agents to enable export' : 'Download as CSV'}
+            >
+              <Download className="h-3 w-3" />
+              CSV
+            </button>
+            <button
+              onClick={onClose}
+              className="jarvis-mono text-[9px] uppercase text-[var(--j-cyan)] hover:underline ml-1"
+            >
+              Done
+            </button>
+          </div>
         </div>
       </motion.div>
     </motion.div>

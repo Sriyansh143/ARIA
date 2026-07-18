@@ -23,8 +23,30 @@ export async function GET(req: NextRequest) {
 export async function POST(req: NextRequest) {
   const body = await req.json().catch(() => ({}));
   const { fromAgent, toAgent, subject, body: msgBody, priority, thread } = body;
-  if (!fromAgent || !toAgent || !subject || !msgBody) {
-    return NextResponse.json({ error: 'fromAgent, toAgent, subject, body required' }, { status: 400 });
+  // Validate required string fields — non-empty + max length.
+  if (!fromAgent || typeof fromAgent !== 'string' || fromAgent.trim().length === 0) {
+    return NextResponse.json({ error: 'fromAgent required' }, { status: 400 });
+  }
+  if (fromAgent.length > 64) {
+    return NextResponse.json({ error: 'fromAgent must be 64 characters or fewer' }, { status: 400 });
+  }
+  if (!toAgent || typeof toAgent !== 'string' || toAgent.trim().length === 0) {
+    return NextResponse.json({ error: 'toAgent required' }, { status: 400 });
+  }
+  if (toAgent.length > 64) {
+    return NextResponse.json({ error: 'toAgent must be 64 characters or fewer' }, { status: 400 });
+  }
+  if (!subject || typeof subject !== 'string' || subject.trim().length === 0) {
+    return NextResponse.json({ error: 'subject required' }, { status: 400 });
+  }
+  if (subject.length > 500) {
+    return NextResponse.json({ error: 'subject must be 500 characters or fewer' }, { status: 400 });
+  }
+  if (!msgBody || typeof msgBody !== 'string' || msgBody.trim().length === 0) {
+    return NextResponse.json({ error: 'body required' }, { status: 400 });
+  }
+  if (msgBody.length > 10000) {
+    return NextResponse.json({ error: 'body must be 10000 characters or fewer' }, { status: 400 });
   }
   const msg = await db.agentMessage.create({
     data: {

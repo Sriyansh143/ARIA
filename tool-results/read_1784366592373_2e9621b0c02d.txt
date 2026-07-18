@@ -1,0 +1,1480 @@
+     1→'use client';
+     2→
+     3→import { useState, useRef } from 'react';
+     4→import { motion, AnimatePresence } from 'framer-motion';
+     5→import {
+     6→  Bot, Plus, X, RefreshCw, Power, MessageSquare, ListTodo, Copy,
+     7→  Activity, Settings, Send, Loader2, ChevronRight, Clock, Cpu,
+     8→  Download, Upload, FileJson, Sparkles, Search, Zap, GitCompare, Trophy, Check,
+     9→} from 'lucide-react';
+    10→import { RadarChart, PolarGrid, PolarAngleAxis, PolarRadiusAxis, Radar, ResponsiveContainer, Legend, Tooltip, LineChart, Line, XAxis, YAxis, CartesianGrid } from 'recharts';
+    11→import { useApi, postJson, patchJson } from '@/lib/hooks/use-api';
+    12→import { JARVIS, STATUS_COLORS } from '@/lib/config';
+    13→import { SectionTitle, StatusDot, Pill, EmptyState } from '@/components/jarvis/shared';
+    14→import { useToast } from '@/hooks/use-toast';
+    15→import { Input } from '@/components/ui/input';
+    16→import { Textarea } from '@/components/ui/textarea';
+    17→import { Button } from '@/components/ui/button';
+    18→import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+    19→import { useTabNav } from '@/lib/nav-store';
+    20→
+    21→interface Agent {
+    22→  id: string; name: string; codename: string; role: string; status: string;
+    23→  skills: string; model: string; taskCount: number; logCount: number;
+    24→  successRate: number; load: number; lastActive: string;
+    25→  logs?: Array<{ id: string; level: string; message: string; createdAt: string }>;
+    26→}
+    27→
+    28→interface Task {
+    29→  id: string; title: string; status: string; priority: string; assigneeId: string | null;
+    30→}
+    31→
+    32→const STATUS_CYCLE = ['idle', 'thinking', 'working', 'error', 'offline'] as const;
+    33→
+    34→export default function FleetTab() {
+    35→  const { data, loading, refresh } = useApi<{ agents: Agent[] }>('/api/agents', 8000);
+    36→  const { toast } = useToast();
+    37→  const [selected, setSelected] = useState<Agent | null>(null);
+    38→  const [spawnOpen, setSpawnOpen] = useState(false);
+    39→  const [importOpen, setImportOpen] = useState(false);
+    40→  const [templatesOpen, setTemplatesOpen] = useState(false);
+    41→  const [compareOpen, setCompareOpen] = useState(false);
+    42→  const [q, setQ] = useState('');
+    43→  const [statusFilter, setStatusFilter] = useState<string>('all');
+    44→
+    45→  const cycleStatus = async (a: Agent) => {
+    46→    const idx = STATUS_CYCLE.indexOf(a.status as never);
+    47→    const next = STATUS_CYCLE[(idx + 1) % STATUS_CYCLE.length];
+    48→    await patchJson(`/api/agents/${a.id}`, { status: next });
+    49→    toast({ title: `${a.codename} → ${next}` });
+    50→    refresh();
+    51→  };
+    52→
+    53→  const exportAgents = () => {
+    54→    window.open('/api/agents/backup', '_blank');
+    55→    toast({ title: 'Exporting agent configurations…' });
+    56→  };
+    57→
+    58→  const filtered = (data?.agents ?? []).filter((a) => {
+    59→    if (statusFilter !== 'all' && a.status !== statusFilter) return false;
+    60→    if (q) {
+    61→      const ql = q.toLowerCase();
+    62→      return a.codename.toLowerCase().includes(ql) || a.name.toLowerCase().includes(ql) || a.role.toLowerCase().includes(ql);
+    63→    }
+    64→    return true;
+    65→  });
+    66→
+    67→  const statusCounts = (data?.agents ?? []).reduce<Record<string, number>>((acc, a) => {
+    68→    acc[a.status] = (acc[a.status] ?? 0) + 1;
+    69→    return acc;
+    70→  }, {});
+    71→
+    72→  return (
+    73→    <div className="space-y-4">
+    74→      <SectionTitle
+    75→        title="Agent Fleet"
+    76→        icon={Bot}
+    77→        accent={JARVIS.colors.cyan}
+    78→        action={
+    79→          <div className="flex gap-2">
+    80→            <Button size="sm" variant="outline" onClick={exportAgents} title="Export all agent configs as JSON" className="border-[var(--j-border)] bg-transparent hover:bg-[var(--j-panel-soft)]">
+    81→              <Download className="h-3.5 w-3.5 mr-1" /> Export
+    82→            </Button>
+    83→            <Button size="sm" variant="outline" onClick={() => setImportOpen(true)} title="Import agent configs from JSON" className="border-[var(--j-border)] bg-transparent hover:bg-[var(--j-panel-soft)]">
+    84→              <Upload className="h-3.5 w-3.5 mr-1" /> Import
+    85→            </Button>
+    86→            <Button size="sm" variant="outline" onClick={() => setTemplatesOpen(true)} title="Spawn from template" className="border-[var(--j-border)] bg-transparent hover:bg-[var(--j-panel-soft)]">
+    87→              <Sparkles className="h-3.5 w-3.5 mr-1" /> Templates
+    88→            </Button>
+    89→            <Button size="sm" variant="outline" onClick={() => setCompareOpen(true)} title="Compare agents side-by-side" className="border-[var(--j-border)] bg-transparent hover:bg-[var(--j-panel-soft)]">
+    90→              <GitCompare className="h-3.5 w-3.5 mr-1" /> Compare
+    91→            </Button>
+    92→            <Button size="sm" variant="outline" className="jarvis-btn-accent border-0" onClick={() => setSpawnOpen(true)}>
+    93→              <Plus className="h-3.5 w-3.5 mr-1" /> Spawn Agent
+    94→            </Button>
+    95→            <Button size="sm" variant="outline" onClick={refresh} className="border-[var(--j-border)] bg-transparent hover:bg-[var(--j-panel-soft)]">
+    96→              <RefreshCw className="h-3.5 w-3.5" />
+    97→            </Button>
+    98→          </div>
+    99→        }
+   100→      />
+   101→
+   102→      {/* Filter bar */}
+   103→      <div className="flex flex-wrap items-center gap-2">
+   104→        <Input
+   105→          value={q}
+   106→          onChange={(e) => setQ(e.target.value)}
+   107→          placeholder="Search agents by codename, name, or role…"
+   108→          className="bg-[var(--j-panel-soft)] border-[var(--j-border)] max-w-xs h-8 text-xs"
+   109→        />
+   110→        <div className="flex gap-1 flex-wrap">
+   111→          {['all', 'idle', 'thinking', 'working', 'error', 'offline'].map((s) => {
+   112→            const count = s === 'all' ? (data?.agents?.length ?? 0) : (statusCounts[s] ?? 0);
+   113→            const active = statusFilter === s;
+   114→            const color = s === 'all' ? JARVIS.colors.cyan : (STATUS_COLORS[s as keyof typeof STATUS_COLORS] ?? JARVIS.colors.textDim);
+   115→            return (
+   116→              <button
+   117→                key={s}
+   118→                onClick={() => setStatusFilter(s)}
+   119→                className={`jarvis-mono text-[9px] uppercase px-2 py-1 rounded border transition-all flex items-center gap-1.5 ${
+   120→                  active ? 'bg-[var(--j-panel-soft)] text-[var(--j-text)]' : 'text-[var(--j-text-mute)] hover:text-[var(--j-text)]'
+   121→                }`}
+   122→                style={active ? { borderColor: color, color } : { borderColor: 'var(--j-border-soft)' }}
+   123→              >
+   124→                {s}
+   125→                <span className="text-[8px] opacity-70">{count}</span>
+   126→              </button>
+   127→            );
+   128→          })}
+   129→        </div>
+   130→        <div className="ml-auto jarvis-mono text-[10px] uppercase text-[var(--j-text-mute)]">
+   131→          {filtered.length} / {data?.agents?.length ?? 0} agents
+   132→        </div>
+   133→      </div>
+   134→
+   135→      {loading && !data ? (
+   136→        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">{Array.from({ length: 6 }).map((_, i) => (
+   137→          <div key={i} className="jarvis-panel h-40 animate-pulse">
+   138→            <div className="h-full flex flex-col">
+   139→              <div className="h-8 bg-[var(--j-panel-soft)] m-3 rounded" />
+   140→              <div className="h-3 bg-[var(--j-panel-soft)] mx-3 rounded w-2/3" />
+   141→              <div className="grid grid-cols-3 gap-2 p-3 mt-auto">
+   142→                <div className="h-10 bg-[var(--j-panel-soft)] rounded" />
+   143→                <div className="h-10 bg-[var(--j-panel-soft)] rounded" />
+   144→                <div className="h-10 bg-[var(--j-panel-soft)] rounded" />
+   145→              </div>
+   146→            </div>
+   147→          </div>
+   148→        ))}</div>
+   149→      ) : filtered.length ? (
+   150→        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+   151→          {filtered.map((a, i) => {
+   152→            const skills: string[] = JSON.parse(a.skills || '[]');
+   153→            const color = STATUS_COLORS[a.status as keyof typeof STATUS_COLORS] ?? JARVIS.colors.textDim;
+   154→            const loadColor = a.load > 80 ? JARVIS.colors.red : a.load > 50 ? JARVIS.colors.amber : JARVIS.colors.green;
+   155→            return (
+   156→              <motion.div
+   157→                key={a.id}
+   158→                initial={{ opacity: 0, y: 10 }}
+   159→                animate={{ opacity: 1, y: 0 }}
+   160→                transition={{ delay: i * 0.03 }}
+   161→                className="jarvis-panel jarvis-card-hover p-4 cursor-pointer group relative overflow-hidden"
+   162→                onClick={() => openDetail(a, setSelected)}
+   163→              >
+   164→                {/* Status accent bar */}
+   165→                <div className="absolute top-0 left-0 right-0 h-[2px]" style={{ background: `linear-gradient(90deg, ${color}, transparent)` }} />
+   166→
+   167→                <div className="flex items-start justify-between mb-3">
+   168→                  <div className="flex items-center gap-2.5">
+   169→                    <StatusDot status={a.status as never} size={10} />
+   170→                    <div>
+   171→                      <div className="flex items-center gap-1.5">
+   172→                        <span className="jarvis-mono text-sm font-bold" style={{ color }}>{a.codename}</span>
+   173→                      </div>
+   174→                      <div className="text-[11px] text-[var(--j-text-mute)]">{a.name}</div>
+   175→                    </div>
+   176→                  </div>
+   177→                  <Pill color={color}>{a.status}</Pill>
+   178→                </div>
+   179→
+   180→                <div className="text-xs text-[var(--j-text-dim)] mb-3">{a.role}</div>
+   181→
+   182→                <div className="grid grid-cols-3 gap-2 mb-3">
+   183→                  <MiniStat label="Load" value={`${Math.round(a.load)}%`} color={loadColor} />
+   184→                  <MiniStat label="Success" value={`${a.successRate}%`} color={JARVIS.colors.green} />
+   185→                  <MiniStat label="Tasks" value={String(a.taskCount)} color={JARVIS.colors.amber} />
+   186→                </div>
+   187→
+   188→                {/* Load bar */}
+   189→                <div className="h-1 rounded-full bg-[var(--j-border)] overflow-hidden mb-3">
+   190→                  <motion.div
+   191→                    className="h-full rounded-full"
+   192→                    style={{ background: `linear-gradient(90deg, ${loadColor}, ${loadColor}aa)` }}
+   193→                    initial={{ width: 0 }}
+   194→                    animate={{ width: `${Math.min(100, a.load)}%` }}
+   195→                    transition={{ duration: 0.6, delay: i * 0.03 }}
+   196→                  />
+   197→                </div>
+   198→
+   199→                <div className="flex flex-wrap gap-1">
+   200→                  {skills.slice(0, 4).map((s) => (
+   201→                    <span key={s} className="jarvis-mono text-[9px] uppercase px-1.5 py-0.5 rounded bg-[var(--j-panel-soft)] text-[var(--j-text-dim)] border border-[var(--j-border-soft)]">{s}</span>
+   202→                  ))}
+   203→                  {skills.length > 4 && <span className="jarvis-mono text-[9px] text-[var(--j-text-mute)]">+{skills.length - 4}</span>}
+   204→                </div>
+   205→
+   206→                <div className="flex items-center justify-between mt-3 pt-3 border-t border-[var(--j-border-soft)]">
+   207→                  <span className="jarvis-mono text-[9px] uppercase text-[var(--j-text-mute)] flex items-center gap-1">
+   208→                    <Cpu className="h-3 w-3" /> {a.model}
+   209→                  </span>
+   210→                  <button
+   211→                    onClick={(e) => { e.stopPropagation(); cycleStatus(a); }}
+   212→                    className="jarvis-mono text-[9px] uppercase text-[var(--j-cyan)] hover:underline flex items-center gap-1"
+   213→                  >
+   214→                    <Power className="h-3 w-3" /> cycle
+   215→                  </button>
+   216→                </div>
+   217→
+   218→                {/* Hover hint */}
+   219→                <div className="absolute bottom-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity">
+   220→                  <ChevronRight className="h-3 w-3 text-[var(--j-cyan)]" />
+   221→                </div>
+   222→              </motion.div>
+   223→            );
+   224→          })}
+   225→        </div>
+   226→      ) : (
+   227→        <EmptyState icon={Bot} message="No agents match your filters" />
+   228→      )}
+   229→
+   230→      {/* Detail modal */}
+   231→      <AnimatePresence>
+   232→        {selected && (
+   233→          <DetailModal agent={selected} onClose={() => setSelected(null)} onCycle={cycleStatus} onUpdated={() => refresh()} />
+   234→        )}
+   235→      </AnimatePresence>
+   236→
+   237→      {/* Spawn modal */}
+   238→      <AnimatePresence>
+   239→        {spawnOpen && <SpawnModal onClose={() => setSpawnOpen(false)} onDone={() => { setSpawnOpen(false); refresh(); }} />}
+   240→      </AnimatePresence>
+   241→
+   242→      {/* Import modal */}
+   243→      <AnimatePresence>
+   244→        {importOpen && <ImportModal onClose={() => setImportOpen(false)} onDone={() => { setImportOpen(false); refresh(); }} />}
+   245→      </AnimatePresence>
+   246→
+   247→      {/* Templates modal */}
+   248→      <AnimatePresence>
+   249→        {templatesOpen && <TemplatesModal onClose={() => setTemplatesOpen(false)} onDone={() => { setTemplatesOpen(false); refresh(); }} />}
+   250→      </AnimatePresence>
+   251→
+   252→      {/* Compare modal */}
+   253→      <AnimatePresence>
+   254→        {compareOpen && <CompareModal agents={data?.agents ?? []} onClose={() => setCompareOpen(false)} />}
+   255→      </AnimatePresence>
+   256→    </div>
+   257→  );
+   258→}
+   259→
+   260→async function openDetail(a: Agent, set: (a: Agent | null) => void) {
+   261→  try {
+   262→    const res = await fetch(`/api/agents/${a.id}`, { cache: 'no-store' });
+   263→    const json = await res.json();
+   264→    set(json.agent);
+   265→  } catch {
+   266→    set(a);
+   267→  }
+   268→}
+   269→
+   270→function MiniStat({ label, value, color }: { label: string; value: string; color: string }) {
+   271→  return (
+   272→    <div className="text-center py-1.5 rounded bg-[var(--j-panel-soft)]/50 border border-[var(--j-border-soft)]">
+   273→      <div className="text-sm font-semibold" style={{ color }}>{value}</div>
+   274→      <div className="jarvis-mono text-[8px] uppercase text-[var(--j-text-mute)]">{label}</div>
+   275→    </div>
+   276→  );
+   277→}
+   278→
+   279→type DetailTab = 'overview' | 'logs' | 'actions';
+   280→
+   281→function DetailModal({ agent, onClose, onCycle, onUpdated }: { agent: Agent; onClose: () => void; onCycle: (a: Agent) => void; onUpdated: () => void }) {
+   282→  const [tab, setTab] = useState<DetailTab>('overview');
+   283→  const skills: string[] = JSON.parse(agent.skills || '[]');
+   284→  const color = STATUS_COLORS[agent.status as keyof typeof STATUS_COLORS] ?? JARVIS.colors.textDim;
+   285→
+   286→  return (
+   287→    <motion.div className="fixed inset-0 z-50 flex items-center justify-center p-4" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
+   288→      <div className="absolute inset-0 bg-black/70 backdrop-blur-sm" onClick={onClose} />
+   289→      <motion.div
+   290→        initial={{ scale: 0.96, opacity: 0, y: 10 }}
+   291→        animate={{ scale: 1, opacity: 1, y: 0 }}
+   292→        exit={{ scale: 0.96, opacity: 0, y: 10 }}
+   293→        className="relative w-full max-w-2xl jarvis-panel p-0 overflow-hidden max-h-[88vh] flex flex-col"
+   294→      >
+   295→        {/* Header with gradient accent */}
+   296→        <div className="absolute top-0 left-0 right-0 h-[3px]" style={{ background: `linear-gradient(90deg, ${color}, ${color}40, transparent)` }} />
+   297→
+   298→        <div className="flex items-center justify-between p-4 border-b border-[var(--j-border)]">
+   299→          <div className="flex items-center gap-3">
+   300→            <div className="relative">
+   301→              <StatusDot status={agent.status as never} size={12} />
+   302→              <div className="absolute inset-0 rounded-full animate-ping opacity-30" style={{ background: color }} />
+   303→            </div>
+   304→            <div>
+   305→              <div className="jarvis-mono text-lg font-bold" style={{ color }}>{agent.codename}</div>
+   306→              <div className="text-xs text-[var(--j-text-dim)]">{agent.role} · {agent.name}</div>
+   307→            </div>
+   308→          </div>
+   309→          <button onClick={onClose} className="text-[var(--j-text-mute)] hover:text-[var(--j-text)] transition-colors"><X className="h-4 w-4" /></button>
+   310→        </div>
+   311→
+   312→        {/* Tab strip */}
+   313→        <div className="flex border-b border-[var(--j-border)] bg-[var(--j-panel-soft)]/30">
+   314→          {([
+   315→            { key: 'overview' as const, label: 'Overview', icon: Activity },
+   316→            { key: 'logs' as const, label: `Logs (${agent.logCount})`, icon: ListTodo },
+   317→            { key: 'actions' as const, label: 'Actions', icon: Settings },
+   318→          ]).map((t) => {
+   319→            const active = tab === t.key;
+   320→            return (
+   321→              <button
+   322→                key={t.key}
+   323→                onClick={() => setTab(t.key)}
+   324→                className={`flex-1 flex items-center justify-center gap-1.5 py-2.5 text-xs jarvis-mono uppercase transition-all relative ${
+   325→                  active ? 'text-[var(--j-cyan)]' : 'text-[var(--j-text-mute)] hover:text-[var(--j-text-dim)]'
+   326→                }`}
+   327→              >
+   328→                <t.icon className="h-3.5 w-3.5" />
+   329→                {t.label}
+   330→                {active && (
+   331→                  <motion.div
+   332→                    layoutId="detail-tab-indicator"
+   333→                    className="absolute bottom-0 left-0 right-0 h-[2px]"
+   334→                    style={{ background: JARVIS.colors.cyan }}
+   335→                  />
+   336→                )}
+   337→              </button>
+   338→            );
+   339→          })}
+   340→        </div>
+   341→
+   342→        <div className="p-4 overflow-y-auto jarvis-scroll flex-1">
+   343→          <AnimatePresence mode="wait">
+   344→            <motion.div
+   345→              key={tab}
+   346→              initial={{ opacity: 0, x: 8 }}
+   347→              animate={{ opacity: 1, x: 0 }}
+   348→              exit={{ opacity: 0, x: -8 }}
+   349→              transition={{ duration: 0.15 }}
+   350→            >
+   351→              {tab === 'overview' && <OverviewPane agent={agent} skills={skills} color={color} />}
+   352→              {tab === 'logs' && <LogsPane agent={agent} />}
+   353→              {tab === 'actions' && (
+   354→                <ActionsPane agent={agent} onCycle={onCycle} onUpdated={onUpdated} onClose={onClose} />
+   355→              )}
+   356→            </motion.div>
+   357→          </AnimatePresence>
+   358→        </div>
+   359→      </motion.div>
+   360→    </motion.div>
+   361→  );
+   362→}
+   363→
+   364→function OverviewPane({ agent, skills, color }: { agent: Agent; skills: string[]; color: string }) {
+   365→  const loadColor = agent.load > 80 ? JARVIS.colors.red : agent.load > 50 ? JARVIS.colors.amber : JARVIS.colors.green;
+   366→  return (
+   367→    <div className="space-y-4">
+   368→      {/* Stats grid */}
+   369→      <div className="grid grid-cols-4 gap-2">
+   370→        <MiniStat label="Load" value={`${Math.round(agent.load)}%`} color={loadColor} />
+   371→        <MiniStat label="Success" value={`${agent.successRate}%`} color={JARVIS.colors.green} />
+   372→        <MiniStat label="Tasks" value={String(agent.taskCount)} color={JARVIS.colors.amber} />
+   373→        <MiniStat label="Logs" value={String(agent.logCount)} color={JARVIS.colors.violet} />
+   374→      </div>
+   375→
+   376→      {/* Load + success bars */}
+   377→      <div className="space-y-2">
+   378→        <div>
+   379→          <div className="flex justify-between text-[10px] jarvis-mono uppercase text-[var(--j-text-mute)] mb-1">
+   380→            <span>Load</span><span style={{ color: loadColor }}>{Math.round(agent.load)}%</span>
+   381→          </div>
+   382→          <div className="h-2 rounded-full bg-[var(--j-border)] overflow-hidden">
+   383→            <motion.div className="h-full rounded-full" style={{ background: loadColor }} initial={{ width: 0 }} animate={{ width: `${agent.load}%` }} transition={{ duration: 0.5 }} />
+   384→          </div>
+   385→        </div>
+   386→        <div>
+   387→          <div className="flex justify-between text-[10px] jarvis-mono uppercase text-[var(--j-text-mute)] mb-1">
+   388→            <span>Success Rate</span><span style={{ color: JARVIS.colors.green }}>{agent.successRate}%</span>
+   389→          </div>
+   390→          <div className="h-2 rounded-full bg-[var(--j-border)] overflow-hidden">
+   391→            <motion.div className="h-full rounded-full" style={{ background: JARVIS.colors.green }} initial={{ width: 0 }} animate={{ width: `${agent.successRate}%` }} transition={{ duration: 0.5 }} />
+   392→          </div>
+   393→        </div>
+   394→      </div>
+   395→
+   396→      {/* Status + model */}
+   397→      <div className="grid grid-cols-2 gap-3">
+   398→        <div className="p-3 rounded bg-[var(--j-panel-soft)]/50 border border-[var(--j-border-soft)]">
+   399→          <div className="jarvis-mono text-[9px] uppercase text-[var(--j-text-mute)] mb-1">Status</div>
+   400→          <div className="flex items-center gap-2">
+   401→            <span className="h-2 w-2 rounded-full" style={{ background: color, boxShadow: `0 0 8px ${color}` }} />
+   402→            <span className="text-sm font-semibold" style={{ color }}>{agent.status}</span>
+   403→          </div>
+   404→        </div>
+   405→        <div className="p-3 rounded bg-[var(--j-panel-soft)]/50 border border-[var(--j-border-soft)]">
+   406→          <div className="jarvis-mono text-[9px] uppercase text-[var(--j-text-mute)] mb-1">Model</div>
+   407→          <div className="text-sm font-semibold text-[var(--j-text)] flex items-center gap-1.5">
+   408→            <Cpu className="h-3.5 w-3.5 text-[var(--j-cyan)]" /> {agent.model}
+   409→          </div>
+   410→        </div>
+   411→      </div>
+   412→
+   413→      {/* Last active */}
+   414→      <div className="flex items-center gap-2 text-xs text-[var(--j-text-mute)]">
+   415→        <Clock className="h-3 w-3" />
+   416→        <span>Last active: {new Date(agent.lastActive).toLocaleString()}</span>
+   417→      </div>
+   418→
+   419→      {/* Skills */}
+   420→      <div>
+   421→        <div className="jarvis-mono text-[10px] uppercase text-[var(--j-text-mute)] mb-1.5">Skills ({skills.length})</div>
+   422→        <div className="flex flex-wrap gap-1.5">
+   423→          {skills.length ? skills.map((s) => (
+   424→            <span key={s} className="jarvis-mono text-[10px] uppercase px-2 py-1 rounded bg-[var(--j-panel-soft)] text-[var(--j-cyan)] border border-[var(--j-border)]">{s}</span>
+   425→          )) : <span className="text-xs text-[var(--j-text-mute)]">No skills assigned</span>}
+   426→        </div>
+   427→      </div>
+   428→    </div>
+   429→  );
+   430→}
+   431→
+   432→function LogsPane({ agent }: { agent: Agent }) {
+   433→  const { data, loading } = useApi<{ logs: Array<{ id: string; level: string; message: string; createdAt: string }> }>(
+   434→    `/api/logs?agent=${agent.codename}&limit=50`,
+   435→    10000,
+   436→  );
+   437→  const logs = data?.logs ?? agent.logs ?? [];
+   438→
+   439→  if (loading && !data) {
+   440→    return <div className="space-y-2">{Array.from({ length: 4 }).map((_, i) => <div key={i} className="h-8 bg-[var(--j-panel-soft)] animate-pulse rounded" />)}</div>;
+   441→  }
+   442→
+   443→  return (
+   444→    <div className="space-y-1.5 max-h-96 overflow-y-auto jarvis-scroll">
+   445→      {logs.length ? logs.map((l) => (
+   446→        <div key={l.id} className="flex items-start gap-2 text-xs p-2 rounded hover:bg-[var(--j-panel-soft)]/50 transition-colors">
+   447→          <span className="jarvis-mono text-[9px] uppercase px-1.5 py-0.5 rounded shrink-0" style={{ color: levelColor(l.level), background: `${levelColor(l.level)}1a`, border: `1px solid ${levelColor(l.level)}33` }}>
+   448→            {l.level}
+   449→          </span>
+   450→          <span className="text-[var(--j-text-dim)] flex-1">{l.message}</span>
+   451→          <span className="jarvis-mono text-[9px] text-[var(--j-text-mute)] shrink-0">{new Date(l.createdAt).toLocaleTimeString()}</span>
+   452→        </div>
+   453→      )) : <div className="text-xs text-[var(--j-text-mute)] text-center py-8">No logs recorded for this agent</div>}
+   454→    </div>
+   455→  );
+   456→}
+   457→
+   458→function ActionsPane({ agent, onCycle, onUpdated, onClose }: { agent: Agent; onCycle: (a: Agent) => void; onUpdated: () => void; onClose: () => void }) {
+   459→  const navigate = useTabNav();
+   460→  const { toast } = useToast();
+   461→  const [busy, setBusy] = useState<string | null>(null);
+   462→
+   463→  // Assign task form state
+   464→  const [taskTitle, setTaskTitle] = useState('');
+   465→  const [taskPriority, setTaskPriority] = useState('medium');
+   466→
+   467→  // Send comms form state
+   468→  const [commsSubject, setCommsSubject] = useState('');
+   469→  const [commsBody, setCommsBody] = useState('');
+   470→  const [commsPriority, setCommsPriority] = useState('normal');
+   471→
+   472→  // Edit model state
+   473→  const [model, setModel] = useState(agent.model);
+   474→
+   475→  const assignTask = async () => {
+   476→    if (!taskTitle.trim()) { toast({ title: 'Task title required', variant: 'destructive' }); return; }
+   477→    setBusy('task');
+   478→    try {
+   479→      const res = await postJson('/api/tasks', { title: taskTitle, priority: taskPriority, assigneeId: agent.id });
+   480→      toast({ title: `Task assigned to ${agent.codename}`, description: taskTitle });
+   481→      setTaskTitle('');
+   482→      onUpdated();
+   483→    } catch (e) {
+   484→      toast({ title: 'Assign failed', description: e instanceof Error ? e.message : '', variant: 'destructive' });
+   485→    } finally {
+   486→      setBusy(null);
+   487→    }
+   488→  };
+   489→
+   490→  const sendComms = async () => {
+   491→    if (!commsSubject.trim() || !commsBody.trim()) { toast({ title: 'Subject and body required', variant: 'destructive' }); return; }
+   492→    setBusy('comms');
+   493→    try {
+   494→      await postJson('/api/comms', {
+   495→        fromAgent: 'ORION',
+   496→        toAgent: agent.codename,
+   497→        subject: commsSubject,
+   498→        body: commsBody,
+   499→        priority: commsPriority,
+   500→        thread: 'ops',
+   501→      });
+   502→      toast({ title: `Message sent to ${agent.codename}` });
+   503→      setCommsSubject('');
+   504→      setCommsBody('');
+   505→      onUpdated();
+   506→    } catch (e) {
+   507→      toast({ title: 'Send failed', description: e instanceof Error ? e.message : '', variant: 'destructive' });
+   508→    } finally {
+   509→      setBusy(null);
+   510→    }
+   511→  };
+   512→
+   513→  const spawnSubAgent = async () => {
+   514→    setBusy('spawn');
+   515→    try {
+   516→      await postJson('/api/agents/spawn', {
+   517→        parentCodename: agent.codename,
+   518→        role: `Sub-agent under ${agent.codename}`,
+   519→        reason: 'Manual spawn from fleet detail',
+   520→      });
+   521→      toast({ title: `Sub-agent spawned under ${agent.codename}` });
+   522→      navigate('spawned');
+   523→      onClose();
+   524→    } catch (e) {
+   525→      toast({ title: 'Spawn failed', description: e instanceof Error ? e.message : '', variant: 'destructive' });
+   526→    } finally {
+   527→      setBusy(null);
+   528→    }
+   529→  };
+   530→
+   531→  const updateModel = async () => {
+   532→    if (!model.trim()) return;
+   533→    setBusy('model');
+   534→    try {
+   535→      await patchJson(`/api/agents/${agent.id}`, { model });
+   536→      toast({ title: `Model updated to ${model}` });
+   537→      onUpdated();
+   538→    } catch (e) {
+   539→      toast({ title: 'Update failed', description: e instanceof Error ? e.message : '', variant: 'destructive' });
+   540→    } finally {
+   541→      setBusy(null);
+   542→    }
+   543→  };
+   544→
+   545→  return (
+   546→    <div className="space-y-4">
+   547→      {/* Assign Task */}
+   548→      <div className="p-3 rounded border border-[var(--j-border-soft)] bg-[var(--j-panel-soft)]/30">
+   549→        <div className="flex items-center gap-2 mb-2">
+   550→          <ListTodo className="h-3.5 w-3.5 text-[var(--j-amber)]" />
+   551→          <span className="jarvis-mono text-[10px] uppercase text-[var(--j-text)]">Assign New Task</span>
+   552→        </div>
+   553→        <div className="space-y-2">
+   554→          <Input
+   555→            value={taskTitle}
+   556→            onChange={(e) => setTaskTitle(e.target.value)}
+   557→            placeholder="Task title…"
+   558→            className="bg-[var(--j-panel)] border-[var(--j-border)] h-8 text-xs"
+   559→          />
+   560→          <div className="flex gap-2">
+   561→            <Select value={taskPriority} onValueChange={setTaskPriority}>
+   562→              <SelectTrigger className="bg-[var(--j-panel)] border-[var(--j-border)] h-8 text-xs flex-1">
+   563→                <SelectValue />
+   564→              </SelectTrigger>
+   565→              <SelectContent>
+   566→                <SelectItem value="low">Low</SelectItem>
+   567→                <SelectItem value="medium">Medium</SelectItem>
+   568→                <SelectItem value="high">High</SelectItem>
+   569→                <SelectItem value="critical">Critical</SelectItem>
+   570→              </SelectContent>
+   571→            </Select>
+   572→            <Button size="sm" onClick={assignTask} disabled={busy === 'task'} className="jarvis-btn-accent border-0">
+   573→              {busy === 'task' ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Plus className="h-3.5 w-3.5 mr-1" />}
+   574→              Assign
+   575→            </Button>
+   576→          </div>
+   577→        </div>
+   578→      </div>
+   579→
+   580→      {/* Send Comms */}
+   581→      <div className="p-3 rounded border border-[var(--j-border-soft)] bg-[var(--j-panel-soft)]/30">
+   582→        <div className="flex items-center gap-2 mb-2">
+   583→          <MessageSquare className="h-3.5 w-3.5 text-[var(--j-violet)]" />
+   584→          <span className="jarvis-mono text-[10px] uppercase text-[var(--j-text)]">Send Message</span>
+   585→        </div>
+   586→        <div className="space-y-2">
+   587→          <Input
+   588→            value={commsSubject}
+   589→            onChange={(e) => setCommsSubject(e.target.value)}
+   590→            placeholder="Subject…"
+   591→            className="bg-[var(--j-panel)] border-[var(--j-border)] h-8 text-xs"
+   592→          />
+   593→          <Textarea
+   594→            value={commsBody}
+   595→            onChange={(e) => setCommsBody(e.target.value)}
+   596→            placeholder="Message body…"
+   597→            className="bg-[var(--j-panel)] border-[var(--j-border)] min-h-[60px] text-xs"
+   598→          />
+   599→          <div className="flex gap-2">
+   600→            <Select value={commsPriority} onValueChange={setCommsPriority}>
+   601→              <SelectTrigger className="bg-[var(--j-panel)] border-[var(--j-border)] h-8 text-xs flex-1">
+   602→                <SelectValue />
+   603→              </SelectTrigger>
+   604→              <SelectContent>
+   605→                <SelectItem value="normal">Normal</SelectItem>
+   606→                <SelectItem value="high">High</SelectItem>
+   607→                <SelectItem value="urgent">Urgent</SelectItem>
+   608→              </SelectContent>
+   609→            </Select>
+   610→            <Button size="sm" onClick={sendComms} disabled={busy === 'comms'} className="jarvis-btn-accent border-0">
+   611→              {busy === 'comms' ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Send className="h-3.5 w-3.5 mr-1" />}
+   612→              Send
+   613→            </Button>
+   614→          </div>
+   615→        </div>
+   616→      </div>
+   617→
+   618→      {/* Spawn Sub-Agent */}
+   619→      <div className="p-3 rounded border border-[var(--j-border-soft)] bg-[var(--j-panel-soft)]/30">
+   620→        <div className="flex items-center gap-2 mb-2">
+   621→          <Copy className="h-3.5 w-3.5 text-[var(--j-cyan)]" />
+   622→          <span className="jarvis-mono text-[10px] uppercase text-[var(--j-text)]">Spawn Sub-Agent</span>
+   623→        </div>
+   624→        <p className="text-[11px] text-[var(--j-text-mute)] mb-2">
+   625→          Create an ephemeral child agent under {agent.codename} for parallel task execution. Sub-agents inherit the parent's skills + model.
+   626→        </p>
+   627→        <Button size="sm" onClick={spawnSubAgent} disabled={busy === 'spawn'} className="w-full jarvis-btn-accent border-0">
+   628→          {busy === 'spawn' ? <Loader2 className="h-3.5 w-3.5 animate-spin mr-1" /> : <Copy className="h-3.5 w-3.5 mr-1" />}
+   629→          Spawn Under {agent.codename}
+   630→        </Button>
+   631→      </div>
+   632→
+   633→      {/* Edit Model */}
+   634→      <div className="p-3 rounded border border-[var(--j-border-soft)] bg-[var(--j-panel-soft)]/30">
+   635→        <div className="flex items-center gap-2 mb-2">
+   636→          <Cpu className="h-3.5 w-3.5 text-[var(--j-green)]" />
+   637→          <span className="jarvis-mono text-[10px] uppercase text-[var(--j-text)]">Model Configuration</span>
+   638→        </div>
+   639→        <div className="flex gap-2">
+   640→          <Input
+   641→            value={model}
+   642→            onChange={(e) => setModel(e.target.value)}
+   643→            className="bg-[var(--j-panel)] border-[var(--j-border)] h-8 text-xs flex-1"
+   644→          />
+   645→          <Button size="sm" onClick={updateModel} disabled={busy === 'model' || model === agent.model} className="jarvis-btn-accent border-0">
+   646→            {busy === 'model' ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Settings className="h-3.5 w-3.5 mr-1" />}
+   647→            Save
+   648→          </Button>
+   649→        </div>
+   650→      </div>
+   651→
+   652→      {/* Quick actions */}
+   653→      <div className="flex gap-2 pt-2 border-t border-[var(--j-border-soft)]">
+   654→        <Button size="sm" variant="outline" onClick={() => onCycle(agent)} className="flex-1 border-[var(--j-border)] bg-transparent">
+   655→          <Power className="h-3.5 w-3.5 mr-1" /> Cycle Status
+   656→        </Button>
+   657→        <Button size="sm" variant="outline" onClick={() => { navigate('comms'); onClose(); }} className="flex-1 border-[var(--j-border)] bg-transparent">
+   658→          <MessageSquare className="h-3.5 w-3.5 mr-1" /> Comms
+   659→        </Button>
+   660→        <Button size="sm" variant="outline" onClick={() => { navigate('tasks', { assigneeId: agent.id }); onClose(); }} className="flex-1 border-[var(--j-border)] bg-transparent">
+   661→          <ListTodo className="h-3.5 w-3.5 mr-1" /> Tasks
+   662→        </Button>
+   663→      </div>
+   664→    </div>
+   665→  );
+   666→}
+   667→
+   668→function levelColor(l: string): string {
+   669→  switch (l) {
+   670→    case 'success': return JARVIS.colors.green;
+   671→    case 'warn': return JARVIS.colors.amber;
+   672→    case 'error': return JARVIS.colors.red;
+   673→    case 'debug': return JARVIS.colors.textMute;
+   674→    default: return JARVIS.colors.cyan;
+   675→  }
+   676→}
+   677→
+   678→function SpawnModal({ onClose, onDone }: { onClose: () => void; onDone: () => void }) {
+   679→  const { toast } = useToast();
+   680→  const [name, setName] = useState('');
+   681→  const [codename, setCodename] = useState('');
+   682→  const [role, setRole] = useState('');
+   683→  const [skills, setSkills] = useState('');
+   684→  const [busy, setBusy] = useState(false);
+   685→
+   686→  const submit = async () => {
+   687→    if (!name || !codename) { toast({ title: 'Name and codename required', variant: 'destructive' }); return; }
+   688→    setBusy(true);
+   689→    try {
+   690→      await postJson('/api/agents', {
+   691→        name, codename, role: role || 'Generalist',
+   692→        skills: skills.split(',').map((s) => s.trim()).filter(Boolean),
+   693→      });
+   694→      toast({ title: `${codename.toUpperCase()} spawned` });
+   695→      onDone();
+   696→    } catch (e) {
+   697→      toast({ title: 'Spawn failed', description: e instanceof Error ? e.message : '', variant: 'destructive' });
+   698→    } finally {
+   699→      setBusy(false);
+   700→    }
+   701→  };
+   702→
+   703→  return (
+   704→    <motion.div className="fixed inset-0 z-50 flex items-center justify-center p-4" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
+   705→      <div className="absolute inset-0 bg-black/70 backdrop-blur-sm" onClick={onClose} />
+   706→      <motion.div initial={{ scale: 0.96, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.96, opacity: 0 }} className="relative w-full max-w-md jarvis-panel p-5">
+   707→        <div className="flex items-center justify-between mb-4">
+   708→          <h3 className="jarvis-mono text-sm uppercase text-[var(--j-cyan)]">Spawn New Agent</h3>
+   709→          <button onClick={onClose} className="text-[var(--j-text-mute)] hover:text-[var(--j-text)]"><X className="h-4 w-4" /></button>
+   710→        </div>
+   711→        <div className="space-y-3">
+   712→          <div>
+   713→            <label className="jarvis-mono text-[10px] uppercase text-[var(--j-text-mute)]">Name</label>
+   714→            <Input value={name} onChange={(e) => setName(e.target.value)} placeholder="e.g. Quantum" className="bg-[var(--j-panel-soft)] border-[var(--j-border)]" />
+   715→          </div>
+   716→          <div>
+   717→            <label className="jarvis-mono text-[10px] uppercase text-[var(--j-text-mute)]">Codename</label>
+   718→            <Input value={codename} onChange={(e) => setCodename(e.target.value.toUpperCase())} placeholder="e.g. QUANTUM" className="bg-[var(--j-panel-soft)] border-[var(--j-border)] jarvis-mono" />
+   719→          </div>
+   720→          <div>
+   721→            <label className="jarvis-mono text-[10px] uppercase text-[var(--j-text-mute)]">Role</label>
+   722→            <Input value={role} onChange={(e) => setRole(e.target.value)} placeholder="e.g. Security Analyst" className="bg-[var(--j-panel-soft)] border-[var(--j-border)]" />
+   723→          </div>
+   724→          <div>
+   725→            <label className="jarvis-mono text-[10px] uppercase text-[var(--j-text-mute)]">Skills (comma-separated)</label>
+   726→            <Textarea value={skills} onChange={(e) => setSkills(e.target.value)} placeholder="research, summarize, alerts" className="bg-[var(--j-panel-soft)] border-[var(--j-border)] min-h-[60px]" />
+   727→          </div>
+   728→          <Button onClick={submit} disabled={busy} className="w-full jarvis-btn-accent border-0">
+   729→            {busy ? 'Spawning…' : 'Deploy Agent'}
+   730→          </Button>
+   731→        </div>
+   732→      </motion.div>
+   733→    </motion.div>
+   734→  );
+   735→}
+   736→
+   737→/**
+   738→ * Import modal — upload a JSON backup file or paste JSON directly.
+   739→ * Supports two modes: 'upsert' (update existing by codename, create new)
+   740→ * and 'create' (only create new agents, skip existing codenames).
+   741→ */
+   742→function ImportModal({ onClose, onDone }: { onClose: () => void; onDone: () => void }) {
+   743→  const { toast } = useToast();
+   744→  const fileInputRef = useRef<HTMLInputElement>(null);
+   745→  const [jsonText, setJsonText] = useState('');
+   746→  const [mode, setMode] = useState<'upsert' | 'create'>('upsert');
+   747→  const [busy, setBusy] = useState(false);
+   748→  const [preview, setPreview] = useState<{ count: number; codenames: string[] } | null>(null);
+   749→
+   750→  const handleFile = async (file: File) => {
+   751→    try {
+   752→      const text = await file.text();
+   753→      setJsonText(text);
+   754→      parsePreview(text);
+   755→    } catch {
+   756→      toast({ title: 'Failed to read file', variant: 'destructive' });
+   757→    }
+   758→  };
+   759→
+   760→  const parsePreview = (text: string) => {
+   761→    try {
+   762→      const parsed = JSON.parse(text);
+   763→      const agents = Array.isArray(parsed.agents) ? parsed.agents : Array.isArray(parsed) ? parsed : [];
+   764→      setPreview({
+   765→        count: agents.length,
+   766→        codenames: agents.slice(0, 8).map((a: { codename?: string }) => a.codename ?? '?').filter(Boolean),
+   767→      });
+   768→    } catch {
+   769→      setPreview(null);
+   770→    }
+   771→  };
+   772→
+   773→  const submit = async () => {
+   774→    if (!jsonText.trim()) { toast({ title: 'Paste JSON or upload a file first', variant: 'destructive' }); return; }
+   775→    let parsed: unknown;
+   776→    try {
+   777→      parsed = JSON.parse(jsonText);
+   778→    } catch {
+   779→      toast({ title: 'Invalid JSON', variant: 'destructive' });
+   780→      return;
+   781→    }
+   782→    const agents = Array.isArray((parsed as { agents?: unknown[] })?.agents)
+   783→      ? (parsed as { agents: unknown[] }).agents
+   784→      : Array.isArray(parsed) ? parsed : [];
+   785→    if (agents.length === 0) { toast({ title: 'No agents found in JSON', variant: 'destructive' }); return; }
+   786→
+   787→    setBusy(true);
+   788→    try {
+   789→      const res = await postJson('/api/agents/backup', { agents, mode });
+   790→      toast({
+   791→        title: `Import complete: ${res.created} created, ${res.updated} updated, ${res.skipped} skipped`,
+   792→        description: res.errors?.length ? `${res.errors.length} errors` : undefined,
+   793→      });
+   794→      onDone();
+   795→    } catch (e) {
+   796→      toast({ title: 'Import failed', description: e instanceof Error ? e.message : '', variant: 'destructive' });
+   797→    } finally {
+   798→      setBusy(false);
+   799→    }
+   800→  };
+   801→
+   802→  return (
+   803→    <motion.div className="fixed inset-0 z-50 flex items-center justify-center p-4" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
+   804→      <div className="absolute inset-0 bg-black/70 backdrop-blur-sm" onClick={onClose} />
+   805→      <motion.div initial={{ scale: 0.96, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.96, opacity: 0 }} className="relative w-full max-w-lg jarvis-panel p-5">
+   806→        <div className="flex items-center justify-between mb-4">
+   807→          <div className="flex items-center gap-2">
+   808→            <div className="flex h-7 w-7 items-center justify-center rounded bg-[var(--j-cyan)]/15 border border-[var(--j-cyan)]/30">
+   809→              <Upload className="h-3.5 w-3.5 text-[var(--j-cyan)]" />
+   810→            </div>
+   811→            <h3 className="jarvis-mono text-sm uppercase text-[var(--j-cyan)]">Import Agent Configurations</h3>
+   812→          </div>
+   813→          <button onClick={onClose} className="text-[var(--j-text-mute)] hover:text-[var(--j-text)]"><X className="h-4 w-4" /></button>
+   814→        </div>
+   815→
+   816→        <div className="space-y-3">
+   817→          {/* File upload dropzone */}
+   818→          <div
+   819→            onClick={() => fileInputRef.current?.click()}
+   820→            onDragOver={(e) => { e.preventDefault(); }}
+   821→            onDrop={(e) => {
+   822→              e.preventDefault();
+   823→              const file = e.dataTransfer.files[0];
+   824→              if (file) handleFile(file);
+   825→            }}
+   826→            className="border-2 border-dashed border-[var(--j-border)] rounded-lg p-6 text-center cursor-pointer hover:border-[var(--j-cyan)] hover:bg-[var(--j-cyan)]/5 transition-all group"
+   827→          >
+   828→            <FileJson className="h-8 w-8 mx-auto text-[var(--j-text-mute)] group-hover:text-[var(--j-cyan)] transition-colors mb-2" />
+   829→            <div className="text-xs text-[var(--j-text-dim)] group-hover:text-[var(--j-text)] transition-colors">
+   830→              <span className="font-semibold">Click to upload</span> or drag & drop
+   831→            </div>
+   832→            <div className="jarvis-mono text-[9px] uppercase text-[var(--j-text-mute)] mt-1">JSON backup file</div>
+   833→            <input
+   834→              ref={fileInputRef}
+   835→              type="file"
+   836→              accept="application/json,.json"
+   837→              className="hidden"
+   838→              onChange={(e) => {
+   839→                const file = e.target.files?.[0];
+   840→                if (file) handleFile(file);
+   841→              }}
+   842→            />
+   843→          </div>
+   844→
+   845→          {/* Or paste JSON */}
+   846→          <div>
+   847→            <label className="jarvis-mono text-[10px] uppercase text-[var(--j-text-mute)] mb-1.5 block">
+   848→              Or paste JSON directly
+   849→            </label>
+   850→            <Textarea
+   851→              value={jsonText}
+   852→              onChange={(e) => { setJsonText(e.target.value); parsePreview(e.target.value); }}
+   853→              placeholder='{"agents": [{"name": "...", "codename": "...", "role": "...", "skills": "[]", "model": "glm-4.6"}]}'
+   854→              className="bg-[var(--j-panel-soft)] border-[var(--j-border)] min-h-[100px] text-xs font-mono"
+   855→            />
+   856→          </div>
+   857→
+   858→          {/* Preview */}
+   859→          {preview && (
+   860→            <div className="p-3 rounded bg-[var(--j-panel-soft)]/50 border border-[var(--j-border-soft)]">
+   861→              <div className="flex items-center gap-2 mb-1.5">
+   862→                <FileJson className="h-3.5 w-3.5 text-[var(--j-green)]" />
+   863→                <span className="jarvis-mono text-[10px] uppercase text-[var(--j-text)]">
+   864→                  Preview: {preview.count} agent{preview.count !== 1 ? 's' : ''}
+   865→                </span>
+   866→              </div>
+   867→              <div className="flex flex-wrap gap-1">
+   868→                {preview.codenames.map((cn, i) => (
+   869→                  <span key={i} className="jarvis-mono text-[9px] uppercase px-1.5 py-0.5 rounded bg-[var(--j-panel)] text-[var(--j-cyan)] border border-[var(--j-border-soft)]">
+   870→                    {cn}
+   871→                  </span>
+   872→                ))}
+   873→                {preview.count > 8 && <span className="jarvis-mono text-[9px] text-[var(--j-text-mute)]">+{preview.count - 8} more</span>}
+   874→              </div>
+   875→            </div>
+   876→          )}
+   877→
+   878→          {/* Mode selector */}
+   879→          <div>
+   880→            <label className="jarvis-mono text-[10px] uppercase text-[var(--j-text-mute)] mb-1.5 block">Import Mode</label>
+   881→            <div className="flex gap-2">
+   882→              <button
+   883→                onClick={() => setMode('upsert')}
+   884→                className={`flex-1 px-3 py-2 rounded border text-xs transition-all ${
+   885→                  mode === 'upsert' ? 'border-[var(--j-cyan)] bg-[var(--j-cyan)]/10 text-[var(--j-cyan)]' : 'border-[var(--j-border)] text-[var(--j-text-dim)] hover:text-[var(--j-text)]'
+   886→                }`}
+   887→              >
+   888→                <div className="font-semibold mb-0.5">Upsert</div>
+   889→                <div className="text-[9px] text-[var(--j-text-mute)]">Update existing, create new</div>
+   890→              </button>
+   891→              <button
+   892→                onClick={() => setMode('create')}
+   893→                className={`flex-1 px-3 py-2 rounded border text-xs transition-all ${
+   894→                  mode === 'create' ? 'border-[var(--j-amber)] bg-[var(--j-amber)]/10 text-[var(--j-amber)]' : 'border-[var(--j-border)] text-[var(--j-text-dim)] hover:text-[var(--j-text)]'
+   895→                }`}
+   896→              >
+   897→                <div className="font-semibold mb-0.5">Create Only</div>
+   898→                <div className="text-[9px] text-[var(--j-text-mute)]">Skip existing codenames</div>
+   899→              </button>
+   900→            </div>
+   901→          </div>
+   902→
+   903→          <div className="flex gap-2 pt-2">
+   904→            <Button variant="outline" onClick={onClose} className="flex-1 border-[var(--j-border)] bg-transparent">
+   905→              Cancel
+   906→            </Button>
+   907→            <Button onClick={submit} disabled={busy || !jsonText.trim()} className="flex-1 jarvis-btn-accent border-0">
+   908→              {busy ? <Loader2 className="h-3.5 w-3.5 animate-spin mr-1" /> : <Upload className="h-3.5 w-3.5 mr-1" />}
+   909→              Import {preview ? `(${preview.count})` : ''}
+   910→            </Button>
+   911→          </div>
+   912→        </div>
+   913→      </motion.div>
+   914→    </motion.div>
+   915→  );
+   916→}
+   917→
+   918→/**
+   919→ * Templates modal — browse pre-built agent presets and spawn with one click.
+   920→ * Templates are grouped by category (engineering, research, business, ops, creative, security).
+   921→ */
+   922→interface Template {
+   923→  key: string;
+   924→  name: string;
+   925→  codename: string;
+   926→  role: string;
+   927→  skills: string[];
+   928→  model: string;
+   929→  description: string;
+   930→  category: string;
+   931→  accent: string;
+   932→}
+   933→
+   934→const CATEGORY_LABELS: Record<string, string> = {
+   935→  engineering: 'Engineering',
+   936→  research: 'Research',
+   937→  business: 'Business',
+   938→  ops: 'Operations',
+   939→  creative: 'Creative',
+   940→  security: 'Security',
+   941→};
+   942→
+   943→function TemplatesModal({ onClose, onDone }: { onClose: () => void; onDone: () => void }) {
+   944→  const { toast } = useToast();
+   945→  const { data, loading } = useApi<{ templates: Template[]; byCategory: Record<string, Template[]> }>('/api/agents/templates', 0);
+   946→  const [search, setSearch] = useState('');
+   947→  const [spawning, setSpawning] = useState<string | null>(null);
+   948→
+   949→  const templates = data?.templates ?? [];
+   950→  const filtered = search
+   951→    ? templates.filter((t) =>
+   952→        t.name.toLowerCase().includes(search.toLowerCase()) ||
+   953→        t.role.toLowerCase().includes(search.toLowerCase()) ||
+   954→        t.skills.some((s) => s.includes(search.toLowerCase()))
+   955→      )
+   956→    : templates;
+   957→
+   958→  const byCategory = filtered.reduce<Record<string, Template[]>>((acc, t) => {
+   959→    (acc[t.category] ??= []).push(t);
+   960→    return acc;
+   961→  }, {});
+   962→
+   963→  const spawn = async (template: Template) => {
+   964→    setSpawning(template.key);
+   965→    try {
+   966→      const res = await postJson('/api/agents/templates', { templateKey: template.key });
+   967→      toast({ title: `${res.agent.codename} spawned`, description: `${template.name} · ${template.role}` });
+   968→      onDone();
+   969→    } catch (e) {
+   970→      toast({ title: 'Spawn failed', description: e instanceof Error ? e.message : '', variant: 'destructive' });
+   971→    } finally {
+   972→      setSpawning(null);
+   973→    }
+   974→  };
+   975→
+   976→  return (
+   977→    <motion.div className="fixed inset-0 z-50 flex items-center justify-center p-4" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
+   978→      <div className="absolute inset-0 bg-black/70 backdrop-blur-sm" onClick={onClose} />
+   979→      <motion.div
+   980→        initial={{ scale: 0.96, opacity: 0 }}
+   981→        animate={{ scale: 1, opacity: 1 }}
+   982→        exit={{ scale: 0.96, opacity: 0 }}
+   983→        className="relative w-full max-w-3xl jarvis-glass border border-[var(--j-border)] rounded-xl overflow-hidden max-h-[88vh] flex flex-col"
+   984→      >
+   985→        {/* Header */}
+   986→        <div className="flex items-center justify-between p-4 border-b border-[var(--j-border)]">
+   987→          <div className="flex items-center gap-2.5">
+   988→            <div className="flex h-8 w-8 items-center justify-center rounded-md bg-[var(--j-violet)]/15 border border-[var(--j-violet)]/30">
+   989→              <Sparkles className="h-4 w-4 text-[var(--j-violet)]" />
+   990→            </div>
+   991→            <div>
+   992→              <div className="text-sm font-bold text-[var(--j-text)]">Agent Templates</div>
+   993→              <div className="jarvis-mono text-[9px] uppercase text-[var(--j-text-mute)]">
+   994→                {templates.length} presets · one-click spawn
+   995→              </div>
+   996→            </div>
+   997→          </div>
+   998→          <button onClick={onClose} className="text-[var(--j-text-mute)] hover:text-[var(--j-text)] transition-colors">
+   999→            <X className="h-4 w-4" />
+  1000→          </button>
+  1001→        </div>
+  1002→
+  1003→        {/* Search */}
+  1004→        <div className="p-3 border-b border-[var(--j-border)]">
+  1005→          <div className="relative">
+  1006→            <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-[var(--j-text-mute)]" />
+  1007→            <input
+  1008→              value={search}
+  1009→              onChange={(e) => setSearch(e.target.value)}
+  1010→              placeholder="Search templates by name, role, or skill…"
+  1011→              className="w-full pl-8 pr-3 py-2 rounded-md border border-[var(--j-border)] bg-[var(--j-panel-soft)] text-xs text-[var(--j-text)] placeholder:text-[var(--j-text-mute)] focus:outline-none focus:border-[var(--j-cyan)]"
+  1012→            />
+  1013→          </div>
+  1014→        </div>
+  1015→
+  1016→        {/* Templates grid by category */}
+  1017→        <div className="p-4 overflow-y-auto jarvis-scroll flex-1 space-y-5">
+  1018→          {loading ? (
+  1019→            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+  1020→              {Array.from({ length: 6 }).map((_, i) => <div key={i} className="h-32 jarvis-skeleton rounded-lg" />)}
+  1021→            </div>
+  1022→          ) : Object.keys(byCategory).length === 0 ? (
+  1023→            <div className="text-center py-8 text-xs text-[var(--j-text-mute)]">No templates match your search.</div>
+  1024→          ) : (
+  1025→            Object.entries(byCategory).map(([cat, items]) => (
+  1026→              <div key={cat}>
+  1027→                <div className="jarvis-mono text-[9px] uppercase tracking-widest text-[var(--j-text-mute)] mb-2 flex items-center gap-1.5">
+  1028→                  <span className="h-1 w-1 rounded-full" style={{ background: items[0]?.accent ?? JARVIS.colors.cyan }} />
+  1029→                  {CATEGORY_LABELS[cat] ?? cat} · {items.length}
+  1030→                </div>
+  1031→                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+  1032→                  {items.map((t) => (
+  1033→                    <div
+  1034→                      key={t.key}
+  1035→                      className="jarvis-panel p-3 group hover:border-[var(--j-cyan)]/40 transition-all relative overflow-hidden"
+  1036→                    >
+  1037→                      {/* Accent left border */}
+  1038→                      <div className="absolute top-0 left-0 bottom-0 w-[3px]" style={{ background: t.accent }} />
+  1039→                      <div className="pl-2">
+  1040→                        <div className="flex items-start justify-between mb-1.5">
+  1041→                          <div>
+  1042→                            <div className="text-sm font-semibold text-[var(--j-text)]">{t.name}</div>
+  1043→                            <div className="jarvis-mono text-[9px] uppercase text-[var(--j-cyan)]">{t.codename} · {t.model}</div>
+  1044→                          </div>
+  1045→                          <button
+  1046→                            onClick={() => spawn(t)}
+  1047→                            disabled={spawning === t.key}
+  1048→                            className="flex items-center gap-1 px-2 py-1 rounded text-[9px] jarvis-mono uppercase border transition-all disabled:opacity-50"
+  1049→                            style={{ borderColor: `${t.accent}40`, color: t.accent }}
+  1050→                          >
+  1051→                            {spawning === t.key
+  1052→                              ? <Loader2 className="h-3 w-3 animate-spin" />
+  1053→                              : <Zap className="h-3 w-3" />
+  1054→                            }
+  1055→                            Spawn
+  1056→                          </button>
+  1057→                        </div>
+  1058→                        <p className="text-[11px] text-[var(--j-text-dim)] leading-snug mb-2">{t.description}</p>
+  1059→                        <div className="flex flex-wrap gap-1">
+  1060→                          {t.skills.slice(0, 5).map((s) => (
+  1061→                            <span key={s} className="jarvis-mono text-[8px] uppercase px-1.5 py-0.5 rounded bg-[var(--j-panel-soft)] text-[var(--j-text-mute)] border border-[var(--j-border-soft)]">
+  1062→                              {s}
+  1063→                            </span>
+  1064→                          ))}
+  1065→                        </div>
+  1066→                      </div>
+  1067→                    </div>
+  1068→                  ))}
+  1069→                </div>
+  1070→              </div>
+  1071→            ))
+  1072→          )}
+  1073→        </div>
+  1074→
+  1075→        {/* Footer */}
+  1076→        <div className="px-4 py-2.5 border-t border-[var(--j-border)] bg-[var(--j-panel-soft)]/40 flex items-center justify-between jarvis-mono text-[9px] uppercase text-[var(--j-text-mute)]">
+  1077→          <span>Templates auto-generate unique codenames if collision occurs</span>
+  1078→          <button onClick={onClose} className="text-[var(--j-cyan)] hover:underline">Done</button>
+  1079→        </div>
+  1080→      </motion.div>
+  1081→    </motion.div>
+  1082→  );
+  1083→}
+  1084→
+  1085→/**
+  1086→ * Compare modal — select 2-5 agents and view side-by-side metrics.
+  1087→ * Shows a comparison table with health scores, task stats, log stats, comms,
+  1088→ * skills, and winners per metric (highlighted with a trophy icon).
+  1089→ */
+  1090→interface CompareAgent {
+  1091→  id: string;
+  1092→  codename: string;
+  1093→  name: string;
+  1094→  role: string;
+  1095→  status: string;
+  1096→  model: string;
+  1097→  load: number;
+  1098→  successRate: number;
+  1099→  taskCount: number;
+  1100→  logCount: number;
+  1101→  healthScore: number;
+  1102→  metrics: {
+  1103→    tasks: { total: number; completed: number; inProgress: number; pending: number; failed: number; completionRate: number };
+  1104→    logs: { total: number; errors: number; successes: number; warnings: number };
+  1105→    comms: { sent: number; received: number; total: number };
+  1106→    skills: { totalRuns: number; successes: number; successRate: number; avgLatency: number };
+  1107→  };
+  1108→  lastActive: string;
+  1109→}
+  1110→
+  1111→function CompareModal({ agents, onClose }: { agents: Agent[]; onClose: () => void }) {
+  1112→  const [selectedIds, setSelectedIds] = useState<string[]>([]);
+  1113→  const [search, setSearch] = useState('');
+  1114→  const { data, loading } = useApi<{ agents: CompareAgent[]; winners: Record<string, string> }>(
+  1115→    selectedIds.length >= 2 ? `/api/agents/compare?ids=${selectedIds.join(',')}` : null,
+  1116→    0,
+  1117→  );
+  1118→
+  1119→  const filtered = search
+  1120→    ? agents.filter((a) =>
+  1121→        a.codename.toLowerCase().includes(search.toLowerCase()) ||
+  1122→        a.name.toLowerCase().includes(search.toLowerCase()) ||
+  1123→        a.role.toLowerCase().includes(search.toLowerCase())
+  1124→      )
+  1125→    : agents;
+  1126→
+  1127→  const toggle = (id: string) => {
+  1128→    setSelectedIds((prev) => {
+  1129→      if (prev.includes(id)) return prev.filter((x) => x !== id);
+  1130→      if (prev.length >= 5) return prev;
+  1131→      return [...prev, id];
+  1132→    });
+  1133→  };
+  1134→
+  1135→  const comparison = data?.agents ?? [];
+  1136→  const winners = data?.winners ?? {};
+  1137→
+  1138→  return (
+  1139→    <motion.div className="fixed inset-0 z-50 flex items-center justify-center p-4" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
+  1140→      <div className="absolute inset-0 bg-black/70 backdrop-blur-sm" onClick={onClose} />
+  1141→      <motion.div
+  1142→        initial={{ scale: 0.96, opacity: 0 }}
+  1143→        animate={{ scale: 1, opacity: 1 }}
+  1144→        exit={{ scale: 0.96, opacity: 0 }}
+  1145→        className="relative w-full max-w-5xl jarvis-glass border border-[var(--j-border)] rounded-xl overflow-hidden max-h-[88vh] flex flex-col"
+  1146→      >
+  1147→        {/* Header */}
+  1148→        <div className="flex items-center justify-between p-4 border-b border-[var(--j-border)]">
+  1149→          <div className="flex items-center gap-2.5">
+  1150→            <div className="flex h-8 w-8 items-center justify-center rounded-md bg-[var(--j-cyan)]/15 border border-[var(--j-cyan)]/30">
+  1151→              <GitCompare className="h-4 w-4 text-[var(--j-cyan)]" />
+  1152→            </div>
+  1153→            <div>
+  1154→              <div className="text-sm font-bold text-[var(--j-text)]">Agent Comparison</div>
+  1155→              <div className="jarvis-mono text-[9px] uppercase text-[var(--j-text-mute)]">
+  1156→                {selectedIds.length} selected · pick 2-5 to compare
+  1157→              </div>
+  1158→            </div>
+  1159→          </div>
+  1160→          <button onClick={onClose} className="text-[var(--j-text-mute)] hover:text-[var(--j-text)] transition-colors">
+  1161→            <X className="h-4 w-4" />
+  1162→          </button>
+  1163→        </div>
+  1164→
+  1165→        <div className="flex flex-1 overflow-hidden">
+  1166→          {/* Left: agent picker */}
+  1167→          <div className="w-64 border-r border-[var(--j-border)] flex flex-col">
+  1168→            <div className="p-3 border-b border-[var(--j-border)]">
+  1169→              <div className="relative">
+  1170→                <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-[var(--j-text-mute)]" />
+  1171→                <input
+  1172→                  value={search}
+  1173→                  onChange={(e) => setSearch(e.target.value)}
+  1174→                  placeholder="Search agents…"
+  1175→                  className="w-full pl-8 pr-3 py-2 rounded-md border border-[var(--j-border)] bg-[var(--j-panel-soft)] text-xs text-[var(--j-text)] placeholder:text-[var(--j-text-mute)] focus:outline-none focus:border-[var(--j-cyan)]"
+  1176→                />
+  1177→              </div>
+  1178→            </div>
+  1179→            <div className="flex-1 overflow-y-auto jarvis-scroll p-2 space-y-1">
+  1180→              {filtered.slice(0, 50).map((a) => {
+  1181→                const isSelected = selectedIds.includes(a.id);
+  1182→                const color = STATUS_COLORS[a.status as keyof typeof STATUS_COLORS] ?? JARVIS.colors.textDim;
+  1183→                return (
+  1184→                  <button
+  1185→                    key={a.id}
+  1186→                    onClick={() => toggle(a.id)}
+  1187→                    className={`w-full flex items-center gap-2 p-2 rounded text-left transition-colors ${
+  1188→                      isSelected ? 'bg-[var(--j-cyan)]/10 border border-[var(--j-cyan)]/40' : 'hover:bg-[var(--j-panel-soft)] border border-transparent'
+  1189→                    }`}
+  1190→                  >
+  1191→                    <div className={`h-4 w-4 rounded border flex items-center justify-center shrink-0 ${isSelected ? 'bg-[var(--j-cyan)] border-[var(--j-cyan)]' : 'border-[var(--j-border)]'}`}>
+  1192→                      {isSelected && <Check className="h-3 w-3 text-white" />}
+  1193→                    </div>
+  1194→                    <StatusDot status={a.status as never} size={8} />
+  1195→                    <div className="min-w-0 flex-1">
+  1196→                      <div className="jarvis-mono text-xs text-[var(--j-text)] truncate">{a.codename}</div>
+  1197→                      <div className="text-[9px] text-[var(--j-text-mute)] truncate">{a.role}</div>
+  1198→                    </div>
+  1199→                  </button>
+  1200→                );
+  1201→              })}
+  1202→            </div>
+  1203→          </div>
+  1204→
+  1205→          {/* Right: comparison table */}
+  1206→          <div className="flex-1 overflow-y-auto jarvis-scroll p-4">
+  1207→            {selectedIds.length < 2 ? (
+  1208→              <div className="flex flex-col items-center justify-center h-full text-center">
+  1209→                <GitCompare className="h-12 w-12 text-[var(--j-text-mute)] opacity-30 mb-3" />
+  1210→                <div className="text-sm text-[var(--j-text-dim)] mb-1">Select at least 2 agents</div>
+  1211→                <div className="jarvis-mono text-[9px] uppercase text-[var(--j-text-mute)]">
+  1212→                  Pick from the list on the left to compare metrics side-by-side
+  1213→                </div>
+  1214→              </div>
+  1215→            ) : loading ? (
+  1216→              <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+  1217→                {Array.from({ length: 6 }).map((_, i) => <div key={i} className="h-20 jarvis-skeleton rounded" />)}
+  1218→              </div>
+  1219→            ) : comparison.length > 0 ? (
+  1220→              <div className="space-y-4">
+  1221→                {/* Agent headers */}
+  1222→                <div className="grid gap-3" style={{ gridTemplateColumns: `repeat(${comparison.length}, 1fr)` }}>
+  1223→                  {comparison.map((a) => {
+  1224→                    const color = STATUS_COLORS[a.status as keyof typeof STATUS_COLORS] ?? JARVIS.colors.textDim;
+  1225→                    return (
+  1226→                      <div key={a.id} className="jarvis-panel p-3 text-center relative overflow-hidden">
+  1227→                        <div className="absolute top-0 left-0 right-0 h-[3px]" style={{ background: color }} />
+  1228→                        <StatusDot status={a.status as never} size={10} />
+  1229→                        <div className="jarvis-mono text-sm font-bold mt-1" style={{ color }}>{a.codename}</div>
+  1230→                        <div className="text-[10px] text-[var(--j-text-mute)] truncate">{a.role}</div>
+  1231→                        <div className="jarvis-mono text-[9px] text-[var(--j-text-dim)] mt-1">{a.model}</div>
+  1232→                      </div>
+  1233→                    );
+  1234→                  })}
+  1235→                </div>
+  1236→
+  1237→                {/* Health score row */}
+  1238→                <div className="jarvis-panel p-3">
+  1239→                  <div className="jarvis-mono text-[9px] uppercase text-[var(--j-text-mute)] mb-2">Health Score</div>
+  1240→                  <div className="grid gap-3" style={{ gridTemplateColumns: `repeat(${comparison.length}, 1fr)` }}>
+  1241→                    {comparison.map((a) => {
+  1242→                      const isWinner = winners.healthScore === a.codename;
+  1243→                      const score = a.healthScore;
+  1244→                      const color = score >= 70 ? JARVIS.colors.green : score >= 40 ? JARVIS.colors.amber : JARVIS.colors.red;
+  1245→                      return (
+  1246→                        <div key={a.id} className="text-center relative">
+  1247→                          {isWinner && <Trophy className="absolute -top-1 -right-1 h-3 w-3 text-[var(--j-amber)]" />}
+  1248→                          <div className="text-2xl font-bold jarvis-mono" style={{ color }}>{score}</div>
+  1249→                          <div className="h-1.5 rounded-full bg-[var(--j-border)] overflow-hidden mt-1">
+  1250→                            <motion.div className="h-full rounded-full" style={{ background: color }} initial={{ width: 0 }} animate={{ width: `${score}%` }} transition={{ duration: 0.5 }} />
+  1251→                          </div>
+  1252→                        </div>
+  1253→                      );
+  1254→                    })}
+  1255→                  </div>
+  1256→                </div>
+  1257→
+  1258→                {/* Metrics comparison table */}
+  1259→                <div className="jarvis-panel p-3">
+  1260→                  <div className="jarvis-mono text-[9px] uppercase text-[var(--j-text-mute)] mb-2">Metrics Comparison</div>
+  1261→                  <table className="w-full text-xs">
+  1262→                    <tbody>
+  1263→                      <CompareRow label="Success Rate" agents={comparison} winners={winners} winnerKey="successRate" getValue={(a) => `${a.successRate}%`} getNum={(a) => a.successRate} higherBetter />
+  1264→                      <CompareRow label="Load" agents={comparison} winners={winners} winnerKey="load" getValue={(a) => `${Math.round(a.load)}%`} getNum={(a) => a.load} higherBetter={false} />
+  1265→                      <CompareRow label="Tasks Total" agents={comparison} winners={winners} winnerKey="taskCount" getValue={(a) => String(a.metrics.tasks.total)} getNum={(a) => a.metrics.tasks.total} higherBetter />
+  1266→                      <CompareRow label="Tasks Completed" agents={comparison} winners={winners} winnerKey="completionRate" getValue={(a) => `${a.metrics.tasks.completed} (${a.metrics.tasks.completionRate}%)`} getNum={(a) => a.metrics.tasks.completionRate} higherBetter />
+  1267→                      <CompareRow label="Logs Total" agents={comparison} winners={winners} winnerKey="logCount" getValue={(a) => String(a.metrics.logs.total)} getNum={(a) => a.metrics.logs.total} higherBetter />
+  1268→                      <CompareRow label="Log Errors" agents={comparison} winners={[]} winnerKey="" getValue={(a) => String(a.metrics.logs.errors)} getNum={(a) => a.metrics.logs.errors} higherBetter={false} />
+  1269→                      <CompareRow label="Comms Sent" agents={comparison} winners={[]} winnerKey="" getValue={(a) => String(a.metrics.comms.sent)} getNum={(a) => a.metrics.comms.sent} higherBetter />
+  1270→                      <CompareRow label="Comms Received" agents={comparison} winners={[]} winnerKey="" getValue={(a) => String(a.metrics.comms.received)} getNum={(a) => a.metrics.comms.received} higherBetter />
+  1271→                      <CompareRow label="Skill Runs" agents={comparison} winners={[]} winnerKey="" getValue={(a) => String(a.metrics.skills.totalRuns)} getNum={(a) => a.metrics.skills.totalRuns} higherBetter />
+  1272→                      <CompareRow label="Skill Success" agents={comparison} winners={[]} winnerKey="" getValue={(a) => `${a.metrics.skills.successRate}%`} getNum={(a) => a.metrics.skills.successRate} higherBetter />
+  1273→                    </tbody>
+  1274→                  </table>
+  1275→                </div>
+  1276→
+  1277→                {/* Radar chart — normalized 0-100 comparison across 6 dimensions */}
+  1278→                <div className="jarvis-panel p-3">
+  1279→                  <div className="jarvis-mono text-[9px] uppercase text-[var(--j-text-mute)] mb-2 flex items-center gap-1.5">
+  1280→                    <Activity className="h-3 w-3" /> Capability Radar (normalized 0-100)
+  1281→                  </div>
+  1282→                  <div className="h-64">
+  1283→                    <ResponsiveContainer width="100%" height="100%">
+  1284→                      <RadarChart data={(() => {
+  1285→                        // Normalize each metric to 0-100 for the radar.
+  1286→                        const maxTasks = Math.max(1, ...comparison.map((a) => a.metrics.tasks.total));
+  1287→                        const maxLogs = Math.max(1, ...comparison.map((a) => a.metrics.logs.total));
+  1288→                        const maxComms = Math.max(1, ...comparison.map((a) => a.metrics.comms.total));
+  1289→                        const maxSkills = Math.max(1, ...comparison.map((a) => a.metrics.skills.totalRuns));
+  1290→                        const dims = ['Health', 'Success', 'Tasks', 'Activity', 'Comms', 'Skills'];
+  1291→                        return dims.map((dim) => {
+  1292→                          const row: Record<string, string | number> = { dim };
+  1293→                          for (const a of comparison) {
+  1294→                            let val = 0;
+  1295→                            switch (dim) {
+  1296→                              case 'Health': val = a.healthScore; break;
+  1297→                              case 'Success': val = a.successRate; break;
+  1298→                              case 'Tasks': val = (a.metrics.tasks.total / maxTasks) * 100; break;
+  1299→                              case 'Activity': val = (a.metrics.logs.total / maxLogs) * 100; break;
+  1300→                              case 'Comms': val = (a.metrics.comms.total / maxComms) * 100; break;
+  1301→                              case 'Skills': val = (a.metrics.skills.totalRuns / maxSkills) * 100; break;
+  1302→                            }
+  1303→                            row[a.codename] = Math.round(val);
+  1304→                          }
+  1305→                          return row;
+  1306→                        });
+  1307→                      })()} outerRadius="70%">
+  1308→                        <PolarGrid stroke="#1B2330" />
+  1309→                        <PolarAngleAxis dataKey="dim" tick={{ fill: '#94A3B8', fontSize: 10 }} />
+  1310→                        <PolarRadiusAxis tick={{ fill: '#64748B', fontSize: 9 }} angle={90} domain={[0, 100]} />
+  1311→                        <Tooltip contentStyle={{ background: '#0E1218', border: '1px solid #1B2330', borderRadius: 8, fontSize: 12 }} />
+  1312→                        <Legend wrapperStyle={{ fontSize: 10 }} />
+  1313→                        {comparison.map((a, i) => {
+  1314→                          const colors = [JARVIS.colors.cyan, JARVIS.colors.green, JARVIS.colors.amber, JARVIS.colors.violet, JARVIS.colors.red];
+  1315→                          const color = colors[i % colors.length];
+  1316→                          return (
+  1317→                            <Radar
+  1318→                              key={a.id}
+  1319→                              name={a.codename}
+  1320→                              dataKey={a.codename}
+  1321→                              stroke={color}
+  1322→                              fill={color}
+  1323→                              fillOpacity={0.1}
+  1324→                              strokeWidth={1.5}
+  1325→                            />
+  1326→                          );
+  1327→                        })}
+  1328→                      </RadarChart>
+  1329→                    </ResponsiveContainer>
+  1330→                  </div>
+  1331→                </div>
+  1332→
+  1333→                {/* Activity Timeline — daily activity over 14 days */}
+  1334→                <CompareTimeline selectedIds={selectedIds} agents={comparison} />
+  1335→              </div>
+  1336→            ) : null}
+  1337→          </div>
+  1338→        </div>
+  1339→
+  1340→        {/* Footer */}
+  1341→        <div className="px-4 py-2.5 border-t border-[var(--j-border)] bg-[var(--j-panel-soft)]/40 flex items-center justify-between jarvis-mono text-[9px] uppercase text-[var(--j-text-mute)]">
+  1342→          <span>{selectedIds.length}/5 agents selected</span>
+  1343→          <button onClick={onClose} className="text-[var(--j-cyan)] hover:underline">Done</button>
+  1344→        </div>
+  1345→      </motion.div>
+  1346→    </motion.div>
+  1347→  );
+  1348→}
+  1349→
+  1350→function CompareRow({
+  1351→  label,
+  1352→  agents,
+  1353→  winners,
+  1354→  winnerKey,
+  1355→  getValue,
+  1356→  getNum,
+  1357→  higherBetter,
+  1358→}: {
+  1359→  label: string;
+  1360→  agents: CompareAgent[];
+  1361→  winners: Record<string, string>;
+  1362→  winnerKey: string;
+  1363→  getValue: (a: CompareAgent) => string;
+  1364→  getNum: (a: CompareAgent) => number;
+  1365→  higherBetter: boolean;
+  1366→}) {
+  1367→  // Find the best value
+  1368→  const nums = agents.map(getNum);
+  1369→  const bestVal = higherBetter ? Math.max(...nums) : Math.min(...nums);
+  1370→  return (
+  1371→    <tr className="border-b border-[var(--j-border-soft)] last:border-0">
+  1372→      <td className="py-2 pr-3 jarvis-mono text-[9px] uppercase text-[var(--j-text-mute)] whitespace-nowrap">{label}</td>
+  1373→      {agents.map((a) => {
+  1374→        const val = getNum(a);
+  1375→        const isWinner = winnerKey && val === bestVal && agents.length > 1;
+  1376→        return (
+  1377→          <td key={a.id} className="py-2 px-2 text-center relative">
+  1378→            {isWinner && <Trophy className="absolute top-1 right-1 h-2.5 w-2.5 text-[var(--j-amber)]" />}
+  1379→            <span className={`jarvis-mono text-xs ${isWinner ? 'font-bold text-[var(--j-amber)]' : 'text-[var(--j-text)]'}`}>
+  1380→              {getValue(a)}
+  1381→            </span>
+  1382→          </td>
+  1383→        );
+  1384→      })}
+  1385→    </tr>
+  1386→  );
+  1387→}
+  1388→
+  1389→/**
+  1390→ * CompareTimeline — fetches daily activity data for the selected agents and
+  1391→ * renders a multi-line chart showing activity (logs + comms + tasks) over 14 days.
+  1392→ */
+  1393→function CompareTimeline({ selectedIds, agents }: { selectedIds: string[]; agents: CompareAgent[] }) {
+  1394→  const [metric, setMetric] = useState<'logs' | 'comms' | 'tasks' | 'errors'>('logs');
+  1395→  const { data, loading } = useApi<{
+  1396→    timeline: Array<{ id: string; codename: string; series: Array<{ date: string; label: string; logs: number; errors: number; commsTotal: number; tasks: number }> }>;
+  1397→    buckets: Array<{ date: string; label: string }>;
+  1398→  }>(`/api/agents/compare/timeline?ids=${selectedIds.join(',')}&days=14`, 0);
+  1399→
+  1400→  if (loading || !data || data.timeline.length === 0) {
+  1401→    return (
+  1402→      <div className="jarvis-panel p-3">
+  1403→        <div className="jarvis-mono text-[9px] uppercase text-[var(--j-text-mute)] mb-2">Activity Timeline (14d)</div>
+  1404→        <div className="h-48 flex items-center justify-center">
+  1405→          {loading ? <Loader2 className="h-4 w-4 animate-spin text-[var(--j-cyan)]" /> : <span className="text-xs text-[var(--j-text-mute)]">No timeline data</span>}
+  1406→        </div>
+  1407→      </div>
+  1408→    );
+  1409→  }
+  1410→
+  1411→  // Merge all agents' series into a single array for the chart.
+  1412→  const merged = data.buckets.map((b) => {
+  1413→    const row: Record<string, string | number> = { label: b.label };
+  1414→    for (const agent of data.timeline) {
+  1415→      const point = agent.series.find((s) => s.date === b.date);
+  1416→      if (point) {
+  1417→        switch (metric) {
+  1418→          case 'logs': row[agent.codename] = point.logs; break;
+  1419→          case 'errors': row[agent.codename] = point.errors; break;
+  1420→          case 'comms': row[agent.codename] = point.commsTotal; break;
+  1421→          case 'tasks': row[agent.codename] = point.tasks; break;
+  1422→        }
+  1423→      } else {
+  1424→        row[agent.codename] = 0;
+  1425→      }
+  1426→    }
+  1427→    return row;
+  1428→  });
+  1429→
+  1430→  const colors = [JARVIS.colors.cyan, JARVIS.colors.green, JARVIS.colors.amber, JARVIS.colors.violet, JARVIS.colors.red];
+  1431→
+  1432→  return (
+  1433→    <div className="jarvis-panel p-3">
+  1434→      <div className="flex items-center justify-between mb-2">
+  1435→        <div className="jarvis-mono text-[9px] uppercase text-[var(--j-text-mute)] flex items-center gap-1.5">
+  1436→          <Activity className="h-3 w-3" /> Activity Timeline (14d)
+  1437→        </div>
+  1438→        <div className="flex gap-1">
+  1439→          {(['logs', 'errors', 'comms', 'tasks'] as const).map((m) => (
+  1440→            <button
+  1441→              key={m}
+  1442→              onClick={() => setMetric(m)}
+  1443→              className={`jarvis-mono text-[9px] uppercase px-1.5 py-0.5 rounded border transition-colors ${
+  1444→                metric === m ? 'border-[var(--j-cyan)] bg-[var(--j-cyan)]/10 text-[var(--j-cyan)]' : 'border-[var(--j-border)] text-[var(--j-text-mute)] hover:text-[var(--j-text)]'
+  1445→              }`}
+  1446→            >
+  1447→              {m}
+  1448→            </button>
+  1449→          ))}
+  1450→        </div>
+  1451→      </div>
+  1452→      <div className="h-48">
+  1453→        <ResponsiveContainer width="100%" height="100%">
+  1454→          <LineChart data={merged} margin={{ top: 4, right: 8, left: -20, bottom: 0 }}>
+  1455→            <CartesianGrid strokeDasharray="3 3" stroke="#1B2330" vertical={false} />
+  1456→            <XAxis dataKey="label" tick={{ fill: '#64748B', fontSize: 9 }} axisLine={false} tickLine={false} minTickGap={20} />
+  1457→            <YAxis tick={{ fill: '#64748B', fontSize: 9 }} axisLine={false} tickLine={false} allowDecimals={false} />
+  1458→            <Tooltip contentStyle={{ background: '#0E1218', border: '1px solid #1B2330', borderRadius: 8, fontSize: 11 }} labelStyle={{ color: '#94A3B8' }} />
+  1459→            <Legend wrapperStyle={{ fontSize: 9 }} />
+  1460→            {data.timeline.map((agent, i) => {
+  1461→              const color = colors[i % colors.length];
+  1462→              return (
+  1463→                <Line
+  1464→                  key={agent.id}
+  1465→                  type="monotone"
+  1466→                  dataKey={agent.codename}
+  1467→                  stroke={color}
+  1468→                  strokeWidth={1.5}
+  1469→                  dot={false}
+  1470→                  activeDot={{ r: 3 }}
+  1471→                />
+  1472→              );
+  1473→            })}
+  1474→          </LineChart>
+  1475→        </ResponsiveContainer>
+  1476→      </div>
+  1477→    </div>
+  1478→  );
+  1479→}
+  1480→

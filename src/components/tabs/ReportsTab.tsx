@@ -75,9 +75,23 @@ export default function ReportsTab() {
             <h3 className="jarvis-mono text-sm uppercase text-[var(--j-cyan)] tracking-widest mb-1">Daily Fleet Report</h3>
             <p className="text-sm text-[var(--j-text-dim)]">The AI engine generates a narrative operations report from live fleet state — executive summary, key metrics, priority tasks, issues, and recommendations.</p>
           </div>
-          <Button onClick={generateReport} disabled={generating} className="jarvis-btn-accent border-0 shrink-0">
-            {generating ? <><Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" /> Generating…</> : <><Sparkles className="h-3.5 w-3.5 mr-1.5" /> Generate</>}
-          </Button>
+          <div className="flex items-center gap-2 shrink-0">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => {
+                window.open('/api/reports/pdf?print=1', '_blank');
+                toast({ title: 'Opening PDF report…', description: 'Use the print dialog to save as PDF' });
+              }}
+              className="border-[var(--j-border)] bg-transparent hover:bg-[var(--j-panel-soft)] text-[var(--j-cyan)]"
+              title="Open a print-friendly PDF report in a new tab"
+            >
+              <FileText className="h-3.5 w-3.5 mr-1.5" /> PDF Report
+            </Button>
+            <Button onClick={generateReport} disabled={generating} className="jarvis-btn-accent border-0">
+              {generating ? <><Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" /> Generating…</> : <><Sparkles className="h-3.5 w-3.5 mr-1.5" /> Generate</>}
+            </Button>
+          </div>
         </div>
 
         <AnimatePresence mode="wait">

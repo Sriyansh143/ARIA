@@ -89,6 +89,10 @@ model Task {
   assignee    Agent?   @relation("TaskAssignee", fields: [assigneeId], references: [id], onDelete: SetNull)
   progress    Int      @default(0) // 0-100
   tags        String   @default("[]") // JSON array
+  // Task ID 3 (PARALLEL-C) — drag-and-drop reordering within a Kanban column.
+  // Lower value = higher up in the column. Default 0; falls back to createdAt
+  // desc when multiple tasks share the same sortOrder (e.g. pre-existing rows).
+  sortOrder    Int      @default(0)
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 

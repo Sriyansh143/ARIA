@@ -19,7 +19,16 @@ export async function GET(req: NextRequest) {
 export async function POST(req: NextRequest) {
   const body = await req.json().catch(() => ({}));
   const { title, description, priority, assigneeId, tags } = body;
-  if (!title) return NextResponse.json({ error: 'title required' }, { status: 400 });
+  // Validate title — non-empty string within max length.
+  if (!title || typeof title !== 'string' || title.trim().length === 0) {
+    return NextResponse.json({ error: 'title required' }, { status: 400 });
+  }
+  if (title.length > 500) {
+    return NextResponse.json({ error: 'title must be 500 characters or fewer' }, { status: 400 });
+  }
+  if (description != null && typeof description === 'string' && description.length > 5000) {
+    return NextResponse.json({ error: 'description must be 5000 characters or fewer' }, { status: 400 });
+  }
   const task = await db.task.create({
     data: {
       title,

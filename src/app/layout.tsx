@@ -4,6 +4,7 @@ import "./globals.css";
 import { Toaster } from "@/components/ui/toaster";
 import { getBrandingConfig } from "@/lib/branding";
 import ActionTrackerProvider from "@/components/jarvis/ActionTrackerProvider";
+import ErrorBoundary from "@/components/jarvis/ErrorBoundary";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -52,7 +53,9 @@ export default function RootLayout({
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased bg-background text-foreground`}
       >
-        <ActionTrackerProvider>{children}</ActionTrackerProvider>
+        <ErrorBoundary>
+          <ActionTrackerProvider>{children}</ActionTrackerProvider>
+        </ErrorBoundary>
         <Toaster />
       </body>
     </html>

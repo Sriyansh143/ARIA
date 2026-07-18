@@ -935,22 +935,43 @@ function NotificationsBell({ open, setOpen }: { open: boolean; setOpen: (o: bool
           if (batch.length === 0) return;
           try {
             if (batch.length === 1) {
-              // Single notification — show as-is.
-              new Notification(batch[0].title, {
+              // Single notification — show as-is. Click → focus + navigate.
+              const notif = new Notification(batch[0].title, {
                 body: batch[0].message.slice(0, 200),
                 icon: '/favicon.ico',
                 tag: batch[0].id,
               });
+              // Click-to-navigate: map notification type → target tab.
+              //   error → logs, success → activity, warn → agent-monitor,
+              //   info/default → activity.
+              const targetTab = batch[0].type === 'error'
+                ? 'logs'
+                : batch[0].type === 'success'
+                  ? 'activity'
+                  : batch[0].type === 'warn'
+                    ? 'agent-monitor'
+                    : 'activity';
+              notif.onclick = () => {
+                window.focus();
+                navigate(targetTab);
+                notif.close();
+              };
             } else {
               // Multiple notifications — group into one.
               const hasErrors = batch.some((n) => n.type === 'error');
               const title = hasErrors ? `${batch.length} notifications (${batch.filter((n) => n.type === 'error').length} errors)` : `${batch.length} new notifications`;
               const body = batch.slice(0, 4).map((n) => `• ${n.title}`).join('\n') + (batch.length > 4 ? `\n• +${batch.length - 4} more` : '');
-              new Notification(title, {
+              const notif = new Notification(title, {
                 body,
                 icon: '/favicon.ico',
                 tag: 'jarvis-batch-' + Date.now(),
               });
+              // Grouped click → focus window + navigate to activity tab.
+              notif.onclick = () => {
+                window.focus();
+                navigate('activity');
+                notif.close();
+              };
             }
           } catch { /* Notification API not available */ }
         }, 2000);
@@ -958,7 +979,7 @@ function NotificationsBell({ open, setOpen }: { open: boolean; setOpen: (o: bool
     }
 
     prevUnreadRef.current = currentUnread;
-  }, [visibleUnread, visibleNotifications, settings.sound, settings.desktop, settings.mutedTypes]);
+  }, [visibleUnread, visibleNotifications, settings.sound, settings.desktop, settings.mutedTypes, navigate]);
 
   // Request Notification permission when desktop setting is toggled on.
   useEffect(() => {
