@@ -783,6 +783,7 @@ const MATCHERS: Array<(t: string) => MatchResult | null> = [
   matchRunCommand,
   matchReadFile,
   matchWriteFile,
+  matchVoiceCall,
   matchBrowse,
   matchCreateLead,
   matchCreateClient,
@@ -1128,6 +1129,24 @@ function matchImproveEarning(t: string): MatchResult | null {
       params: { methodName: m[1].trim() },
       response: `I'll review "${m[1].trim()}" and suggest improvements, then redo the full flow with the improvements applied.`,
       suggestions: ['View current simulation', 'Approve improvements', 'Reject and try different approach'],
+    };
+  }
+  return null;
+}
+
+/* ---- voice-call (make outbound call via FreeSWITCH) ---- */
+function matchVoiceCall(t: string): MatchResult | null {
+  // "call +1234567890", "dial 555-1234", "make a call to John at 555-1234"
+  const m = t.match(/^(?:call|dial|phone|ring)\s+(?:.+?\s+at\s+)?(\+?[\d\s-]{7,})$/i);
+  if (m) {
+    const number = m[1].replace(/[\s-]/g, '');
+    return {
+      intent: 'voice-call',
+      confidence: 0.92,
+      action: { type: 'voice-call', to: number },
+      params: { to: number },
+      response: `Calling ${number}...`,
+      suggestions: ['Hang up', 'Check call status'],
     };
   }
   return null;

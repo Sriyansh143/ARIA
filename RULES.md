@@ -357,3 +357,12 @@ These rules are enforced by:
 - Tool inventory is stored in memory (not in personal files).
 - Agents CANNOT install new software without owner approval via Telegram.
 - This helps agents know what capabilities are available on the host system.
+
+## Rule 31: Never Remove Models Due to Key Issues (CRITICAL)
+- Models MUST NOT be purged/removed just because an API key doesn't work or isn't set.
+- The `purgeBrokenModels()` function should ONLY remove models that return HTTP 404 (model truly doesn't exist on the provider) or HTTP 500 (server error).
+- Models returning HTTP 401/403 (auth failed = key issue) MUST be KEPT — the key may be wrong, expired, or not yet set.
+- Models returning HTTP 429 (rate limited) MUST be KEPT — they work, just throttled.
+- Models with status='unknown' MUST be KEPT — they haven't been tested yet.
+- Only models with status='broken' that return 404/500 can be purged.
+- This rule is PERMANENT and protects the model catalog from accidental data loss.

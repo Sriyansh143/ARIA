@@ -134,6 +134,9 @@ export async function POST(req: NextRequest): Promise<NextResponse<CommandRespon
       case 'browse':
         out = await handleBrowse(parsed, sessionId);
         break;
+      case 'voice-call':
+        out = await handleVoiceCall(parsed, sessionId);
+        break;
       case 'user-task':
         out = await handleUserTask(text, parsed, sessionId);
         break;
@@ -1260,6 +1263,47 @@ async function handleQueryClients(sessionId: string): Promise<CommandResponse> {
     return {
       intent: 'query-clients',
       response: `Could not pull CRM stats: ${e instanceof Error ? e.message : 'unknown error'}`,
+      latencyMs: Date.now() - t0,
+      sessionId,
+      error: e instanceof Error ? e.message : 'unknown',
+    };
+  }
+}
+
+/** voice-call — make an outbound call via FreeSWITCH */
+async function handleVoiceCall(parsed: ParsedIntent, sessionId: string): Promise<CommandResponse> {
+  const to = (parsed.params as { to?: string })?.to || '';
+  const t0 = Date.now();
+  try {
+    const { makeCall, isFreeSWITCHConfigured } = await import('@/lib/freeswitch-bridge');
+    if (!isFreeSWITCHConfigured()) {
+      return {
+        intent: 'voice-call',
+        response: 'FreeSWITCH is not configured. Set FREESWITCH_ESL_HOST and FREESWITCH_ESL_PASSWORD in .env to enable calling.',
+        latencyMs: Date.now() - t0,
+        sessionId,
+        error: 'FreeSWITCH not configured',
+      };
+    }
+    const result = await makeCall({
+      to,
+      from: process.env.FREESWITCH_FROM_NUMBER,
+      gateway: process.env.FREESWITCH_SIP_GATEWAY || 'local-pstn',
+    });
+    return {
+      intent: 'voice-call',
+      response: result.ok
+        ? `Call initiated to ${to}. UUID: ${result.uuid || 'N/A'}. The voice agent will handle the conversation.`
+        : `Call failed: ${result.error || 'unknown error'}`,
+      latencyMs: Date.now() - t0,
+      sessionId,
+      error: result.ok ? undefined : result.error,
+      suggestions: result.ok ? ['Hang up', 'Check call status'] : ['Check FreeSWITCH config'],
+    };
+  } catch (e) {
+    return {
+      intent: 'voice-call',
+      response: `Call failed: ${e instanceof Error ? e.message : 'unknown error'}`,
       latencyMs: Date.now() - t0,
       sessionId,
       error: e instanceof Error ? e.message : 'unknown',
