@@ -704,86 +704,76 @@ export default function ModelsTab() {
                 value={provider}
                 className="jarvis-panel !border-0 overflow-hidden"
               >
-                <AccordionTrigger className="px-4 py-3 hover:no-underline hover:bg-[var(--j-panel-soft)]">
-                  <div className="flex items-center justify-between w-full gap-3 pr-3">
-                    <div className="flex items-center gap-2 min-w-0">
-                      <span className="h-2.5 w-2.5 rounded-sm shrink-0" style={{ background: accent }} />
-                      <span className="jarvis-mono text-xs uppercase tracking-widest text-[var(--j-text)] truncate">
-                        {provider}
-                      </span>
-                      {prov?.hasKey ? (
-                        <Tooltip>
-                          <TooltipTrigger asChild>
-                            <Key className="h-3 w-3" style={{ color: JARVIS.colors.green }} />
-                          </TooltipTrigger>
-                          <TooltipContent>API key set (encrypted)</TooltipContent>
-                        </Tooltip>
-                      ) : provider !== 'local' ? (
-                        <Tooltip>
-                          <TooltipTrigger asChild>
-                            <Key className="h-3 w-3 text-[var(--j-text-mute)]" />
-                          </TooltipTrigger>
-                          <TooltipContent>No API key — set one to enable sync</TooltipContent>
-                        </Tooltip>
-                      ) : null}
-                      {providerStat && providerStat.broken > 0 && (
-                        <Badge variant="outline" className="text-[9px] !py-0 !px-1 !border-[var(--j-red)]/50 text-[var(--j-red)]">
-                          {providerStat.broken} broken
-                        </Badge>
-                      )}
-                    </div>
-                    <div className="flex items-center gap-3 shrink-0" onClick={(e) => e.stopPropagation()}>
-                      <span className="jarvis-mono text-[10px] text-[var(--j-text-mute)]">
-                        {list.length} models{providerStat?.lastChecked ? ` · synced ${timeAgo(providerStat.lastChecked)}` : ''}
-                      </span>
-                      {provider !== 'local' && (
+                {/* Custom header: trigger (left) + actions (right) — actions are
+                    OUTSIDE the AccordionTrigger to avoid nested <button> HTML
+                    validation errors. */}
+                <div className="flex items-center justify-between gap-3 px-4 py-3 hover:bg-[var(--j-panel-soft)] transition-colors">
+                  <AccordionTrigger className="flex-1 hover:no-underline flex items-center gap-2 min-w-0 [&[data-state=open]>svg]:rotate-180">
+                    <span className="h-2.5 w-2.5 rounded-sm shrink-0" style={{ background: accent }} />
+                    <span className="jarvis-mono text-xs uppercase tracking-widest text-[var(--j-text)] truncate">
+                      {provider}
+                    </span>
+                    {prov?.hasKey ? (
+                      <Key className="h-3 w-3 shrink-0" style={{ color: JARVIS.colors.green }} />
+                    ) : provider !== 'local' ? (
+                      <Key className="h-3 w-3 shrink-0 text-[var(--j-text-mute)]" />
+                    ) : null}
+                    {providerStat && providerStat.broken > 0 && (
+                      <Badge variant="outline" className="text-[9px] !py-0 !px-1 !border-[var(--j-red)]/50 text-[var(--j-red)]">
+                        {providerStat.broken} broken
+                      </Badge>
+                    )}
+                    <span className="jarvis-mono text-[10px] text-[var(--j-text-mute)] ml-auto">
+                      {list.length} models{providerStat?.lastChecked ? ` · ${timeAgo(providerStat.lastChecked)}` : ''}
+                    </span>
+                  </AccordionTrigger>
+                  {/* Action buttons — separate from the trigger to avoid nested <button> */}
+                  <div className="flex items-center gap-2 shrink-0">
+                    {provider !== 'local' && (
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className="h-6 !px-2 !py-0 text-[10px] gap-1 border-[var(--j-border)] bg-[var(--j-panel)]"
+                        onClick={() => syncOneProvider(provider)}
+                        disabled={busy !== null}
+                      >
+                        {busy === `sync-${provider}` ? <Loader2 className="h-2.5 w-2.5 animate-spin" /> : <RefreshCw className="h-2.5 w-2.5" />}
+                        Sync
+                      </Button>
+                    )}
+                    {provider !== 'local' && prov && (
+                      <>
                         <Button
                           size="sm"
                           variant="outline"
                           className="h-6 !px-2 !py-0 text-[10px] gap-1 border-[var(--j-border)] bg-[var(--j-panel)]"
-                          onClick={() => syncOneProvider(provider)}
-                          disabled={busy !== null}
+                          onClick={() => testProviderKey(prov)}
+                          disabled={busy !== null || !prov.hasKey}
                         >
-                          {busy === `sync-${provider}` ? <Loader2 className="h-2.5 w-2.5 animate-spin" /> : <RefreshCw className="h-2.5 w-2.5" />}
-                          Sync
+                          {busy === `test-${provider}` ? <Loader2 className="h-2.5 w-2.5 animate-spin" /> : <Stethoscope className="h-2.5 w-2.5" />}
+                          Test
                         </Button>
-                      )}
-                      {provider !== 'local' && prov && (
-                        <>
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            className="h-6 !px-2 !py-0 text-[10px] gap-1 border-[var(--j-border)] bg-[var(--j-panel)]"
-                            onClick={() => testProviderKey(prov)}
-                            disabled={busy !== null || !prov.hasKey}
-                          >
-                            {busy === `test-${provider}` ? <Loader2 className="h-2.5 w-2.5 animate-spin" /> : <Stethoscope className="h-2.5 w-2.5" />}
-                            Test
-                          </Button>
-                          {prov && (
-                            <Switch
-                              checked={prov.enabled}
-                              onCheckedChange={(v) => toggleProviderEnabled(prov, v)}
-                              aria-label={`Toggle ${provider}`}
-                            />
-                          )}
-                          <Button
-                            size="sm"
-                            variant="ghost"
-                            className="h-6 !px-2 !py-0 text-[10px] gap-1 hover:bg-[var(--j-panel)]"
-                            onClick={() => {
-                              setKeyDialogProvider(prov);
-                              setApiKeyInput('');
-                            }}
-                          >
-                            <Key className="h-2.5 w-2.5" />
-                            {prov.hasKey ? 'Replace Key' : 'Set Key'}
-                          </Button>
-                        </>
-                      )}
-                    </div>
+                        <Switch
+                          checked={prov.enabled}
+                          onCheckedChange={(v) => toggleProviderEnabled(prov, v)}
+                          aria-label={`Toggle ${provider}`}
+                        />
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          className="h-6 !px-2 !py-0 text-[10px] gap-1 hover:bg-[var(--j-panel)]"
+                          onClick={() => {
+                            setKeyDialogProvider(prov);
+                            setApiKeyInput('');
+                          }}
+                        >
+                          <Key className="h-2.5 w-2.5" />
+                          {prov.hasKey ? 'Replace Key' : 'Set Key'}
+                        </Button>
+                      </>
+                    )}
                   </div>
-                </AccordionTrigger>
+                </div>
                 <AccordionContent className="px-4 pb-4 pt-1">
                   {list.length === 0 ? (
                     <div className="text-xs text-[var(--j-text-mute)] py-4 text-center">No models match the current filter.</div>

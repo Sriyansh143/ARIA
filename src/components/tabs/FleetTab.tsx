@@ -5,7 +5,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import {
   Bot, Plus, X, RefreshCw, Power, MessageSquare, ListTodo, Copy,
   Activity, Settings, Send, Loader2, ChevronRight, Clock, Cpu,
-  Download, Upload, FileJson, Sparkles, Search, Zap,
+  Download, Upload, FileJson, Sparkles, Search, Zap, GitCompare, Trophy, Check,
 } from 'lucide-react';
 import { useApi, postJson, patchJson } from '@/lib/hooks/use-api';
 import { JARVIS, STATUS_COLORS } from '@/lib/config';
@@ -37,6 +37,7 @@ export default function FleetTab() {
   const [spawnOpen, setSpawnOpen] = useState(false);
   const [importOpen, setImportOpen] = useState(false);
   const [templatesOpen, setTemplatesOpen] = useState(false);
+  const [compareOpen, setCompareOpen] = useState(false);
   const [q, setQ] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
 
@@ -83,6 +84,9 @@ export default function FleetTab() {
             </Button>
             <Button size="sm" variant="outline" onClick={() => setTemplatesOpen(true)} title="Spawn from template" className="border-[var(--j-border)] bg-transparent hover:bg-[var(--j-panel-soft)]">
               <Sparkles className="h-3.5 w-3.5 mr-1" /> Templates
+            </Button>
+            <Button size="sm" variant="outline" onClick={() => setCompareOpen(true)} title="Compare agents side-by-side" className="border-[var(--j-border)] bg-transparent hover:bg-[var(--j-panel-soft)]">
+              <GitCompare className="h-3.5 w-3.5 mr-1" /> Compare
             </Button>
             <Button size="sm" variant="outline" className="jarvis-btn-accent border-0" onClick={() => setSpawnOpen(true)}>
               <Plus className="h-3.5 w-3.5 mr-1" /> Spawn Agent
@@ -242,6 +246,11 @@ export default function FleetTab() {
       {/* Templates modal */}
       <AnimatePresence>
         {templatesOpen && <TemplatesModal onClose={() => setTemplatesOpen(false)} onDone={() => { setTemplatesOpen(false); refresh(); }} />}
+      </AnimatePresence>
+
+      {/* Compare modal */}
+      <AnimatePresence>
+        {compareOpen && <CompareModal agents={data?.agents ?? []} onClose={() => setCompareOpen(false)} />}
       </AnimatePresence>
     </div>
   );
@@ -1069,5 +1078,250 @@ function TemplatesModal({ onClose, onDone }: { onClose: () => void; onDone: () =
         </div>
       </motion.div>
     </motion.div>
+  );
+}
+
+/**
+ * Compare modal — select 2-5 agents and view side-by-side metrics.
+ * Shows a comparison table with health scores, task stats, log stats, comms,
+ * skills, and winners per metric (highlighted with a trophy icon).
+ */
+interface CompareAgent {
+  id: string;
+  codename: string;
+  name: string;
+  role: string;
+  status: string;
+  model: string;
+  load: number;
+  successRate: number;
+  taskCount: number;
+  logCount: number;
+  healthScore: number;
+  metrics: {
+    tasks: { total: number; completed: number; inProgress: number; pending: number; failed: number; completionRate: number };
+    logs: { total: number; errors: number; successes: number; warnings: number };
+    comms: { sent: number; received: number; total: number };
+    skills: { totalRuns: number; successes: number; successRate: number; avgLatency: number };
+  };
+  lastActive: string;
+}
+
+function CompareModal({ agents, onClose }: { agents: Agent[]; onClose: () => void }) {
+  const [selectedIds, setSelectedIds] = useState<string[]>([]);
+  const [search, setSearch] = useState('');
+  const { data, loading } = useApi<{ agents: CompareAgent[]; winners: Record<string, string> }>(
+    selectedIds.length >= 2 ? `/api/agents/compare?ids=${selectedIds.join(',')}` : null,
+    0,
+  );
+
+  const filtered = search
+    ? agents.filter((a) =>
+        a.codename.toLowerCase().includes(search.toLowerCase()) ||
+        a.name.toLowerCase().includes(search.toLowerCase()) ||
+        a.role.toLowerCase().includes(search.toLowerCase())
+      )
+    : agents;
+
+  const toggle = (id: string) => {
+    setSelectedIds((prev) => {
+      if (prev.includes(id)) return prev.filter((x) => x !== id);
+      if (prev.length >= 5) return prev;
+      return [...prev, id];
+    });
+  };
+
+  const comparison = data?.agents ?? [];
+  const winners = data?.winners ?? {};
+
+  return (
+    <motion.div className="fixed inset-0 z-50 flex items-center justify-center p-4" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
+      <div className="absolute inset-0 bg-black/70 backdrop-blur-sm" onClick={onClose} />
+      <motion.div
+        initial={{ scale: 0.96, opacity: 0 }}
+        animate={{ scale: 1, opacity: 1 }}
+        exit={{ scale: 0.96, opacity: 0 }}
+        className="relative w-full max-w-5xl jarvis-glass border border-[var(--j-border)] rounded-xl overflow-hidden max-h-[88vh] flex flex-col"
+      >
+        {/* Header */}
+        <div className="flex items-center justify-between p-4 border-b border-[var(--j-border)]">
+          <div className="flex items-center gap-2.5">
+            <div className="flex h-8 w-8 items-center justify-center rounded-md bg-[var(--j-cyan)]/15 border border-[var(--j-cyan)]/30">
+              <GitCompare className="h-4 w-4 text-[var(--j-cyan)]" />
+            </div>
+            <div>
+              <div className="text-sm font-bold text-[var(--j-text)]">Agent Comparison</div>
+              <div className="jarvis-mono text-[9px] uppercase text-[var(--j-text-mute)]">
+                {selectedIds.length} selected · pick 2-5 to compare
+              </div>
+            </div>
+          </div>
+          <button onClick={onClose} className="text-[var(--j-text-mute)] hover:text-[var(--j-text)] transition-colors">
+            <X className="h-4 w-4" />
+          </button>
+        </div>
+
+        <div className="flex flex-1 overflow-hidden">
+          {/* Left: agent picker */}
+          <div className="w-64 border-r border-[var(--j-border)] flex flex-col">
+            <div className="p-3 border-b border-[var(--j-border)]">
+              <div className="relative">
+                <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-[var(--j-text-mute)]" />
+                <input
+                  value={search}
+                  onChange={(e) => setSearch(e.target.value)}
+                  placeholder="Search agents…"
+                  className="w-full pl-8 pr-3 py-2 rounded-md border border-[var(--j-border)] bg-[var(--j-panel-soft)] text-xs text-[var(--j-text)] placeholder:text-[var(--j-text-mute)] focus:outline-none focus:border-[var(--j-cyan)]"
+                />
+              </div>
+            </div>
+            <div className="flex-1 overflow-y-auto jarvis-scroll p-2 space-y-1">
+              {filtered.slice(0, 50).map((a) => {
+                const isSelected = selectedIds.includes(a.id);
+                const color = STATUS_COLORS[a.status as keyof typeof STATUS_COLORS] ?? JARVIS.colors.textDim;
+                return (
+                  <button
+                    key={a.id}
+                    onClick={() => toggle(a.id)}
+                    className={`w-full flex items-center gap-2 p-2 rounded text-left transition-colors ${
+                      isSelected ? 'bg-[var(--j-cyan)]/10 border border-[var(--j-cyan)]/40' : 'hover:bg-[var(--j-panel-soft)] border border-transparent'
+                    }`}
+                  >
+                    <div className={`h-4 w-4 rounded border flex items-center justify-center shrink-0 ${isSelected ? 'bg-[var(--j-cyan)] border-[var(--j-cyan)]' : 'border-[var(--j-border)]'}`}>
+                      {isSelected && <Check className="h-3 w-3 text-white" />}
+                    </div>
+                    <StatusDot status={a.status as never} size={8} />
+                    <div className="min-w-0 flex-1">
+                      <div className="jarvis-mono text-xs text-[var(--j-text)] truncate">{a.codename}</div>
+                      <div className="text-[9px] text-[var(--j-text-mute)] truncate">{a.role}</div>
+                    </div>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+
+          {/* Right: comparison table */}
+          <div className="flex-1 overflow-y-auto jarvis-scroll p-4">
+            {selectedIds.length < 2 ? (
+              <div className="flex flex-col items-center justify-center h-full text-center">
+                <GitCompare className="h-12 w-12 text-[var(--j-text-mute)] opacity-30 mb-3" />
+                <div className="text-sm text-[var(--j-text-dim)] mb-1">Select at least 2 agents</div>
+                <div className="jarvis-mono text-[9px] uppercase text-[var(--j-text-mute)]">
+                  Pick from the list on the left to compare metrics side-by-side
+                </div>
+              </div>
+            ) : loading ? (
+              <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+                {Array.from({ length: 6 }).map((_, i) => <div key={i} className="h-20 jarvis-skeleton rounded" />)}
+              </div>
+            ) : comparison.length > 0 ? (
+              <div className="space-y-4">
+                {/* Agent headers */}
+                <div className="grid gap-3" style={{ gridTemplateColumns: `repeat(${comparison.length}, 1fr)` }}>
+                  {comparison.map((a) => {
+                    const color = STATUS_COLORS[a.status as keyof typeof STATUS_COLORS] ?? JARVIS.colors.textDim;
+                    return (
+                      <div key={a.id} className="jarvis-panel p-3 text-center relative overflow-hidden">
+                        <div className="absolute top-0 left-0 right-0 h-[3px]" style={{ background: color }} />
+                        <StatusDot status={a.status as never} size={10} />
+                        <div className="jarvis-mono text-sm font-bold mt-1" style={{ color }}>{a.codename}</div>
+                        <div className="text-[10px] text-[var(--j-text-mute)] truncate">{a.role}</div>
+                        <div className="jarvis-mono text-[9px] text-[var(--j-text-dim)] mt-1">{a.model}</div>
+                      </div>
+                    );
+                  })}
+                </div>
+
+                {/* Health score row */}
+                <div className="jarvis-panel p-3">
+                  <div className="jarvis-mono text-[9px] uppercase text-[var(--j-text-mute)] mb-2">Health Score</div>
+                  <div className="grid gap-3" style={{ gridTemplateColumns: `repeat(${comparison.length}, 1fr)` }}>
+                    {comparison.map((a) => {
+                      const isWinner = winners.healthScore === a.codename;
+                      const score = a.healthScore;
+                      const color = score >= 70 ? JARVIS.colors.green : score >= 40 ? JARVIS.colors.amber : JARVIS.colors.red;
+                      return (
+                        <div key={a.id} className="text-center relative">
+                          {isWinner && <Trophy className="absolute -top-1 -right-1 h-3 w-3 text-[var(--j-amber)]" />}
+                          <div className="text-2xl font-bold jarvis-mono" style={{ color }}>{score}</div>
+                          <div className="h-1.5 rounded-full bg-[var(--j-border)] overflow-hidden mt-1">
+                            <motion.div className="h-full rounded-full" style={{ background: color }} initial={{ width: 0 }} animate={{ width: `${score}%` }} transition={{ duration: 0.5 }} />
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                {/* Metrics comparison table */}
+                <div className="jarvis-panel p-3">
+                  <div className="jarvis-mono text-[9px] uppercase text-[var(--j-text-mute)] mb-2">Metrics Comparison</div>
+                  <table className="w-full text-xs">
+                    <tbody>
+                      <CompareRow label="Success Rate" agents={comparison} winners={winners} winnerKey="successRate" getValue={(a) => `${a.successRate}%`} getNum={(a) => a.successRate} higherBetter />
+                      <CompareRow label="Load" agents={comparison} winners={winners} winnerKey="load" getValue={(a) => `${Math.round(a.load)}%`} getNum={(a) => a.load} higherBetter={false} />
+                      <CompareRow label="Tasks Total" agents={comparison} winners={winners} winnerKey="taskCount" getValue={(a) => String(a.metrics.tasks.total)} getNum={(a) => a.metrics.tasks.total} higherBetter />
+                      <CompareRow label="Tasks Completed" agents={comparison} winners={winners} winnerKey="completionRate" getValue={(a) => `${a.metrics.tasks.completed} (${a.metrics.tasks.completionRate}%)`} getNum={(a) => a.metrics.tasks.completionRate} higherBetter />
+                      <CompareRow label="Logs Total" agents={comparison} winners={winners} winnerKey="logCount" getValue={(a) => String(a.metrics.logs.total)} getNum={(a) => a.metrics.logs.total} higherBetter />
+                      <CompareRow label="Log Errors" agents={comparison} winners={[]} winnerKey="" getValue={(a) => String(a.metrics.logs.errors)} getNum={(a) => a.metrics.logs.errors} higherBetter={false} />
+                      <CompareRow label="Comms Sent" agents={comparison} winners={[]} winnerKey="" getValue={(a) => String(a.metrics.comms.sent)} getNum={(a) => a.metrics.comms.sent} higherBetter />
+                      <CompareRow label="Comms Received" agents={comparison} winners={[]} winnerKey="" getValue={(a) => String(a.metrics.comms.received)} getNum={(a) => a.metrics.comms.received} higherBetter />
+                      <CompareRow label="Skill Runs" agents={comparison} winners={[]} winnerKey="" getValue={(a) => String(a.metrics.skills.totalRuns)} getNum={(a) => a.metrics.skills.totalRuns} higherBetter />
+                      <CompareRow label="Skill Success" agents={comparison} winners={[]} winnerKey="" getValue={(a) => `${a.metrics.skills.successRate}%`} getNum={(a) => a.metrics.skills.successRate} higherBetter />
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            ) : null}
+          </div>
+        </div>
+
+        {/* Footer */}
+        <div className="px-4 py-2.5 border-t border-[var(--j-border)] bg-[var(--j-panel-soft)]/40 flex items-center justify-between jarvis-mono text-[9px] uppercase text-[var(--j-text-mute)]">
+          <span>{selectedIds.length}/5 agents selected</span>
+          <button onClick={onClose} className="text-[var(--j-cyan)] hover:underline">Done</button>
+        </div>
+      </motion.div>
+    </motion.div>
+  );
+}
+
+function CompareRow({
+  label,
+  agents,
+  winners,
+  winnerKey,
+  getValue,
+  getNum,
+  higherBetter,
+}: {
+  label: string;
+  agents: CompareAgent[];
+  winners: Record<string, string>;
+  winnerKey: string;
+  getValue: (a: CompareAgent) => string;
+  getNum: (a: CompareAgent) => number;
+  higherBetter: boolean;
+}) {
+  // Find the best value
+  const nums = agents.map(getNum);
+  const bestVal = higherBetter ? Math.max(...nums) : Math.min(...nums);
+  return (
+    <tr className="border-b border-[var(--j-border-soft)] last:border-0">
+      <td className="py-2 pr-3 jarvis-mono text-[9px] uppercase text-[var(--j-text-mute)] whitespace-nowrap">{label}</td>
+      {agents.map((a) => {
+        const val = getNum(a);
+        const isWinner = winnerKey && val === bestVal && agents.length > 1;
+        return (
+          <td key={a.id} className="py-2 px-2 text-center relative">
+            {isWinner && <Trophy className="absolute top-1 right-1 h-2.5 w-2.5 text-[var(--j-amber)]" />}
+            <span className={`jarvis-mono text-xs ${isWinner ? 'font-bold text-[var(--j-amber)]' : 'text-[var(--j-text)]'}`}>
+              {getValue(a)}
+            </span>
+          </td>
+        );
+      })}
+    </tr>
   );
 }

@@ -2576,3 +2576,71 @@ Stage Summary:
 6. Add command palette search inside tab content (global entity search).
 7. Add drag-and-drop task reordering within Kanban columns.
 8. Add agent performance comparison view (side-by-side metrics).
+
+---
+Task ID: CRON-WEBDEVREVIEW-5
+Agent: main (Z.ai Code) — webDevReview cron run #5
+Task: Assess project status, perform QA via agent-browser, fix bugs, add features, improve styling.
+
+Work Log:
+- Read worklog tail (CRON-WEBDEVREVIEW-4) — prior session added: Bulk Task Operations, Agent Templates, Enhanced Styling.
+- **QA Assessment**:
+  - Dev server was down (OOM) — restarted via double-fork daemon pattern.
+  - Lint: clean (0 errors, 0 warnings).
+  - agent-browser tab sweep found a **BUG**: AI Models tab had a "button cannot contain a nested button" React hydration error (visible in browser console).
+  - Root cause: `AccordionTrigger` renders as a `<button>`, and inside it were `<Button>` components (Sync, Test, Set Key) + `<Switch>` (also a button) — creating nested buttons which is invalid HTML.
+
+**BUGFIX: Nested button error in ModelsTab** (`src/components/tabs/ModelsTab.tsx`):
+- Restructured the `AccordionItem` to use a custom header layout:
+  - The `AccordionTrigger` (left side) now contains ONLY non-interactive elements: provider name, colored dot, key icon, broken badge, model count text.
+  - The action buttons (Sync, Test, Switch toggle, Set Key) are now in a SEPARATE `<div>` OUTSIDE the `AccordionTrigger` — no longer nested buttons.
+  - Removed the `Tooltip` wrapper around the Key icon (was also contributing to the issue) — replaced with a plain icon + title attribute.
+- Verified: console error count went from 1 to 0. Tab renders correctly with all actions functional.
+
+**FEATURE: Agent Performance Comparison View** (`src/app/api/agents/compare/route.ts` + `src/components/tabs/FleetTab.tsx`):
+- New `/api/agents/compare?ids=id1,id2,id3` GET endpoint:
+  - Accepts 2-5 agent IDs (400 if <2 or >5).
+  - Returns side-by-side metrics: agent info, health score (0-100 composite), task stats (total/completed/in_progress/pending/failed/completionRate), log stats (total/errors/successes/warnings), comms stats (sent/received/total), skill stats (totalRuns/successes/successRate/avgLatency).
+  - Computes winners per metric (healthScore, successRate, load [lower wins], taskCount, logCount, completionRate) — returns `winners: { metricKey: codename }`.
+  - Health score formula: taskScore (40pts) + successScore (30pts) + logScore (20pts) - loadPenalty (0-10pts).
+- New `CompareModal` component in FleetTab:
+  - Two-panel layout: left = agent picker (searchable, checkbox selection, 2-5 agents), right = comparison view.
+  - Agent picker: search by codename/name/role, status dots, checkboxes with cyan highlight.
+  - Comparison view shows:
+    - Agent headers: codename, role, model with status accent bar + animated status dot.
+    - Health Score row: big numbers with color (green≥70, amber≥40, red<40), animated progress bars, trophy icon for winner.
+    - Metrics Comparison table: 10 rows (Success Rate, Load, Tasks Total, Tasks Completed, Logs Total, Log Errors, Comms Sent, Comms Received, Skill Runs, Skill Success) — winner highlighted with trophy + amber bold text.
+  - Empty state when <2 agents selected: icon + "Select at least 2 agents" message.
+  - Loading skeleton state.
+  - Glass morphism styling, max-w-5xl responsive layout.
+- New "Compare" button (GitCompare icon) in Fleet tab header between Templates and Spawn Agent.
+
+**Verification (agent-browser)**:
+- App loads HTTP 200, 0 page errors, 0 console errors (nested button bug FIXED).
+- AI Models tab: renders correctly, no console errors, accordion expand/collapse works, action buttons (Sync/Test/Switch/Set Key) all functional.
+- Fleet tab: Compare button visible, modal opens with agent picker, selected 3 agents (AEGIS, ANDROMEDA, ANTARES), comparison table rendered with Health Score (49, 43, 43), Success Rate (96.4%, 93.9%, 92.4%), Load (9%, 64%, 71%), and all other metrics. Winner (AEGIS) highlighted with trophy.
+- API: GET /api/agents/compare?ids=... returns 3 agents with winners object + per-agent metrics.
+- Sticky footer: reachable on short content (top:880 after minor scroll, vh:900).
+- Lint: clean (0 errors, 0 warnings).
+
+Stage Summary:
+- ✅ QA: found and fixed nested button bug in ModelsTab (HTML validation error causing React hydration warning).
+- ✅ FEATURE: Agent Performance Comparison — new API endpoint + CompareModal with side-by-side metrics, health scores, winner highlighting, searchable agent picker.
+- ✅ Dev server restarted (was OOM-killed), now stable HTTP 200.
+- ✅ Lint clean. 0 page errors. 0 console errors. All features verified via agent-browser.
+
+## Updated App Stats
+- **41 tabs** across 8 intelligent groups
+- **Agent comparison view** (2-5 agents, 10 metrics, health scores, winners)
+- **Nested button bug FIXED** in ModelsTab (HTML validation)
+- **0 lint errors, 0 page errors, 0 console errors**
+
+## Pending Works (for next cron run)
+1. Add WebSocket mini-service for true real-time updates (currently polling 10-30s).
+2. Wire skill execution to actually invoke web-search/web-reader skills.
+3. Add Memory Graph force-directed visualization improvements.
+4. Add PDF export for reports (currently CSV only).
+5. Add scheduled email reports.
+6. Add command palette search inside tab content (global entity search).
+7. Add drag-and-drop task reordering within Kanban columns.
+8. Add more agent comparison dimensions (charts, radar, timeline).
