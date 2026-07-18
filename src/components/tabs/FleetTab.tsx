@@ -1,10 +1,11 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   Bot, Plus, X, RefreshCw, Power, MessageSquare, ListTodo, Copy,
   Activity, Settings, Send, Loader2, ChevronRight, Clock, Cpu,
+  Download, Upload, FileJson, Sparkles, Search, Zap,
 } from 'lucide-react';
 import { useApi, postJson, patchJson } from '@/lib/hooks/use-api';
 import { JARVIS, STATUS_COLORS } from '@/lib/config';
@@ -34,6 +35,8 @@ export default function FleetTab() {
   const { toast } = useToast();
   const [selected, setSelected] = useState<Agent | null>(null);
   const [spawnOpen, setSpawnOpen] = useState(false);
+  const [importOpen, setImportOpen] = useState(false);
+  const [templatesOpen, setTemplatesOpen] = useState(false);
   const [q, setQ] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
 
@@ -43,6 +46,11 @@ export default function FleetTab() {
     await patchJson(`/api/agents/${a.id}`, { status: next });
     toast({ title: `${a.codename} → ${next}` });
     refresh();
+  };
+
+  const exportAgents = () => {
+    window.open('/api/agents/backup', '_blank');
+    toast({ title: 'Exporting agent configurations…' });
   };
 
   const filtered = (data?.agents ?? []).filter((a) => {
@@ -67,6 +75,15 @@ export default function FleetTab() {
         accent={JARVIS.colors.cyan}
         action={
           <div className="flex gap-2">
+            <Button size="sm" variant="outline" onClick={exportAgents} title="Export all agent configs as JSON" className="border-[var(--j-border)] bg-transparent hover:bg-[var(--j-panel-soft)]">
+              <Download className="h-3.5 w-3.5 mr-1" /> Export
+            </Button>
+            <Button size="sm" variant="outline" onClick={() => setImportOpen(true)} title="Import agent configs from JSON" className="border-[var(--j-border)] bg-transparent hover:bg-[var(--j-panel-soft)]">
+              <Upload className="h-3.5 w-3.5 mr-1" /> Import
+            </Button>
+            <Button size="sm" variant="outline" onClick={() => setTemplatesOpen(true)} title="Spawn from template" className="border-[var(--j-border)] bg-transparent hover:bg-[var(--j-panel-soft)]">
+              <Sparkles className="h-3.5 w-3.5 mr-1" /> Templates
+            </Button>
             <Button size="sm" variant="outline" className="jarvis-btn-accent border-0" onClick={() => setSpawnOpen(true)}>
               <Plus className="h-3.5 w-3.5 mr-1" /> Spawn Agent
             </Button>
@@ -215,6 +232,16 @@ export default function FleetTab() {
       {/* Spawn modal */}
       <AnimatePresence>
         {spawnOpen && <SpawnModal onClose={() => setSpawnOpen(false)} onDone={() => { setSpawnOpen(false); refresh(); }} />}
+      </AnimatePresence>
+
+      {/* Import modal */}
+      <AnimatePresence>
+        {importOpen && <ImportModal onClose={() => setImportOpen(false)} onDone={() => { setImportOpen(false); refresh(); }} />}
+      </AnimatePresence>
+
+      {/* Templates modal */}
+      <AnimatePresence>
+        {templatesOpen && <TemplatesModal onClose={() => setTemplatesOpen(false)} onDone={() => { setTemplatesOpen(false); refresh(); }} />}
       </AnimatePresence>
     </div>
   );
@@ -691,6 +718,354 @@ function SpawnModal({ onClose, onDone }: { onClose: () => void; onDone: () => vo
           <Button onClick={submit} disabled={busy} className="w-full jarvis-btn-accent border-0">
             {busy ? 'Spawning…' : 'Deploy Agent'}
           </Button>
+        </div>
+      </motion.div>
+    </motion.div>
+  );
+}
+
+/**
+ * Import modal — upload a JSON backup file or paste JSON directly.
+ * Supports two modes: 'upsert' (update existing by codename, create new)
+ * and 'create' (only create new agents, skip existing codenames).
+ */
+function ImportModal({ onClose, onDone }: { onClose: () => void; onDone: () => void }) {
+  const { toast } = useToast();
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [jsonText, setJsonText] = useState('');
+  const [mode, setMode] = useState<'upsert' | 'create'>('upsert');
+  const [busy, setBusy] = useState(false);
+  const [preview, setPreview] = useState<{ count: number; codenames: string[] } | null>(null);
+
+  const handleFile = async (file: File) => {
+    try {
+      const text = await file.text();
+      setJsonText(text);
+      parsePreview(text);
+    } catch {
+      toast({ title: 'Failed to read file', variant: 'destructive' });
+    }
+  };
+
+  const parsePreview = (text: string) => {
+    try {
+      const parsed = JSON.parse(text);
+      const agents = Array.isArray(parsed.agents) ? parsed.agents : Array.isArray(parsed) ? parsed : [];
+      setPreview({
+        count: agents.length,
+        codenames: agents.slice(0, 8).map((a: { codename?: string }) => a.codename ?? '?').filter(Boolean),
+      });
+    } catch {
+      setPreview(null);
+    }
+  };
+
+  const submit = async () => {
+    if (!jsonText.trim()) { toast({ title: 'Paste JSON or upload a file first', variant: 'destructive' }); return; }
+    let parsed: unknown;
+    try {
+      parsed = JSON.parse(jsonText);
+    } catch {
+      toast({ title: 'Invalid JSON', variant: 'destructive' });
+      return;
+    }
+    const agents = Array.isArray((parsed as { agents?: unknown[] })?.agents)
+      ? (parsed as { agents: unknown[] }).agents
+      : Array.isArray(parsed) ? parsed : [];
+    if (agents.length === 0) { toast({ title: 'No agents found in JSON', variant: 'destructive' }); return; }
+
+    setBusy(true);
+    try {
+      const res = await postJson('/api/agents/backup', { agents, mode });
+      toast({
+        title: `Import complete: ${res.created} created, ${res.updated} updated, ${res.skipped} skipped`,
+        description: res.errors?.length ? `${res.errors.length} errors` : undefined,
+      });
+      onDone();
+    } catch (e) {
+      toast({ title: 'Import failed', description: e instanceof Error ? e.message : '', variant: 'destructive' });
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <motion.div className="fixed inset-0 z-50 flex items-center justify-center p-4" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
+      <div className="absolute inset-0 bg-black/70 backdrop-blur-sm" onClick={onClose} />
+      <motion.div initial={{ scale: 0.96, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.96, opacity: 0 }} className="relative w-full max-w-lg jarvis-panel p-5">
+        <div className="flex items-center justify-between mb-4">
+          <div className="flex items-center gap-2">
+            <div className="flex h-7 w-7 items-center justify-center rounded bg-[var(--j-cyan)]/15 border border-[var(--j-cyan)]/30">
+              <Upload className="h-3.5 w-3.5 text-[var(--j-cyan)]" />
+            </div>
+            <h3 className="jarvis-mono text-sm uppercase text-[var(--j-cyan)]">Import Agent Configurations</h3>
+          </div>
+          <button onClick={onClose} className="text-[var(--j-text-mute)] hover:text-[var(--j-text)]"><X className="h-4 w-4" /></button>
+        </div>
+
+        <div className="space-y-3">
+          {/* File upload dropzone */}
+          <div
+            onClick={() => fileInputRef.current?.click()}
+            onDragOver={(e) => { e.preventDefault(); }}
+            onDrop={(e) => {
+              e.preventDefault();
+              const file = e.dataTransfer.files[0];
+              if (file) handleFile(file);
+            }}
+            className="border-2 border-dashed border-[var(--j-border)] rounded-lg p-6 text-center cursor-pointer hover:border-[var(--j-cyan)] hover:bg-[var(--j-cyan)]/5 transition-all group"
+          >
+            <FileJson className="h-8 w-8 mx-auto text-[var(--j-text-mute)] group-hover:text-[var(--j-cyan)] transition-colors mb-2" />
+            <div className="text-xs text-[var(--j-text-dim)] group-hover:text-[var(--j-text)] transition-colors">
+              <span className="font-semibold">Click to upload</span> or drag & drop
+            </div>
+            <div className="jarvis-mono text-[9px] uppercase text-[var(--j-text-mute)] mt-1">JSON backup file</div>
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept="application/json,.json"
+              className="hidden"
+              onChange={(e) => {
+                const file = e.target.files?.[0];
+                if (file) handleFile(file);
+              }}
+            />
+          </div>
+
+          {/* Or paste JSON */}
+          <div>
+            <label className="jarvis-mono text-[10px] uppercase text-[var(--j-text-mute)] mb-1.5 block">
+              Or paste JSON directly
+            </label>
+            <Textarea
+              value={jsonText}
+              onChange={(e) => { setJsonText(e.target.value); parsePreview(e.target.value); }}
+              placeholder='{"agents": [{"name": "...", "codename": "...", "role": "...", "skills": "[]", "model": "glm-4.6"}]}'
+              className="bg-[var(--j-panel-soft)] border-[var(--j-border)] min-h-[100px] text-xs font-mono"
+            />
+          </div>
+
+          {/* Preview */}
+          {preview && (
+            <div className="p-3 rounded bg-[var(--j-panel-soft)]/50 border border-[var(--j-border-soft)]">
+              <div className="flex items-center gap-2 mb-1.5">
+                <FileJson className="h-3.5 w-3.5 text-[var(--j-green)]" />
+                <span className="jarvis-mono text-[10px] uppercase text-[var(--j-text)]">
+                  Preview: {preview.count} agent{preview.count !== 1 ? 's' : ''}
+                </span>
+              </div>
+              <div className="flex flex-wrap gap-1">
+                {preview.codenames.map((cn, i) => (
+                  <span key={i} className="jarvis-mono text-[9px] uppercase px-1.5 py-0.5 rounded bg-[var(--j-panel)] text-[var(--j-cyan)] border border-[var(--j-border-soft)]">
+                    {cn}
+                  </span>
+                ))}
+                {preview.count > 8 && <span className="jarvis-mono text-[9px] text-[var(--j-text-mute)]">+{preview.count - 8} more</span>}
+              </div>
+            </div>
+          )}
+
+          {/* Mode selector */}
+          <div>
+            <label className="jarvis-mono text-[10px] uppercase text-[var(--j-text-mute)] mb-1.5 block">Import Mode</label>
+            <div className="flex gap-2">
+              <button
+                onClick={() => setMode('upsert')}
+                className={`flex-1 px-3 py-2 rounded border text-xs transition-all ${
+                  mode === 'upsert' ? 'border-[var(--j-cyan)] bg-[var(--j-cyan)]/10 text-[var(--j-cyan)]' : 'border-[var(--j-border)] text-[var(--j-text-dim)] hover:text-[var(--j-text)]'
+                }`}
+              >
+                <div className="font-semibold mb-0.5">Upsert</div>
+                <div className="text-[9px] text-[var(--j-text-mute)]">Update existing, create new</div>
+              </button>
+              <button
+                onClick={() => setMode('create')}
+                className={`flex-1 px-3 py-2 rounded border text-xs transition-all ${
+                  mode === 'create' ? 'border-[var(--j-amber)] bg-[var(--j-amber)]/10 text-[var(--j-amber)]' : 'border-[var(--j-border)] text-[var(--j-text-dim)] hover:text-[var(--j-text)]'
+                }`}
+              >
+                <div className="font-semibold mb-0.5">Create Only</div>
+                <div className="text-[9px] text-[var(--j-text-mute)]">Skip existing codenames</div>
+              </button>
+            </div>
+          </div>
+
+          <div className="flex gap-2 pt-2">
+            <Button variant="outline" onClick={onClose} className="flex-1 border-[var(--j-border)] bg-transparent">
+              Cancel
+            </Button>
+            <Button onClick={submit} disabled={busy || !jsonText.trim()} className="flex-1 jarvis-btn-accent border-0">
+              {busy ? <Loader2 className="h-3.5 w-3.5 animate-spin mr-1" /> : <Upload className="h-3.5 w-3.5 mr-1" />}
+              Import {preview ? `(${preview.count})` : ''}
+            </Button>
+          </div>
+        </div>
+      </motion.div>
+    </motion.div>
+  );
+}
+
+/**
+ * Templates modal — browse pre-built agent presets and spawn with one click.
+ * Templates are grouped by category (engineering, research, business, ops, creative, security).
+ */
+interface Template {
+  key: string;
+  name: string;
+  codename: string;
+  role: string;
+  skills: string[];
+  model: string;
+  description: string;
+  category: string;
+  accent: string;
+}
+
+const CATEGORY_LABELS: Record<string, string> = {
+  engineering: 'Engineering',
+  research: 'Research',
+  business: 'Business',
+  ops: 'Operations',
+  creative: 'Creative',
+  security: 'Security',
+};
+
+function TemplatesModal({ onClose, onDone }: { onClose: () => void; onDone: () => void }) {
+  const { toast } = useToast();
+  const { data, loading } = useApi<{ templates: Template[]; byCategory: Record<string, Template[]> }>('/api/agents/templates', 0);
+  const [search, setSearch] = useState('');
+  const [spawning, setSpawning] = useState<string | null>(null);
+
+  const templates = data?.templates ?? [];
+  const filtered = search
+    ? templates.filter((t) =>
+        t.name.toLowerCase().includes(search.toLowerCase()) ||
+        t.role.toLowerCase().includes(search.toLowerCase()) ||
+        t.skills.some((s) => s.includes(search.toLowerCase()))
+      )
+    : templates;
+
+  const byCategory = filtered.reduce<Record<string, Template[]>>((acc, t) => {
+    (acc[t.category] ??= []).push(t);
+    return acc;
+  }, {});
+
+  const spawn = async (template: Template) => {
+    setSpawning(template.key);
+    try {
+      const res = await postJson('/api/agents/templates', { templateKey: template.key });
+      toast({ title: `${res.agent.codename} spawned`, description: `${template.name} · ${template.role}` });
+      onDone();
+    } catch (e) {
+      toast({ title: 'Spawn failed', description: e instanceof Error ? e.message : '', variant: 'destructive' });
+    } finally {
+      setSpawning(null);
+    }
+  };
+
+  return (
+    <motion.div className="fixed inset-0 z-50 flex items-center justify-center p-4" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
+      <div className="absolute inset-0 bg-black/70 backdrop-blur-sm" onClick={onClose} />
+      <motion.div
+        initial={{ scale: 0.96, opacity: 0 }}
+        animate={{ scale: 1, opacity: 1 }}
+        exit={{ scale: 0.96, opacity: 0 }}
+        className="relative w-full max-w-3xl jarvis-glass border border-[var(--j-border)] rounded-xl overflow-hidden max-h-[88vh] flex flex-col"
+      >
+        {/* Header */}
+        <div className="flex items-center justify-between p-4 border-b border-[var(--j-border)]">
+          <div className="flex items-center gap-2.5">
+            <div className="flex h-8 w-8 items-center justify-center rounded-md bg-[var(--j-violet)]/15 border border-[var(--j-violet)]/30">
+              <Sparkles className="h-4 w-4 text-[var(--j-violet)]" />
+            </div>
+            <div>
+              <div className="text-sm font-bold text-[var(--j-text)]">Agent Templates</div>
+              <div className="jarvis-mono text-[9px] uppercase text-[var(--j-text-mute)]">
+                {templates.length} presets · one-click spawn
+              </div>
+            </div>
+          </div>
+          <button onClick={onClose} className="text-[var(--j-text-mute)] hover:text-[var(--j-text)] transition-colors">
+            <X className="h-4 w-4" />
+          </button>
+        </div>
+
+        {/* Search */}
+        <div className="p-3 border-b border-[var(--j-border)]">
+          <div className="relative">
+            <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-[var(--j-text-mute)]" />
+            <input
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              placeholder="Search templates by name, role, or skill…"
+              className="w-full pl-8 pr-3 py-2 rounded-md border border-[var(--j-border)] bg-[var(--j-panel-soft)] text-xs text-[var(--j-text)] placeholder:text-[var(--j-text-mute)] focus:outline-none focus:border-[var(--j-cyan)]"
+            />
+          </div>
+        </div>
+
+        {/* Templates grid by category */}
+        <div className="p-4 overflow-y-auto jarvis-scroll flex-1 space-y-5">
+          {loading ? (
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+              {Array.from({ length: 6 }).map((_, i) => <div key={i} className="h-32 jarvis-skeleton rounded-lg" />)}
+            </div>
+          ) : Object.keys(byCategory).length === 0 ? (
+            <div className="text-center py-8 text-xs text-[var(--j-text-mute)]">No templates match your search.</div>
+          ) : (
+            Object.entries(byCategory).map(([cat, items]) => (
+              <div key={cat}>
+                <div className="jarvis-mono text-[9px] uppercase tracking-widest text-[var(--j-text-mute)] mb-2 flex items-center gap-1.5">
+                  <span className="h-1 w-1 rounded-full" style={{ background: items[0]?.accent ?? JARVIS.colors.cyan }} />
+                  {CATEGORY_LABELS[cat] ?? cat} · {items.length}
+                </div>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                  {items.map((t) => (
+                    <div
+                      key={t.key}
+                      className="jarvis-panel p-3 group hover:border-[var(--j-cyan)]/40 transition-all relative overflow-hidden"
+                    >
+                      {/* Accent left border */}
+                      <div className="absolute top-0 left-0 bottom-0 w-[3px]" style={{ background: t.accent }} />
+                      <div className="pl-2">
+                        <div className="flex items-start justify-between mb-1.5">
+                          <div>
+                            <div className="text-sm font-semibold text-[var(--j-text)]">{t.name}</div>
+                            <div className="jarvis-mono text-[9px] uppercase text-[var(--j-cyan)]">{t.codename} · {t.model}</div>
+                          </div>
+                          <button
+                            onClick={() => spawn(t)}
+                            disabled={spawning === t.key}
+                            className="flex items-center gap-1 px-2 py-1 rounded text-[9px] jarvis-mono uppercase border transition-all disabled:opacity-50"
+                            style={{ borderColor: `${t.accent}40`, color: t.accent }}
+                          >
+                            {spawning === t.key
+                              ? <Loader2 className="h-3 w-3 animate-spin" />
+                              : <Zap className="h-3 w-3" />
+                            }
+                            Spawn
+                          </button>
+                        </div>
+                        <p className="text-[11px] text-[var(--j-text-dim)] leading-snug mb-2">{t.description}</p>
+                        <div className="flex flex-wrap gap-1">
+                          {t.skills.slice(0, 5).map((s) => (
+                            <span key={s} className="jarvis-mono text-[8px] uppercase px-1.5 py-0.5 rounded bg-[var(--j-panel-soft)] text-[var(--j-text-mute)] border border-[var(--j-border-soft)]">
+                              {s}
+                            </span>
+                          ))}
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            ))
+          )}
+        </div>
+
+        {/* Footer */}
+        <div className="px-4 py-2.5 border-t border-[var(--j-border)] bg-[var(--j-panel-soft)]/40 flex items-center justify-between jarvis-mono text-[9px] uppercase text-[var(--j-text-mute)]">
+          <span>Templates auto-generate unique codenames if collision occurs</span>
+          <button onClick={onClose} className="text-[var(--j-cyan)] hover:underline">Done</button>
         </div>
       </motion.div>
     </motion.div>

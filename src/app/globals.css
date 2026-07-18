@@ -181,6 +181,49 @@ html.light .jarvis-btn-accent:hover {
 html.light .jarvis-scroll::-webkit-scrollbar-thumb { background: #CBD5E1; }
 html.light .jarvis-scroll::-webkit-scrollbar-thumb:hover { background: #0284C7; }
 
+/* ===== Light theme polish — header, footer, sidebar, cards ===== */
+html.light header.sticky {
+  background: rgba(255, 255, 255, 0.85) !important;
+  border-bottom-color: #CBD5E1;
+}
+html.light footer {
+  background: rgba(255, 255, 255, 0.85) !important;
+  border-top-color: #CBD5E1;
+}
+html.light aside {
+  background: rgba(255, 255, 255, 0.92) !important;
+  border-right-color: #CBD5E1;
+}
+html.light .jarvis-card-hover:hover {
+  border-color: rgba(2, 132, 199, 0.4);
+  box-shadow: 0 8px 24px -12px rgba(2, 132, 199, 0.25), 0 0 0 1px rgba(2, 132, 199, 0.1);
+}
+html.light .jarvis-glow {
+  box-shadow: 0 0 0 1px rgba(2, 132, 199, 0.2), 0 0 24px -6px rgba(2, 132, 199, 0.3);
+}
+html.light .jarvis-glass {
+  background: rgba(255, 255, 255, 0.9);
+  backdrop-filter: blur(20px) saturate(180%);
+}
+html.light .jarvis-skeleton {
+  background: linear-gradient(
+    90deg,
+    rgba(203, 213, 225, 0.4) 25%,
+    rgba(226, 232, 240, 0.7) 50%,
+    rgba(203, 213, 225, 0.4) 75%
+  );
+  background-size: 200% 100%;
+}
+html.light .jarvis-panel-interactive::before {
+  background: linear-gradient(135deg, transparent, rgba(2, 132, 199, 0.3), transparent);
+}
+html.light kbd {
+  background: #F1F5F9 !important;
+  border-color: #CBD5E1 !important;
+  color: #475569 !important;
+}
+html.light .jarvis-mono { color: inherit; }
+
 
 @layer base {
   * {
@@ -626,12 +669,160 @@ html.light .jarvis-scroll::-webkit-scrollbar-thumb:hover { background: #0284C7; 
 }
 .jarvis-bar-loading { animation: jarvis-bar-load 1.5s ease-in-out infinite; }
 
+/* ===== Enhanced toast notifications ===== */
+[data-sonner-toast] {
+  background: rgba(14, 18, 24, 0.92) !important;
+  border: 1px solid var(--j-border) !important;
+  backdrop-filter: blur(20px) saturate(180%);
+  -webkit-backdrop-filter: blur(20px) saturate(180%);
+  box-shadow: 0 12px 40px -12px rgba(0, 0, 0, 0.5), 0 0 0 1px rgba(125, 211, 252, 0.1) !important;
+  color: var(--j-text) !important;
+  border-radius: 8px !important;
+  font-family: var(--font-geist-sans), sans-serif !important;
+}
+[data-sonner-toast] [data-title] {
+  font-weight: 600 !important;
+  font-size: 13px !important;
+  color: var(--j-text) !important;
+}
+[data-sonner-toast] [data-description] {
+  font-size: 11px !important;
+  color: var(--j-text-dim) !important;
+  margin-top: 2px !important;
+}
+[data-sonner-toast][data-type="success"] {
+  border-color: rgba(74, 222, 128, 0.4) !important;
+  box-shadow: 0 12px 40px -12px rgba(74, 222, 128, 0.3), 0 0 0 1px rgba(74, 222, 128, 0.15) !important;
+}
+[data-sonner-toast][data-type="success"] [data-title] {
+  color: #4ADE80 !important;
+}
+[data-sonner-toast][data-type="error"] {
+  border-color: rgba(248, 113, 113, 0.4) !important;
+  box-shadow: 0 12px 40px -12px rgba(248, 113, 113, 0.3), 0 0 0 1px rgba(248, 113, 113, 0.15) !important;
+}
+[data-sonner-toast][data-type="error"] [data-title] {
+  color: #F87171 !important;
+}
+[data-sonner-toast][data-type="warning"] {
+  border-color: rgba(251, 191, 36, 0.4) !important;
+}
+[data-sonner-toast][data-type="warning"] [data-title] {
+  color: #FBBF24 !important;
+}
+html.light [data-sonner-toast] {
+  background: rgba(255, 255, 255, 0.95) !important;
+  box-shadow: 0 12px 40px -12px rgba(15, 23, 42, 0.15), 0 0 0 1px rgba(2, 132, 199, 0.1) !important;
+}
+html.light [data-sonner-toast] [data-title] {
+  color: #0F172A !important;
+}
+html.light [data-sonner-toast] [data-description] {
+  color: #475569 !important;
+}
+
+/* ===== Enhanced loading skeletons ===== */
+.jarvis-skeleton-card {
+  background: linear-gradient(
+    135deg,
+    rgba(27, 35, 48, 0.3) 25%,
+    rgba(40, 50, 65, 0.5) 50%,
+    rgba(27, 35, 48, 0.3) 75%
+  );
+  background-size: 200% 200%;
+  animation: jarvis-skeleton 1.8s ease-in-out infinite;
+  border-radius: 8px;
+  position: relative;
+  overflow: hidden;
+}
+.jarvis-skeleton-card::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(90deg, transparent, rgba(125, 211, 252, 0.05), transparent);
+  animation: jarvis-shimmer-sweep 2s linear infinite;
+}
+@keyframes jarvis-shimmer-sweep {
+  0% { transform: translateX(-100%); }
+  100% { transform: translateX(100%); }
+}
+html.light .jarvis-skeleton-card {
+  background: linear-gradient(
+    135deg,
+    rgba(203, 213, 225, 0.3) 25%,
+    rgba(226, 232, 240, 0.6) 50%,
+    rgba(203, 213, 225, 0.3) 75%
+  );
+  background-size: 200% 200%;
+}
+
+/* ===== Button micro-interactions ===== */
+.jarvis-btn-accent {
+  position: relative;
+  overflow: hidden;
+}
+.jarvis-btn-accent::before {
+  content: "";
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 0;
+  height: 0;
+  border-radius: 50%;
+  background: rgba(125, 211, 252, 0.2);
+  transform: translate(-50%, -50%);
+  transition: width 0.4s ease, height 0.4s ease;
+  pointer-events: none;
+}
+.jarvis-btn-accent:active::before {
+  width: 200%;
+  height: 200%;
+}
+
+/* ===== Card entrance stagger ===== */
+@keyframes jarvis-stagger-in {
+  from { opacity: 0; transform: translateY(12px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+.jarvis-stagger {
+  animation: jarvis-stagger-in 0.4s cubic-bezier(0.4, 0, 0.2, 1) both;
+}
+
+/* ===== Hover glow ring ===== */
+.jarvis-glow-ring {
+  position: relative;
+}
+.jarvis-glow-ring::after {
+  content: "";
+  position: absolute;
+  inset: -2px;
+  border-radius: inherit;
+  background: linear-gradient(135deg, rgba(125, 211, 252, 0.2), transparent, rgba(125, 211, 252, 0.1));
+  opacity: 0;
+  transition: opacity 0.3s ease;
+  pointer-events: none;
+  z-index: -1;
+}
+.jarvis-glow-ring:hover::after {
+  opacity: 1;
+}
+
+/* ===== Number counter animation ===== */
+@keyframes jarvis-count-up {
+  from { opacity: 0; transform: translateY(4px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+.jarvis-count {
+  animation: jarvis-count-up 0.3s ease-out;
+}
+
 /* Reduced-motion friendliness */
 @media (prefers-reduced-motion: reduce) {
   .jarvis-blink, .jarvis-pulse-dot, .jarvis-bg::before, .jarvis-scan::before,
   .jarvis-text-gradient, .jarvis-spin-slow, .jarvis-float,
   .jarvis-skeleton, .jarvis-pulse-glow, .jarvis-critical-pulse,
-  .jarvis-progress-animated, .jarvis-marquee, .jarvis-bar-loading { animation: none !important; }
+  .jarvis-progress-animated, .jarvis-marquee, .jarvis-bar-loading,
+  .jarvis-skeleton-card, .jarvis-stagger, .jarvis-count { animation: none !important; }
 }
 
 

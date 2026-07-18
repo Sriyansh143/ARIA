@@ -10,7 +10,7 @@ import {
   Terminal, Sun, Moon, Share2, Workflow, Sliders, Eye, EyeOff, ChevronUp, ChevronDown, Pin, GitBranch, Rocket, BarChart3, Loader2, Star, FileText,
   Copy, DollarSign, Palette, GraduationCap,
   Building2, Gavel, Puzzle, Briefcase, Target,
-  CreditCard, AlertCircle, AlertTriangle, CheckCircle,
+  CreditCard, AlertCircle, AlertTriangle, CheckCircle, Keyboard,
 } from 'lucide-react';
 import { JARVIS, fmtTime } from '@/lib/config';
 import { useApi } from '@/lib/hooks/use-api';
@@ -216,6 +216,8 @@ export default function MissionControlDashboard() {
   const [now, setNow] = useState<Date | null>(null);
   const [theme, setTheme] = useState<'dark' | 'light'>('dark');
   const [manageOpen, setManageOpen] = useState(false);
+  // Keyboard shortcuts overlay (press `?`).
+  const [shortcutsOpen, setShortcutsOpen] = useState(false);
   // Tab personalization: hidden tabs + pinned tabs + custom order.
   const [tabPrefs, setTabPrefs] = useState<{ hidden: TabKey[]; pinned: TabKey[]; order: TabKey[] }>({ hidden: [], pinned: [], order: [] });
   // Orion voice-shell overlay mode (persisted). When true, a full-screen
@@ -314,15 +316,26 @@ export default function MissionControlDashboard() {
         e.preventDefault();
         setGlobalSearchOpen((o) => !o);
       }
+      // `?` (Shift+/) toggles the shortcuts overlay — but only when not typing in an input.
+      if (e.key === '?' && !isTypingTarget(e.target)) {
+        e.preventDefault();
+        setShortcutsOpen((o) => !o);
+      }
+      // `T` toggles theme (only when not typing + no modifiers).
+      if (e.key.toLowerCase() === 't' && !e.metaKey && !e.ctrlKey && !e.altKey && !isTypingTarget(e.target)) {
+        e.preventDefault();
+        toggleTheme();
+      }
       if (e.key === 'Escape') {
         setPaletteOpen(false);
         setGlobalSearchOpen(false);
         setNotifOpen(false);
+        setShortcutsOpen(false);
       }
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, []);
+  }, [toggleTheme]);
 
   // Orion mode: load persisted preference on mount, then persist on change.
   useEffect(() => {
@@ -448,6 +461,15 @@ export default function MissionControlDashboard() {
             title={theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'}
           >
             {theme === 'dark' ? <Sun className="h-3.5 w-3.5" /> : <Moon className="h-3.5 w-3.5" />}
+          </button>
+
+          <button
+            onClick={() => setShortcutsOpen((o) => !o)}
+            className="hidden sm:flex h-8 w-8 items-center justify-center rounded-md border border-[var(--j-border)] bg-[var(--j-panel-soft)] text-[var(--j-text-dim)] hover:border-[var(--j-cyan)] hover:text-[var(--j-cyan)] transition-colors"
+            aria-label="Keyboard shortcuts"
+            title="Keyboard shortcuts (?)"
+          >
+            <Keyboard className="h-3.5 w-3.5" />
           </button>
 
           <NotificationsBell open={notifOpen} setOpen={setNotifOpen} />
@@ -601,6 +623,13 @@ export default function MissionControlDashboard() {
             updateTabPrefs={updateTabPrefs}
             onNavigate={(t) => { navigate(t); setManageOpen(false); }}
           />
+        )}
+      </AnimatePresence>
+
+      {/* Keyboard shortcuts overlay (press `?`) */}
+      <AnimatePresence>
+        {shortcutsOpen && (
+          <ShortcutsOverlay onClose={() => setShortcutsOpen(false)} onNavigate={(t) => { navigate(t); setShortcutsOpen(false); }} />
         )}
       </AnimatePresence>
 
@@ -1201,5 +1230,169 @@ function GlobalSearch({ open, onClose, onNavigate }: { open: boolean; onClose: (
         </motion.div>
       )}
     </AnimatePresence>
+  );
+}
+
+/**
+ * Returns true if the user is currently typing in an input/textarea/select
+ * (so we don't hijack `?` and other shortcut keys while they're typing).
+ */
+function isTypingTarget(target: EventTarget | null): boolean {
+  if (!(target instanceof HTMLElement)) return false;
+  const tag = target.tagName.toLowerCase();
+  return tag === 'input' || tag === 'textarea' || tag === 'select' || target.isContentEditable;
+}
+
+/* ---------- Keyboard shortcuts overlay (press `?`) ---------- */
+const SHORTCUT_GROUPS: { label: string; accent: string; items: { keys: string[]; label: string; tab?: TabKey }[] }[] = [
+  {
+    label: 'Global',
+    accent: JARVIS.colors.cyan,
+    items: [
+      { keys: ['⌘', 'K'], label: 'Command palette' },
+      { keys: ['⌘', '⇧', 'F'], label: 'Global search' },
+      { keys: ['⌘', '⇧', 'O'], label: 'Orion voice mode' },
+      { keys: ['?'], label: 'This shortcuts overlay' },
+      { keys: ['Esc'], label: 'Close any overlay' },
+    ],
+  },
+  {
+    label: 'Navigation',
+    accent: JARVIS.colors.violet,
+    items: [
+      { keys: ['G', 'O'], label: 'Overview', tab: 'overview' },
+      { keys: ['G', 'F'], label: 'Agent Fleet', tab: 'fleet' },
+      { keys: ['G', 'T'], label: 'Tasks', tab: 'tasks' },
+      { keys: ['G', 'C'], label: 'ARIA Chat', tab: 'chat' },
+      { keys: ['G', 'H'], label: 'Fleet Health', tab: 'health' },
+      { keys: ['G', 'M'], label: 'AI Models', tab: 'models' },
+      { keys: ['G', 'P'], label: 'Payments', tab: 'payments' },
+      { keys: ['G', 'A'], label: 'Agent Monitor', tab: 'agent-monitor' },
+      { keys: ['G', 'S'], label: 'Scheduler', tab: 'scheduler' },
+    ],
+  },
+  {
+    label: 'Theme',
+    accent: JARVIS.colors.amber,
+    items: [
+      { keys: ['T'], label: 'Toggle dark / light theme' },
+    ],
+  },
+];
+
+function ShortcutsOverlay({ onClose, onNavigate }: { onClose: () => void; onNavigate: (t: TabKey) => void }) {
+  const [pendingKeys, setPendingKeys] = useState<string[]>([]);
+
+  // Listen for `G` + letter combos for go-to-tab navigation while overlay is open.
+  useEffect(() => {
+    let timeout: ReturnType<typeof setTimeout> | null = null;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') { onClose(); return; }
+      const key = e.key.toUpperCase();
+      if (key === 'G' && !isTypingTarget(e.target)) {
+        setPendingKeys(['G']);
+        if (timeout) clearTimeout(timeout);
+        timeout = setTimeout(() => setPendingKeys([]), 1200);
+        return;
+      }
+      if (pendingKeys[0] === 'G' && !isTypingTarget(e.target)) {
+        for (const grp of SHORTCUT_GROUPS) {
+          for (const item of grp.items) {
+            if (item.tab && item.keys[1] === key) {
+              e.preventDefault();
+              onNavigate(item.tab);
+              return;
+            }
+          }
+        }
+      }
+      setPendingKeys([]);
+    };
+    window.addEventListener('keydown', onKey);
+    return () => {
+      window.removeEventListener('keydown', onKey);
+      if (timeout) clearTimeout(timeout);
+    };
+  }, [pendingKeys, onClose, onNavigate]);
+
+  return (
+    <motion.div
+      className="fixed inset-0 z-[60] flex items-center justify-center p-4"
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      exit={{ opacity: 0 }}
+    >
+      <div className="absolute inset-0 bg-black/70 backdrop-blur-sm" onClick={onClose} />
+      <motion.div
+        initial={{ scale: 0.96, opacity: 0, y: 10 }}
+        animate={{ scale: 1, opacity: 1, y: 0 }}
+        exit={{ scale: 0.96, opacity: 0, y: 10 }}
+        className="relative w-full max-w-2xl jarvis-glass border border-[var(--j-border)] rounded-xl overflow-hidden max-h-[88vh] flex flex-col"
+      >
+        <div className="flex items-center justify-between p-4 border-b border-[var(--j-border)]">
+          <div className="flex items-center gap-2.5">
+            <div className="flex h-8 w-8 items-center justify-center rounded-md bg-[var(--j-cyan)]/15 border border-[var(--j-cyan)]/30">
+              <Command className="h-4 w-4 text-[var(--j-cyan)]" />
+            </div>
+            <div>
+              <div className="text-sm font-bold text-[var(--j-text)]">Keyboard Shortcuts</div>
+              <div className="jarvis-mono text-[9px] uppercase text-[var(--j-text-mute)]">
+                {pendingKeys.length > 0 ? (
+                  <span className="text-[var(--j-amber)]">listening: {pendingKeys.join(' + ')}…</span>
+                ) : (
+                  <span>type `G` then a letter to jump to a tab</span>
+                )}
+              </div>
+            </div>
+          </div>
+          <button onClick={onClose} className="text-[var(--j-text-mute)] hover:text-[var(--j-text)] transition-colors">
+            <X className="h-4 w-4" />
+          </button>
+        </div>
+
+        <div className="p-4 overflow-y-auto jarvis-scroll grid grid-cols-1 md:grid-cols-3 gap-4">
+          {SHORTCUT_GROUPS.map((grp) => (
+            <div key={grp.label}>
+              <div className="jarvis-mono text-[9px] uppercase tracking-widest mb-2 flex items-center gap-1.5" style={{ color: grp.accent }}>
+                <span className="h-1 w-1 rounded-full" style={{ background: grp.accent }} />
+                {grp.label}
+              </div>
+              <div className="space-y-1.5">
+                {grp.items.map((item) => (
+                  <button
+                    key={item.label}
+                    onClick={() => item.tab && onNavigate(item.tab)}
+                    disabled={!item.tab}
+                    className={`w-full flex items-center justify-between gap-2 px-2 py-1.5 rounded text-left transition-colors ${
+                      item.tab ? 'hover:bg-[var(--j-panel-soft)] cursor-pointer' : 'cursor-default'
+                    }`}
+                  >
+                    <span className="text-xs text-[var(--j-text-dim)]">{item.label}</span>
+                    <span className="flex items-center gap-1 shrink-0">
+                      {item.keys.map((k, i) => (
+                        <kbd
+                          key={i}
+                          className="jarvis-mono text-[10px] px-1.5 py-0.5 rounded border border-[var(--j-border)] bg-[var(--j-panel-soft)] text-[var(--j-text-dim)] min-w-[20px] text-center"
+                        >
+                          {k}
+                        </kbd>
+                      ))}
+                    </span>
+                  </button>
+                ))}
+              </div>
+            </div>
+          ))}
+        </div>
+
+        <div className="px-4 py-2.5 border-t border-[var(--j-border)] bg-[var(--j-panel-soft)]/40 flex items-center justify-between jarvis-mono text-[9px] uppercase text-[var(--j-text-mute)]">
+          <span>Click any navigation shortcut to jump</span>
+          <span className="flex items-center gap-2">
+            <kbd className="px-1 py-0.5 rounded border border-[var(--j-border)] bg-[var(--j-panel)]">Esc</kbd>
+            <span>to close</span>
+          </span>
+        </div>
+      </motion.div>
+    </motion.div>
   );
 }

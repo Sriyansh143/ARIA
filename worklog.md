@@ -2374,3 +2374,205 @@ Stage Summary:
 6. Add light theme polish (some elements may need contrast adjustments).
 7. Add keyboard shortcuts overlay (press `?` to show all shortcuts).
 8. Add export/import for agent configurations (JSON backup/restore).
+
+---
+Task ID: CRON-WEBDEVREVIEW-3
+Agent: main (Z.ai Code) — webDevReview cron run #3
+Task: Assess project status, perform QA via agent-browser, fix bugs, add features, improve styling.
+
+Work Log:
+- Read worklog tail (CRON-WEBDEVREVIEW-2) — prior session added: Enhanced Agent Detail Modal (3 tabs), Live Activity Ticker, Analytics Revenue Trend chart, 14 new CSS micro-animation classes.
+- **QA Assessment**:
+  - Dev server: HTTP 200, all endpoints return 200, 0 errors in dev.log.
+  - Lint: clean (0 errors, 0 warnings).
+  - agent-browser sweep: Overview, Fleet, Kanban, Skill Runner, Memory Graph — ALL render cleanly, 0 page errors, 0 console errors.
+  - No bugs found — app is stable. Proceeded to add new features.
+
+**FEATURE 1: Keyboard Shortcuts Overlay** (`src/app/page-client.tsx`):
+- New `ShortcutsOverlay` component (press `?` to open, Esc to close).
+- 3 shortcut groups in a responsive 3-column grid:
+  - **Global**: ⌘K (command palette), ⌘⇧F (global search), ⌘⇧O (Orion voice mode), `?` (this overlay), Esc (close).
+  - **Navigation**: `G` + letter combos — GO→Overview, GF→Fleet, GT→Tasks, GC→Chat, GH→Health, GM→Models, GP→Payments, GA→Agent Monitor, GS→Scheduler. Clickable to navigate.
+  - **Theme**: `T` toggles dark/light theme.
+- `G` + letter navigation: type `G` then a letter within 1.2s to jump to a tab. Shows "listening: G…" indicator in the header.
+- `isTypingTarget()` helper — skips shortcut handling when user is typing in an input/textarea/select/contentEditable.
+- New `Keyboard` icon button added to the header (between theme toggle and notifications bell) for mouse users.
+- Glass morphism styling (`jarvis-glass`), animated entrance/exit, `<kbd>` styled key caps.
+- Added `T` theme toggle shortcut to the main keyboard effect (with modifier guard — no T when Ctrl/Cmd/Alt held).
+
+**FEATURE 2: Export/Import Agent Configurations** (`src/app/api/agents/backup/route.ts` + `src/components/tabs/FleetTab.tsx`):
+- New `/api/agents/backup` endpoint:
+  - **GET**: Downloads all agent configurations as a JSON file (`jarvis-agents-backup-YYYY-MM-DD.json`). Includes name, codename, role, skills, model, status, successRate, load. Excludes logs/tasks (operational data).
+  - **POST**: Imports agent configurations from JSON. Body: `{ agents: [...], mode: 'upsert' | 'create' }`. Upsert mode updates existing by codename + creates new. Create mode only creates new (skips existing). Returns `{ created, updated, skipped, errors }`.
+- New `ImportModal` component in FleetTab:
+  - File upload dropzone (click or drag & drop `.json` files).
+  - JSON paste textarea with live preview (shows agent count + first 8 codenames as chips).
+  - Mode selector: Upsert (cyan) vs Create Only (amber) with descriptions.
+  - Import button shows agent count from preview.
+  - Toast feedback with created/updated/skipped counts.
+- Export/Import buttons added to Fleet tab SectionTitle action area (between Spawn Agent and Refresh).
+
+**FEATURE 3: Kanban Drag-and-Drop Visual Feedback Enhancement** (`src/components/tabs/KanbanTab.tsx`):
+- Cards now have **priority-colored left border** (inset box-shadow) — critical=red, high=amber, medium=cyan, low=gray.
+- **Stale task indicator**: tasks older than 3 days (non-completed) get a red left border + a `{N}d` age badge in the top-right corner.
+- **Drag overlay enhancement**: dragged card scales up (1.02), stronger shadow (`0 16px 40px -8px`), cyan border + ring.
+- **Hover shimmer effect**: subtle diagonal gradient sweep on card hover.
+- **GripVertical icon**: color transitions to cyan on group-hover.
+- **Progress bar enhancement**: animated width transition (0.5s easeOut) + gradient fill (cyan→green) for in-progress tasks.
+- **Completed tasks**: show a green "completed" label with a glowing green dot.
+- **Empty column enhancement**: dashed border drop zone with LayoutGrid icon + "Drop here" (when dragging over) or "Empty — drag tasks here" (default). Highlights cyan when dragging over.
+- Card entrance/exit animations enhanced (y-offset + scale).
+
+**FEATURE 4: Light Theme Polish** (`src/app/globals.css`):
+- Header: white translucent background (was dark).
+- Footer: white translucent background.
+- Sidebar: white translucent background.
+- Card hover: cyan-tinted shadow (was dark glow).
+- `.jarvis-glow`: cyan-tinted box-shadow.
+- `.jarvis-glass`: white translucent background.
+- `.jarvis-skeleton`: light gray gradient shimmer.
+- `.jarvis-panel-interactive::before`: cyan gradient border.
+- `<kbd>` elements: light gray background with dark text.
+- All contrast-adjusted for readability on white background.
+
+**Verification (agent-browser)**:
+- App loads HTTP 200, 0 page errors, 0 console errors.
+- `?` opens shortcuts overlay with 3 groups. `G`+`F` navigates to Fleet. `T` toggles theme (verified `document.documentElement.className` changes from "dark" to "light").
+- Fleet tab: Export + Import buttons visible. Import modal opens with file upload dropzone + JSON paste + preview + mode selector.
+- Kanban: cards have priority-colored left borders, stale task badges, drag overlay with scale+shadow.
+- Light theme: renders cleanly with proper contrast (screenshot captured).
+- Lint: clean (0 errors, 0 warnings).
+
+Stage Summary:
+- ✅ QA: app stable, 0 bugs, all endpoints 200, lint clean.
+- ✅ FEATURE 1: Keyboard Shortcuts Overlay — `?` to open, `G`+letter navigation, `T` theme toggle, 3 groups, clickable shortcuts, glass morphism styling.
+- ✅ FEATURE 2: Export/Import Agent Configurations — JSON backup API (GET download + POST import), Import modal with drag-drop + paste + preview + mode selector.
+- ✅ FEATURE 3: Kanban DnD enhancement — priority left borders, stale task badges, drag scale+shadow, hover shimmer, animated progress bars, empty column drop zones.
+- ✅ FEATURE 4: Light theme polish — header/footer/sidebar/cards/glass/skeleton all contrast-adjusted for white background.
+- ✅ Dev server restarted (was killed by OOM), now stable HTTP 200.
+- ✅ Lint clean. 0 page errors. All features verified via agent-browser.
+
+## Updated App Stats
+- **41 tabs** across 8 intelligent groups
+- **Keyboard shortcuts overlay** (? to open, G+letter nav, T theme toggle)
+- **Export/Import agent configs** (JSON backup/restore with upsert/create modes)
+- **Enhanced Kanban** (priority borders, stale badges, drag feedback, shimmer)
+- **Light theme polish** (full contrast adjustment)
+- **0 lint errors, 0 page errors, 0 console errors**
+
+## Pending Works (for next cron run)
+1. Add WebSocket mini-service for true real-time updates (currently polling 10-30s).
+2. Wire skill execution to actually invoke web-search/web-reader skills.
+3. Add Memory Graph force-directed visualization improvements.
+4. Add PDF export for reports (currently CSV only).
+5. Add scheduled email reports.
+6. Add agent configuration templates (pre-built agent presets).
+7. Add bulk task operations (select multiple + advance/delete/reassign).
+8. Add command palette search inside tab content (not just tab names).
+
+---
+Task ID: CRON-WEBDEVREVIEW-4
+Agent: main (Z.ai Code) — webDevReview cron run #4
+Task: Assess project status, perform QA via agent-browser, fix bugs, add features, improve styling.
+
+Work Log:
+- Read worklog tail (CRON-WEBDEVREVIEW-3) — prior session added: Keyboard Shortcuts Overlay, Export/Import Agent Configs, Kanban DnD enhancements, Light theme polish.
+- **QA Assessment**:
+  - Dev server: HTTP 200, all endpoints return 200, 0 errors in dev.log.
+  - Lint: clean (0 errors, 0 warnings).
+  - agent-browser sweep: Overview, Tasks, Fleet — ALL render cleanly, 0 page errors, 0 console errors.
+  - No bugs found — app is stable. Proceeded to add new features.
+
+**FEATURE 1: Bulk Task Operations** (`src/app/api/tasks/bulk/route.ts` + `src/components/tabs/TasksTab.tsx` full rewrite):
+- New `/api/tasks/bulk` POST endpoint supporting 5 actions:
+  - `advance`: moves each selected task to its next status (pending→in_progress→completed).
+  - `delete`: removes all selected tasks.
+  - `reassign`: sets assigneeId on all selected tasks (supports unassign with empty string).
+  - `set-priority`: sets priority (low/medium/high/critical) on all selected tasks.
+  - `set-status`: sets status + progress on all selected tasks.
+  - Returns `{ ok, action, affected, errors: [{id, error}] }` — processes each task individually so one failure doesn't block others.
+- TasksTab rewritten with:
+  - **Checkbox per task row** (CheckSquare/Square icons, cyan when selected).
+  - **Select all / Deselect** buttons with counts.
+  - **Search bar** to filter tasks by title/description.
+  - **Bulk operations bar** (animated slide-down via AnimatePresence) that appears when ≥1 task selected:
+    - Action selector: Advance Status / Set Status / Set Priority / Reassign / Delete.
+    - Conditional inputs: Reassign shows agent dropdown, Set Priority shows priority dropdown.
+    - "Apply to N" button with loading spinner.
+    - "Clear selection" link.
+  - Selected tasks highlighted with cyan border + ring + tinted background.
+  - All existing single-task operations preserved (advance, reopen, delete on hover).
+
+**FEATURE 2: Agent Configuration Templates** (`src/app/api/agents/templates/route.ts` + `src/components/tabs/FleetTab.tsx`):
+- New `/api/agents/templates` endpoint:
+  - **GET**: Returns 10 pre-built agent templates grouped by 6 categories (engineering, research, business, ops, creative, security). Each template: key, name, codename, role, skills[], model, description, category, accent color.
+  - **POST**: Spawns an agent from a template by key. Auto-generates unique codename (appends 4-digit suffix) if the template's codename already exists. Supports optional `customCodename` for explicit naming (409 on collision).
+  - Templates: Research Analyst (SAGE), Code Reviewer (INSPECTOR), Content Writer (SCRIBE), Data Analyst (METRIC), Customer Support (HELPER), Security Scanner (SENTINEL), DevOps Engineer (DEPLOY), Sales Representative (CLOSER), QA Tester (VERIFY), Social Media Manager (BUZZ).
+- New `TemplatesModal` component in FleetTab:
+  - Glass morphism styling, 3-column responsive grid.
+  - **Search bar** to filter by name/role/skill.
+  - Templates grouped by category with colored section headers.
+  - Each template card: accent left border, name + codename + model, description, skills chips (max 5), "Spawn" button with loading state.
+  - One-click spawn — no form needed.
+  - Toast feedback: "{codename} spawned" with name + role.
+  - "Templates auto-generate unique codenames if collision occurs" footer hint.
+- New "Templates" button (Sparkles icon) added to Fleet tab header between Import and Spawn Agent.
+
+**FEATURE 3: Enhanced Styling & Micro-interactions** (`src/app/globals.css`):
+- **Toast notifications** (`[data-sonner-toast]`):
+  - Dark glass background with backdrop-blur + saturate.
+  - Color-coded by type: success (green border + shadow), error (red), warning (amber).
+  - Title + description with proper font sizes.
+  - Light theme variant with white background.
+- **Enhanced skeleton loaders** (`.jarvis-skeleton-card`):
+  - 135deg gradient with shimmer sweep overlay.
+  - Light theme variant.
+  - Used in TemplatesModal loading state.
+- **Button ripple effect** (`.jarvis-btn-accent::before`):
+  - Expanding circle ripple on active (click).
+  - Cyan-tinted, 0.4s ease transition.
+- **Card entrance stagger** (`.jarvis-stagger`):
+  - Fade-in-up animation (0.4s cubic-bezier).
+  - For staggered card list entrances.
+- **Hover glow ring** (`.jarvis-glow-ring`):
+  - Gradient glow ring around element on hover.
+  - Cyan-tinted, opacity transition.
+- **Number counter animation** (`.jarvis-count`):
+  - Fade-in-up for number values (0.3s ease-out).
+- All new animations respect `prefers-reduced-motion: reduce`.
+
+**Verification (agent-browser)**:
+- App loads HTTP 200, 0 page errors, 0 console errors.
+- Tasks tab: Select All (20) works, bulk bar appears with "Apply to 20" button, action selector shows 5 options, Clear selection works.
+- Fleet tab: Templates button visible, modal opens with "10 presets · one-click spawn", templates grouped by category, search filters by name/role/skill.
+- Template spawn: clicked SPAWN on Research Analyst → SAGE-1939 created (auto-suffixed because SAGE exists), toast showed "SAGE-1939 spawned", modal closed, fleet refreshed.
+- API: GET /api/agents/templates returns 10 templates across 6 categories. POST /api/tasks/bulk handles invalid IDs gracefully (returns errors array).
+- Sticky footer: visible at viewport bottom on short content (top:880, vh:900), pushes down naturally on long content.
+- Lint: clean (0 errors, 0 warnings).
+
+Stage Summary:
+- ✅ QA: app stable, 0 bugs, all endpoints 200, lint clean.
+- ✅ FEATURE 1: Bulk Task Operations — 5 actions (advance/delete/reassign/set-priority/set-status), checkbox selection, search, animated bulk bar, 1 new API endpoint.
+- ✅ FEATURE 2: Agent Configuration Templates — 10 pre-built presets across 6 categories, one-click spawn with auto-codename-suffix, search, glass morphism modal, 1 new API endpoint.
+- ✅ FEATURE 3: Enhanced Styling — toast notifications (color-coded by type), skeleton loaders with shimmer, button ripple, card stagger, hover glow ring, number counter animation.
+- ✅ Dev server stable HTTP 200.
+- ✅ Lint clean. 0 page errors. All features verified via agent-browser.
+
+## Updated App Stats
+- **41 tabs** across 8 intelligent groups
+- **Bulk task operations** (5 actions, checkbox selection, search)
+- **Agent templates** (10 presets, 6 categories, one-click spawn)
+- **Enhanced toast notifications** (color-coded, glass morphism)
+- **6 new CSS micro-interaction classes** (skeleton-card, btn-ripple, stagger, glow-ring, count, shimmer-sweep)
+- **68 agents** (67 + 1 template-spawned SAGE-1939)
+- **0 lint errors, 0 page errors, 0 console errors**
+
+## Pending Works (for next cron run)
+1. Add WebSocket mini-service for true real-time updates (currently polling 10-30s).
+2. Wire skill execution to actually invoke web-search/web-reader skills.
+3. Add Memory Graph force-directed visualization improvements.
+4. Add PDF export for reports (currently CSV only).
+5. Add scheduled email reports.
+6. Add command palette search inside tab content (global entity search).
+7. Add drag-and-drop task reordering within Kanban columns.
+8. Add agent performance comparison view (side-by-side metrics).

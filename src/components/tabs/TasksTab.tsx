@@ -1,8 +1,11 @@
 'use client';
 
-import { useState } from 'react';
-import { motion } from 'framer-motion';
-import { ListTodo, Plus, X, RefreshCw, ChevronRight, Trash2, RotateCcw } from 'lucide-react';
+import { useState, useMemo } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
+import {
+  ListTodo, Plus, X, RefreshCw, ChevronRight, Trash2, RotateCcw,
+  CheckSquare, Square, Loader2, Users, Flag, ArrowRight,
+} from 'lucide-react';
 import { useApi, postJson, patchJson, deleteJson } from '@/lib/hooks/use-api';
 import { JARVIS } from '@/lib/config';
 import { SectionTitle, StatCard, PriorityBadge, EmptyState } from '@/components/jarvis/shared';
@@ -24,8 +27,20 @@ export default function TasksTab() {
   const { data, loading, refresh } = useApi<{ tasks: Task[] }>(`/api/tasks?status=${filter === 'all' ? '' : filter}`, 8000);
   const { toast } = useToast();
   const [open, setOpen] = useState(false);
+  const [selected, setSelected] = useState<Set<string>>(new Set());
+  const [bulkAction, setBulkAction] = useState<string>('advance');
+  const [bulkAssignee, setBulkAssignee] = useState('');
+  const [bulkPriority, setBulkPriority] = useState('medium');
+  const [bulkBusy, setBulkBusy] = useState(false);
+  const [search, setSearch] = useState('');
 
   const tasks = data?.tasks ?? [];
+  const filtered = useMemo(() => {
+    if (!search) return tasks;
+    const ql = search.toLowerCase();
+    return tasks.filter((t) => t.title.toLowerCase().includes(ql) || (t.description ?? '').toLowerCase().includes(ql));
+  }, [tasks, search]);
+
   const counts = {
     total: tasks.length,
     pending: tasks.filter((t) => t.status === 'pending').length,
@@ -42,6 +57,39 @@ export default function TasksTab() {
     await deleteJson(`/api/tasks/${t.id}`);
     toast({ title: 'Task deleted' });
     refresh();
+  };
+
+  const toggleSelect = (id: string) => {
+    setSelected((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
+
+  const selectAll = () => setSelected(new Set(filtered.map((t) => t.id)));
+  const selectNone = () => setSelected(new Set());
+
+  const runBulk = async () => {
+    if (selected.size === 0) return;
+    setBulkBusy(true);
+    try {
+      const payload: Record<string, unknown> = { action: bulkAction, taskIds: Array.from(selected) };
+      if (bulkAction === 'reassign') payload.payload = { assigneeId: bulkAssignee };
+      if (bulkAction === 'set-priority') payload.payload = { priority: bulkPriority };
+      const res = await postJson('/api/tasks/bulk', payload);
+      toast({
+        title: `Bulk ${bulkAction}: ${res.affected} task${res.affected !== 1 ? 's' : ''} affected`,
+        description: res.errors?.length ? `${res.errors.length} errors` : undefined,
+      });
+      setSelected(new Set());
+      refresh();
+    } catch (e) {
+      toast({ title: 'Bulk action failed', description: e instanceof Error ? e.message : '', variant: 'destructive' });
+    } finally {
+      setBulkBusy(false);
+    }
   };
 
   return (
@@ -65,7 +113,8 @@ export default function TasksTab() {
         <StatCard label="Completed" value={counts.completed} icon={ListTodo} accent={JARVIS.colors.green} />
       </div>
 
-      <div className="flex flex-wrap gap-2">
+      {/* Filter + search bar */}
+      <div className="flex flex-wrap items-center gap-2">
         {FILTERS.map((f) => (
           <button
             key={f}
@@ -75,22 +124,110 @@ export default function TasksTab() {
             {f.replace('_', ' ')}
           </button>
         ))}
+        <Input
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          placeholder="Search tasks…"
+          className="bg-[var(--j-panel-soft)] border-[var(--j-border)] max-w-[200px] h-8 text-xs ml-auto"
+        />
       </div>
+
+      {/* Bulk operations bar (appears when tasks are selected) */}
+      <AnimatePresence>
+        {selected.size > 0 && (
+          <motion.div
+            initial={{ opacity: 0, height: 0 }}
+            animate={{ opacity: 1, height: 'auto' }}
+            exit={{ opacity: 0, height: 0 }}
+            className="overflow-hidden"
+          >
+            <div className="jarvis-panel p-3 border-[var(--j-cyan)]/40 flex flex-wrap items-center gap-2">
+              <div className="flex items-center gap-2 mr-2">
+                <CheckSquare className="h-4 w-4 text-[var(--j-cyan)]" />
+                <span className="jarvis-mono text-xs uppercase text-[var(--j-cyan)] font-semibold">{selected.size} selected</span>
+              </div>
+              <Select value={bulkAction} onValueChange={setBulkAction}>
+                <SelectTrigger className="bg-[var(--j-panel-soft)] border-[var(--j-border)] h-8 text-xs w-[140px]">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="advance">Advance Status</SelectItem>
+                  <SelectItem value="set-status">Set Status</SelectItem>
+                  <SelectItem value="set-priority">Set Priority</SelectItem>
+                  <SelectItem value="reassign">Reassign</SelectItem>
+                  <SelectItem value="delete">Delete</SelectItem>
+                </SelectContent>
+              </Select>
+              {bulkAction === 'reassign' && (
+                <ReassignSelect value={bulkAssignee} onChange={setBulkAssignee} />
+              )}
+              {bulkAction === 'set-priority' && (
+                <Select value={bulkPriority} onValueChange={setBulkPriority}>
+                  <SelectTrigger className="bg-[var(--j-panel-soft)] border-[var(--j-border)] h-8 text-xs w-[120px]">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {['low', 'medium', 'high', 'critical'].map((p) => <SelectItem key={p} value={p} className="capitalize">{p}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+              )}
+              <Button size="sm" onClick={runBulk} disabled={bulkBusy} className="jarvis-btn-accent border-0">
+                {bulkBusy ? <Loader2 className="h-3.5 w-3.5 animate-spin mr-1" /> : null}
+                Apply to {selected.size}
+              </Button>
+              <button onClick={selectNone} className="jarvis-mono text-[9px] uppercase text-[var(--j-text-mute)] hover:text-[var(--j-text)] ml-auto">
+                Clear selection
+              </button>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Select all / none */}
+      {filtered.length > 0 && (
+        <div className="flex items-center gap-3 text-xs">
+          <button onClick={selectAll} className="jarvis-mono text-[9px] uppercase text-[var(--j-cyan)] hover:underline flex items-center gap-1">
+            <CheckSquare className="h-3 w-3" /> Select all ({filtered.length})
+          </button>
+          {selected.size > 0 && (
+            <button onClick={selectNone} className="jarvis-mono text-[9px] uppercase text-[var(--j-text-mute)] hover:underline flex items-center gap-1">
+              <Square className="h-3 w-3" /> Deselect
+            </button>
+          )}
+          <span className="jarvis-mono text-[9px] uppercase text-[var(--j-text-mute)] ml-auto">
+            {filtered.length} task{filtered.length !== 1 ? 's' : ''}
+          </span>
+        </div>
+      )}
 
       {loading && !data ? (
         <div className="space-y-2">{Array.from({ length: 4 }).map((_, i) => <div key={i} className="jarvis-panel h-16 animate-pulse" />)}</div>
-      ) : tasks.length ? (
+      ) : filtered.length ? (
         <div className="space-y-2">
-          {tasks.map((t, i) => {
+          {filtered.map((t, i) => {
             const color = statusColor(t.status);
+            const isSelected = selected.has(t.id);
             return (
               <motion.div
                 key={t.id}
                 initial={{ opacity: 0, x: -8 }}
                 animate={{ opacity: 1, x: 0 }}
                 transition={{ delay: i * 0.02 }}
-                className="jarvis-panel jarvis-card-hover p-3 flex items-center gap-3 group"
+                className={`jarvis-panel p-3 flex items-center gap-3 group transition-all ${
+                  isSelected ? 'border-[var(--j-cyan)] ring-1 ring-[var(--j-cyan)]/30 bg-[var(--j-cyan)]/5' : 'jarvis-card-hover'
+                }`}
               >
+                {/* Checkbox */}
+                <button
+                  onClick={() => toggleSelect(t.id)}
+                  className="shrink-0 flex h-5 w-5 items-center justify-center rounded transition-colors"
+                  aria-label={isSelected ? 'Deselect' : 'Select'}
+                >
+                  {isSelected
+                    ? <CheckSquare className="h-4 w-4 text-[var(--j-cyan)]" />
+                    : <Square className="h-4 w-4 text-[var(--j-text-mute)] hover:text-[var(--j-text-dim)]" />
+                  }
+                </button>
                 <span className="h-2 w-2 rounded-full shrink-0" style={{ background: color, boxShadow: `0 0 8px ${color}` }} />
                 <div className="min-w-0 flex-1">
                   <div className="flex items-center gap-2">
@@ -129,6 +266,21 @@ export default function TasksTab() {
 
       {open && <NewTaskModal onClose={() => setOpen(false)} onDone={() => { setOpen(false); refresh(); }} />}
     </div>
+  );
+}
+
+function ReassignSelect({ value, onChange }: { value: string; onChange: (v: string) => void }) {
+  const { data } = useApi<{ agents: Array<{ id: string; codename: string }> }>('/api/agents', 0);
+  return (
+    <Select value={value} onValueChange={onChange}>
+      <SelectTrigger className="bg-[var(--j-panel-soft)] border-[var(--j-border)] h-8 text-xs w-[160px]">
+        <SelectValue placeholder="Select agent…" />
+      </SelectTrigger>
+      <SelectContent>
+        <SelectItem value="">Unassigned</SelectItem>
+        {data?.agents?.map((a) => <SelectItem key={a.id} value={a.id}>{a.codename}</SelectItem>)}
+      </SelectContent>
+    </Select>
   );
 }
 

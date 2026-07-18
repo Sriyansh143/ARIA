@@ -131,7 +131,16 @@ function KanbanColumn({ col, tasks, onAdvance, onDelete, onReopen }: {
           ))}
         </AnimatePresence>
         {tasks.length === 0 && (
-          <div className="text-center py-6 jarvis-mono text-[10px] uppercase text-[var(--j-text-mute)] opacity-50">drop here</div>
+          <div className={`text-center py-8 rounded border border-dashed transition-all ${
+            isOver
+              ? 'border-[var(--j-cyan)] bg-[var(--j-cyan)]/5'
+              : 'border-[var(--j-border-soft)]'
+          }`}>
+            <LayoutGrid className="h-5 w-5 mx-auto mb-1.5 opacity-30" style={{ color: col.accent }} />
+            <div className="jarvis-mono text-[10px] uppercase text-[var(--j-text-mute)]">
+              {isOver ? 'Drop here' : 'Empty — drag tasks here'}
+            </div>
+          </div>
         )}
       </div>
     </div>
@@ -167,24 +176,42 @@ function KanbanCard({
   onReopen?: (t: Task) => Promise<void>;
 }) {
   const pColor = PRIORITY_COLORS[task.priority] ?? JARVIS.colors.textDim;
+  const ageMs = Date.now() - new Date(task.createdAt).getTime();
+  const ageDays = Math.floor(ageMs / (24 * 60 * 60 * 1000));
+  const isStale = ageDays > 3 && task.status !== 'completed';
   return (
     <motion.div
       ref={dragRef}
       layout
-      initial={{ opacity: 0, scale: 0.95 }}
-      animate={{ opacity: dragging ? 0.4 : 1, scale: 1 }}
-      exit={{ opacity: 0, scale: 0.9 }}
-      transition={{ duration: 0.15 }}
-      className="group relative rounded-lg border border-[var(--j-border)] bg-[var(--j-panel-soft)] p-3 cursor-grab active:cursor-grabbing hover:border-[var(--j-cyan)]/50"
-      style={dragging ? { boxShadow: '0 12px 32px -8px rgba(125,211,252,0.4)', borderColor: JARVIS.colors.cyan } : undefined}
+      initial={{ opacity: 0, scale: 0.95, y: 8 }}
+      animate={{ opacity: dragging ? 0.35 : 1, scale: dragging ? 1.02 : 1, y: 0 }}
+      exit={{ opacity: 0, scale: 0.9, y: -8 }}
+      transition={{ duration: 0.18, ease: [0.4, 0, 0.2, 1] }}
+      className="group relative rounded-lg border bg-[var(--j-panel-soft)] p-3 cursor-grab active:cursor-grabbing overflow-hidden"
+      style={{
+        borderColor: dragging ? JARVIS.colors.cyan : isStale ? `${JARVIS.colors.red}40` : 'var(--j-border)',
+        boxShadow: dragging
+          ? `0 16px 40px -8px rgba(125,211,252,0.5), 0 0 0 1px ${JARVIS.colors.cyan}`
+          : isStale
+            ? `inset 3px 0 0 ${JARVIS.colors.red}`
+            : `inset 3px 0 0 ${pColor}`,
+      }}
       {...(dragAttrs ?? {})}
       {...(dragListeners ?? {})}
     >
-      <div className="flex items-start gap-2 mb-1.5">
-        <GripVertical className="h-3.5 w-3.5 text-[var(--j-text-mute)] opacity-40 group-hover:opacity-100 mt-0.5 shrink-0" />
+      {/* Shimmer effect on hover */}
+      <div className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none" style={{ background: `linear-gradient(120deg, transparent 40%, ${JARVIS.colors.cyan}08 50%, transparent 60%)` }} />
+
+      <div className="flex items-start gap-2 mb-1.5 relative">
+        <GripVertical className="h-3.5 w-3.5 text-[var(--j-text-mute)] opacity-40 group-hover:opacity-100 group-hover:text-[var(--j-cyan)] transition-all mt-0.5 shrink-0" />
         <span className="text-xs text-[var(--j-text)] leading-snug flex-1">{task.title}</span>
+        {isStale && (
+          <span className="shrink-0 jarvis-mono text-[8px] uppercase px-1 rounded bg-[var(--j-red)]/15 text-[var(--j-red)] border border-[var(--j-red)]/30" title={`${ageDays} days old`}>
+            {ageDays}d
+          </span>
+        )}
       </div>
-      <div className="flex items-center gap-1.5 flex-wrap pl-5">
+      <div className="flex items-center gap-1.5 flex-wrap pl-5 relative">
         <PriorityBadge priority={task.priority} />
         {task.assignee && (
           <span className="jarvis-mono text-[9px] flex items-center gap-0.5 text-[var(--j-cyan)]">
@@ -193,10 +220,22 @@ function KanbanCard({
         )}
       </div>
       {task.status === 'in_progress' && (
-        <div className="mt-2 pl-5">
+        <div className="mt-2 pl-5 relative">
           <div className="h-1 rounded-full bg-[var(--j-border)] overflow-hidden">
-            <div className="h-full rounded-full" style={{ width: `${task.progress}%`, background: JARVIS.colors.cyan }} />
+            <motion.div
+              className="h-full rounded-full"
+              style={{ background: `linear-gradient(90deg, ${JARVIS.colors.cyan}, ${JARVIS.colors.green})` }}
+              initial={{ width: 0 }}
+              animate={{ width: `${task.progress}%` }}
+              transition={{ duration: 0.5, ease: 'easeOut' }}
+            />
           </div>
+        </div>
+      )}
+      {task.status === 'completed' && (
+        <div className="mt-1.5 pl-5 flex items-center gap-1 relative">
+          <span className="h-1.5 w-1.5 rounded-full" style={{ background: JARVIS.colors.green, boxShadow: `0 0 6px ${JARVIS.colors.green}` }} />
+          <span className="jarvis-mono text-[9px] uppercase text-[var(--j-green)]">completed</span>
         </div>
       )}
       {/* Hover actions */}
