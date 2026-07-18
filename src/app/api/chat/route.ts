@@ -30,3 +30,9 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: msg }, { status: 500 });
   }
 }
+
+// DELETE — clear all chat history.
+export async function DELETE() {
+  await db.chatMessage.deleteMany({});
+  return NextResponse.json({ ok: true, deleted: true });
+}

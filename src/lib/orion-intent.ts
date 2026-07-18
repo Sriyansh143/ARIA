@@ -531,6 +531,95 @@ function matchMakePlan(t: string): MatchResult | null {
   return null;
 }
 
+/* ---- run-command (terminal/shell execution) ---- */
+function matchRunCommand(t: string): MatchResult | null {
+  // "run command: git status", "execute: ls -la", "run: npm install"
+  const m = t.match(/^(?:run|execute)\s+(?:command\s*[:\s]+|cmd\s*[:\s]+)?(.+)$/);
+  if (m) {
+    return {
+      intent: 'run-command',
+      confidence: 0.95,
+      action: { type: 'run-command', command: m[1].trim() },
+      params: { command: m[1].trim() },
+      response: `Executing: ${m[1].trim()}`,
+    };
+  }
+  // "shell: ...", "terminal: ..."
+  const m2 = t.match(/^(?:shell|terminal)\s*[:\s]+(.+)$/);
+  if (m2) {
+    return {
+      intent: 'run-command',
+      confidence: 0.93,
+      action: { type: 'run-command', command: m2[1].trim() },
+      params: { command: m2[1].trim() },
+      response: `Executing: ${m2[1].trim()}`,
+    };
+  }
+  return null;
+}
+
+/* ---- read-file ---- */
+function matchReadFile(t: string): MatchResult | null {
+  // "read file: src/app/page.tsx", "show file config.ts"
+  const m = t.match(/^(?:read|show|cat|view)\s+file\s*[:\s]+(.+)$/);
+  if (m) {
+    return {
+      intent: 'read-file',
+      confidence: 0.95,
+      action: { type: 'read-file', path: m[1].trim() },
+      params: { path: m[1].trim() },
+      response: `Reading file: ${m[1].trim()}`,
+    };
+  }
+  const m2 = t.match(/^(?:read|show|cat)\s+([\w./-]+\.\w+)$/);
+  if (m2) {
+    return {
+      intent: 'read-file',
+      confidence: 0.88,
+      action: { type: 'read-file', path: m2[1].trim() },
+      params: { path: m2[1].trim() },
+      response: `Reading file: ${m2[1].trim()}`,
+    };
+  }
+  return null;
+}
+
+/* ---- write-file ---- */
+function matchWriteFile(t: string): MatchResult | null {
+  // "write file: path" or "create file: path"
+  const m = t.match(/^(?:write|create|edit)\s+file\s*[:\s]+(.+)$/);
+  if (m) {
+    return {
+      intent: 'write-file',
+      confidence: 0.93,
+      action: { type: 'write-file', path: m[1].trim() },
+      params: { path: m[1].trim() },
+      response: `Preparing to write file: ${m[1].trim()}`,
+      suggestions: ['What content should I write?'],
+    };
+  }
+  return null;
+}
+
+/* ---- browse (browser automation) ---- */
+function matchBrowse(t: string): MatchResult | null {
+  // "browse to github.com", "open website cnn.com", "go to news.ycombinator.com"
+  const m = t.match(/^(?:browse\s+to|open\s+website|go\s+to\s+website|visit\s+site|browse)\s+(.+)$/);
+  if (m) {
+    let url = m[1].trim();
+    if (!/^https?:\/\//i.test(url)) url = `https://${url}`;
+    return {
+      intent: 'browse',
+      confidence: 0.92,
+      action: { type: 'browse', url },
+      params: { url },
+      response: `Opening ${url} in the browser.`,
+      suggestions: ['Take a screenshot', 'Extract page content', 'Click an element'],
+    };
+  }
+  return null;
+}
+
 /* ------------------------------------------------------------------ */
 /* Ordered matcher pipeline                                            */
 /* ------------------------------------------------------------------ */
@@ -542,6 +631,10 @@ const MATCHERS: Array<(t: string) => MatchResult | null> = [
   matchHealth,
   matchSyncModels,
   matchMakePlan,
+  matchRunCommand,
+  matchReadFile,
+  matchWriteFile,
+  matchBrowse,
   matchCreateTask,
   matchCreateAgent,
   matchRunSkill,

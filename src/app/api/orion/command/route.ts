@@ -121,6 +121,18 @@ export async function POST(req: NextRequest): Promise<NextResponse<CommandRespon
       case 'make-plan':
         out = await handleMakePlan(text, parsed, sessionId);
         break;
+      case 'run-command':
+        out = await handleRunCommand(parsed, sessionId);
+        break;
+      case 'read-file':
+        out = await handleReadFile(parsed, sessionId);
+        break;
+      case 'write-file':
+        out = await handleWriteFile(parsed, sessionId);
+        break;
+      case 'browse':
+        out = await handleBrowse(parsed, sessionId);
+        break;
       default:
         out = await handleChat(text, parsed, sessionId);
     }
@@ -797,8 +809,108 @@ Be specific and actionable. Each task should be independently executable.`;
 }
 
 /* ============================================================
-   Helpers
+   Handlers: OS execution, file ops, browser automation
    ============================================================ */
+
+/** run-command — execute a shell command */
+async function handleRunCommand(parsed: ParsedIntent, sessionId: string): Promise<CommandResponse> {
+  const command = (parsed.params as { command?: string })?.command || '';
+  const t0 = Date.now();
+  try {
+    const { executeCommand } = await import('@/lib/os-executor');
+    const result = await executeCommand(command, { timeout: 30000 });
+    const response = result.success
+      ? `Command executed successfully.\n\nOutput:\n\`\`\`\n${result.stdout.slice(0, 2000)}\n\`\`\``
+      : `Command failed (exit code ${result.exitCode}).\n\nStdout:\n\`\`\`\n${result.stdout.slice(0, 1000)}\n\`\`\`\n\nStderr:\n\`\`\`\n${result.stderr.slice(0, 1000)}\n\`\`\``;
+    return {
+      intent: 'run-command',
+      response,
+      latencyMs: Date.now() - t0,
+      sessionId,
+      error: result.success ? undefined : `exit code ${result.exitCode}`,
+      suggestions: result.success ? ['Run another command', 'Read the output file'] : ['Try a different command', 'Check syntax'],
+    };
+  } catch (e) {
+    return {
+      intent: 'run-command',
+      response: `Failed to execute: ${e instanceof Error ? e.message : 'unknown error'}`,
+      latencyMs: Date.now() - t0,
+      sessionId,
+      error: e instanceof Error ? e.message : 'unknown',
+    };
+  }
+}
+
+/** read-file — read a file from the workspace sandbox */
+async function handleReadFile(parsed: ParsedIntent, sessionId: string): Promise<CommandResponse> {
+  const path = (parsed.params as { path?: string })?.path || '';
+  const t0 = Date.now();
+  try {
+    const { readSandboxed } = await import('@/lib/fs-sandbox');
+    const content = await readSandboxed(path);
+    const preview = content.length > 3000 ? content.slice(0, 3000) + '\n\n... (truncated, ' + content.length + ' chars total)' : content;
+    return {
+      intent: 'read-file',
+      response: `File: ${path} (${content.length} chars)\n\n\`\`\`\n${preview}\n\`\`\``,
+      latencyMs: Date.now() - t0,
+      sessionId,
+      suggestions: ['Write to this file', 'Edit this file', 'List directory'],
+    };
+  } catch (e) {
+    return {
+      intent: 'read-file',
+      response: `Failed to read: ${e instanceof Error ? e.message : 'unknown error'}`,
+      latencyMs: Date.now() - t0,
+      sessionId,
+      error: e instanceof Error ? e.message : 'unknown',
+    };
+  }
+}
+
+/** write-file — write content to a file */
+async function handleWriteFile(parsed: ParsedIntent, sessionId: string): Promise<CommandResponse> {
+  const path = (parsed.params as { path?: string })?.path || '';
+  const t0 = Date.now();
+  // For write-file, the content is typically in the next message.
+  // We return a prompt asking for the content.
+  return {
+    intent: 'write-file',
+    response: `Ready to write to \`${path}\`. What content should I write? Type the content and I'll save it.`,
+    latencyMs: Date.now() - t0,
+    sessionId,
+    suggestions: ['Cancel', 'Write an empty file'],
+  };
+}
+
+/** browse — navigate to a URL using agent-browser */
+async function handleBrowse(parsed: ParsedIntent, sessionId: string): Promise<CommandResponse> {
+  const url = (parsed.params as { url?: string })?.url || '';
+  const t0 = Date.now();
+  try {
+    const { exec } = await import('child_process');
+    const { promisify } = await import('util');
+    const execAsync = promisify(exec);
+    const { stdout } = await execAsync(`agent-browser open ${url}`, { timeout: 15000 });
+    // Take a snapshot to extract content
+    const { stdout: snapshot } = await execAsync('agent-browser snapshot', { timeout: 10000 });
+    const text = snapshot.slice(0, 2000);
+    return {
+      intent: 'browse',
+      response: `Opened ${url}.\n\nPage content (first 2000 chars):\n\`\`\`\n${text}\n\`\`\``,
+      latencyMs: Date.now() - t0,
+      sessionId,
+      suggestions: ['Take a screenshot', 'Click an element', 'Extract more content', 'Scroll down'],
+    };
+  } catch (e) {
+    return {
+      intent: 'browse',
+      response: `Failed to browse: ${e instanceof Error ? e.message : 'unknown error'}`,
+      latencyMs: Date.now() - t0,
+      sessionId,
+      error: e instanceof Error ? e.message : 'unknown',
+    };
+  }
+}
 
 /**
  * Lightweight in-process skill executor (mirrors /api/skills/run logic).

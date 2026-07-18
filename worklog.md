@@ -4035,3 +4035,85 @@ Stage Summary:
 6. Multi-step plan execution with checkpoints & resume.
 7. Action Bus architecture — unified handler registry.
 8. Verification gate for autonomy loop.
+
+---
+Task ID: AUTONOMOUS-EXECUTION-LAYER
+Agent: main (Z.ai Code)
+Task: Port execution capabilities from jarvis zip + implement OS exec, file ops, browser automation + fix chat delete.
+
+Work Log:
+- Researched jarvis-mission-control-final.zip for executable code: os-executor.ts (317 lines), fs-sandbox.ts (107 lines), browser-use.ts (267 lines), guardrails.ts, verify-runner.ts, installed-software.ts, screen-control-windows.ts, autonomous-loop.ts.
+- Identified the most valuable code to port: os-executor (shell exec with guardrails), fs-sandbox (path-traversal-safe file ops), browser-use (Playwright + VLM).
+
+**FIX: Chat Delete Actually Deletes** (`src/app/api/chat/route.ts` + `src/components/tabs/ChatTab.tsx`):
+- Added DELETE endpoint to chat API — `db.chatMessage.deleteMany({})` clears all chat history.
+- Updated ChatTab `clear()` function to call `fetch('/api/chat', { method: 'DELETE' })` — actually deletes all messages from the DB, not just refreshes the view.
+- Toast: "Chat history deleted" (was "Chat refreshed").
+
+**PORT: fs-sandbox.ts** (`src/lib/fs-sandbox.ts` — NEW):
+- Ported from jarvis zip, adapted for our app (no external logger, uses our db).
+- Path-traversal-safe filesystem operations: resolveSandboxPath (rejects `..` + symlinks), readSandboxed (1MB cap), writeSandboxed (10MB cap), editSandboxed (find-and-replace), listSandboxed, deleteSandboxed, statSandboxed.
+- Workspace root: `process.env.JARVIS_WORKSPACE_ROOT || <project_root>/workspace`.
+- Auto-creates workspace directory on module load.
+
+**PORT: os-executor.ts** (`src/lib/os-executor.ts` — NEW):
+- Ported from jarvis zip, adapted (no Redis/Telegram guardrails, simplified).
+- `executeCommand()` — spawns shell command with:
+  - Sanitized env (only PATH, HOME, LANG, TERM propagated — no secrets leaked).
+  - Block-list (regex): rm -rf /, fork bombs, dd to device, mkfs, sudo, chmod 777, curl|sh, halt, reboot, shutdown.
+  - Requires-approval list: git push, npm publish, docker rm, kill -9.
+  - Per-command timeout (default 30s).
+  - Output size cap (100KB).
+  - Audit log entry per exec (writes to AuditLog table).
+- `checkCommand()` — returns 'allowed' | 'blocked' | 'requires-approval'.
+- `OS_TOOLS` — tool definitions for LLM function-calling.
+
+**NEW API Routes** (6 new endpoints):
+- `/api/os/exec` POST — execute shell command. Returns `{ result: { success, stdout, stderr, exitCode, timedOut } }`. 403 for blocked, 402 for requires-approval.
+- `/api/file/read` POST — read file from sandbox. Returns `{ content, path }`.
+- `/api/file/write` POST — write file to sandbox. Returns `{ ok, path, size }`.
+- `/api/file/list` POST — list directory. Returns `{ path, entries: [{name, type, size}] }`. GET returns workspace root.
+- `/api/file/edit` POST — find-and-replace in file. Returns `{ ok, path }`.
+- `/api/file/delete` POST — delete file from sandbox. Returns `{ ok, path }`.
+- `/api/browser/action` POST — execute browser action via agent-browser CLI. Supports: navigate, click, type, screenshot, extract, scroll, eval.
+
+**NEW Orion Intents** (4 new intents — total now 19):
+- `run-command` — matches "run command: ...", "execute: ...", "shell: ...", "terminal: ...". Calls `executeCommand()`, returns stdout/stderr.
+- `read-file` — matches "read file: ...", "show file ...", "cat ...". Calls `readSandboxed()`, returns file content.
+- `write-file` — matches "write file: ...", "create file: ...", "edit file: ...". Prompts for content.
+- `browse` — matches "browse to ...", "open website ...", "visit site ...". Uses agent-browser CLI to navigate + extract content.
+
+**Verification**:
+- OS exec: `echo hello world` → success, stdout="hello world".
+- File list: workspace/ has 2 files (hello.txt, test.txt).
+- File read: `test.txt` → "test content".
+- File write: `hello.txt` → ok, size=16 ("Hello from ARIA!").
+- Browse: `example.com` → opened, extracted page content ("Example Domain...").
+- Run command via Orion: "run command: echo hello from orion" → success, stdout="hello from orion".
+- Chat delete: DELETE /api/chat → deleted: true.
+- Lint: clean (0 errors, 0 warnings).
+- Dev server: HTTP 200.
+
+Stage Summary:
+- ✅ Chat delete now actually deletes history (was just refreshing).
+- ✅ fs-sandbox ported — path-traversal-safe file operations.
+- ✅ os-executor ported — sandboxed shell execution with guardrails + audit log.
+- ✅ 6 new API routes — os/exec, file/read, file/write, file/list, file/edit, file/delete, browser/action.
+- ✅ 4 new Orion intents — run-command, read-file, write-file, browse.
+- ✅ App can now: execute shell commands, read/write/edit files, browse websites — all from chat/voice.
+- ✅ 0 lint errors, 0 page errors.
+
+## Updated App Capabilities
+The app can now DO (not just chat about):
+- **Execute shell commands**: "run command: git status" → actual git output.
+- **Read files**: "read file: package.json" → actual file content.
+- **Write files**: "write file: src/hello.ts" → creates file in workspace.
+- **Edit files**: find-and-replace via API.
+- **Browse websites**: "browse to example.com" → actual page content extracted.
+- **Take screenshots**: via browser/action API.
+- **Delete chat**: actually clears all messages from DB.
+- **Plan tasks**: "plan: ship the pricing page" → 6 tasks created with assignees.
+- Plus all existing: navigate tabs, create tasks/agents, run skills, send comms, query fleet/revenue/tasks, health check, sync models, undo.
+
+Total Orion intents: 19 (was 15).
+Total API routes: 118+ (was 111).

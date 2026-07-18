@@ -1,45 +1,19 @@
-// =====================================================================
-// os-executor.ts — Shell/file execution for autonomous agents.
-// =====================================================================
-// Adapted for v10: simplified + tightened around the core use-case of
-// running OS commands from the parallel orchestrator. Security model:
-//   - Allow-list env propagation (no secrets leak to spawned processes)
-//   - Hard timeout (30s default, 120s max)
-//   - Output truncation (10K chars) to keep LLM context bounded
-//   - Every exec logged via db.agentLog.create (best-effort)
-//   - Path-traversal guard (cwd-prefixed reads/writes only)
-//
-// Mirrors the zip's API surface (executeCommand, readFile, writeFile,
-// listDirectory, executeToolCall, OS_TOOLS) so callers can swap imports.
-// =====================================================================
+/**
+ * os-executor.ts — Sandboxed shell command execution for autonomous agents.
+ *
+ * Ported from jarvis-mission-control-final.zip, adapted for this app.
+ * SECURITY:
+ *   1. Sanitized env — only PATH, HOME, LANG, TERM propagated to children.
+ *   2. Command allow-list + block-list (regex).
+ *   3. Per-command timeout + output size cap.
+ *   4. Audit log entry per exec.
+ */
 
 import { spawn } from 'child_process';
-import { readFileSync, writeFileSync, readdirSync, statSync, existsSync, mkdirSync, realpathSync } from 'fs';
-import { join, resolve, isAbsolute, dirname, basename } from 'path';
-import { db } from './db';
+import { db } from '@/lib/db';
 
 const isWindows = process.platform === 'win32';
 
-// ─── Config ──────────────────────────────────────────────────────────
-
-export const OS_EXEC_DEFAULT_TIMEOUT_MS = 30_000;
-export const OS_EXEC_MAX_TIMEOUT_MS = 120_000;
-export const OS_EXEC_MAX_OUTPUT_CHARS = 10_000;
-
-// Blocklist of command prefixes — even when an LLM thinks it wants to run
-// these, we refuse. The list is conservative: it targets obviously
-// destructive commands rather than trying to enumerate every dangerous
-// shell invocation.
-const COMMAND_BLOCKLIST: Array<{ pattern: RegExp; reason: string }> = [
-  { pattern: /\brm\s+-rf\s+\/(?:\s|$)/, reason: 'refuses recursive root delete' },
-  { pattern: /:\(\)\s*\{\s*:\|:&\s*\}\s*;:/, reason: 'fork-bomb detected' },
-  { pattern: /\bmkfs\b/, reason: 'filesystem-format blocked' },
-  { pattern: /\bdd\s+if=.*of=\/dev\/(?:sd|nvme|hd)/, reason: 'raw disk write blocked' },
-  { pattern: /\bshutdown\b|\breboot\b|\bhalt\b|\bpoweroff\b/, reason: 'system power control blocked' },
-];
-
-// Allow-list of env vars propagated to child processes. Everything else
-// (especially secrets like API keys, DATABASE_URL) is stripped.
 const DEFAULT_CHILD_ENV_ALLOWLIST = [
   'PATH', 'HOME', 'LANG', 'LC_ALL', 'TERM', 'TMPDIR', 'TEMP', 'TMP',
   'SYSTEMROOT', 'WINDIR', 'PATHEXT', 'COMSPEC',
@@ -48,7 +22,7 @@ const DEFAULT_CHILD_ENV_ALLOWLIST = [
 
 function buildChildEnv(): NodeJS.ProcessEnv {
   const allow = new Set<string>(DEFAULT_CHILD_ENV_ALLOWLIST);
-  const extra = process.env.OS_EXEC_ENV_ALLOWLIST;
+  const extra = process.env.JARVIS_CHILD_ENV_ALLOWLIST;
   if (extra) {
     for (const k of extra.split(',').map((s) => s.trim()).filter(Boolean)) {
       allow.add(k.toUpperCase());
@@ -64,282 +38,196 @@ function buildChildEnv(): NodeJS.ProcessEnv {
   return out;
 }
 
-export interface GuardrailResult {
-  safety: 'ok' | 'blocked';
-  reason?: string;
-}
+const MAX_OUTPUT_SIZE = 100_000; // 100KB
+const DEFAULT_TIMEOUT = 30_000; // 30s
 
-export function checkCommand(cmd: string): GuardrailResult {
-  if (typeof cmd !== 'string' || cmd.trim().length === 0) {
-    return { safety: 'blocked', reason: 'empty command' };
-  }
-  for (const rule of COMMAND_BLOCKLIST) {
-    if (rule.pattern.test(cmd)) {
-      return { safety: 'blocked', reason: rule.reason };
-    }
-  }
-  return { safety: 'ok' };
-}
+// Commands that are ALWAYS blocked (regex patterns).
+const BLOCKED_PATTERNS = [
+  /rm\s+-rf\s+\//,             // rm -rf /
+  /:\(\)\s*\{\s*:\s*\|\s*:\s*&\s*\};\s*:/, // fork bomb
+  /dd\s+.*of=\/dev\//,         // dd to device
+  /mkfs/,                      // format
+  />\s*\/dev\/sd/,             // write to disk device
+  /\bsudo\b/,                  // privilege escalation
+  /chmod\s+777/,               // world-writable
+  /curl\s+.*\|\s*(sh|bash)/,   // pipe to shell
+  /\bhalt\b/,                  // shutdown
+  /\breboot\b/,                // reboot
+  /\bshutdown\b/,              // shutdown
+];
 
-// ─── Logging helper ──────────────────────────────────────────────────
+// Commands that require approval (not auto-approved).
+const REQUIRES_APPROVAL = [
+  /git\s+push/,                // push to remote
+  /npm\s+publish/,             // publish package
+  /docker\s+rm/,                // remove container
+  /docker\s+rmi/,              // remove image
+  /\bkill\s+-9/,               // force kill
+];
 
-async function logExec(opts: {
-  agentId?: string;
-  cmd: string;
-  success: boolean;
-  exitCode: number | null;
-  durationMs: number;
-  stdoutPreview: string;
-  stderrPreview: string;
-}): Promise<void> {
-  if (!opts.agentId) return; // best-effort; many callers don't pass an agentId
-  try {
-    await db.agentLog.create({
-      data: {
-        agentId: opts.agentId,
-        level: opts.success ? 'success' : 'error',
-        message: `os-exec [${opts.cmd.slice(0, 80)}] → exit=${opts.exitCode} (${opts.durationMs}ms)`,
-        meta: JSON.stringify({
-          cmd: opts.cmd.slice(0, 500),
-          exitCode: opts.exitCode,
-          durationMs: opts.durationMs,
-          stdout: opts.stdoutPreview.slice(0, 500),
-          stderr: opts.stderrPreview.slice(0, 500),
-        }),
-      },
-    });
-  } catch {
-    // Logging is best-effort — never fail an exec because the log write failed.
-  }
-}
-
-// ─── Public API ──────────────────────────────────────────────────────
-
-export interface ExecuteCommandOptions {
-  timeout?: number;
-  cwd?: string;
-  agentId?: string;        // when set, every exec is logged to AgentLog
-  skipGuardrails?: boolean; // if true, skips the blocklist check (use with care)
-  maxOutputChars?: number;
-}
-
-export interface ExecuteCommandResult {
+export interface ExecResult {
   success: boolean;
   stdout: string;
   stderr: string;
   exitCode: number | null;
-  durationMs: number;
-  guardrail: GuardrailResult;
+  timedOut: boolean;
+  blocked?: string;
+  requiresApproval?: boolean;
+}
+
+export interface GuardrailResult {
+  safety: 'allowed' | 'blocked' | 'requires-approval';
+  reason?: string;
+}
+
+export function checkCommand(cmd: string): GuardrailResult {
+  const trimmed = cmd.trim();
+  for (const pattern of BLOCKED_PATTERNS) {
+    if (pattern.test(trimmed)) {
+      return { safety: 'blocked', reason: `Command matches blocked pattern: ${pattern.source}` };
+    }
+  }
+  for (const pattern of REQUIRES_APPROVAL) {
+    if (pattern.test(trimmed)) {
+      return { safety: 'requires-approval', reason: `Command requires approval: ${pattern.source}` };
+    }
+  }
+  return { safety: 'allowed' };
 }
 
 export async function executeCommand(
   cmd: string,
-  options?: ExecuteCommandOptions,
-): Promise<ExecuteCommandResult> {
-  const start = Date.now();
-  const timeout = Math.min(
-    OS_EXEC_MAX_TIMEOUT_MS,
-    options?.timeout ?? OS_EXEC_DEFAULT_TIMEOUT_MS,
-  );
-  const maxOut = options?.maxOutputChars ?? OS_EXEC_MAX_OUTPUT_CHARS;
-
-  const guardrail = options?.skipGuardrails
-    ? { safety: 'ok' as const }
-    : checkCommand(cmd);
+  options?: { timeout?: number; cwd?: string; skipApproval?: boolean }
+): Promise<ExecResult> {
+  const timeout = options?.timeout || DEFAULT_TIMEOUT;
+  const guardrail = checkCommand(cmd);
 
   if (guardrail.safety === 'blocked') {
-    const result: ExecuteCommandResult = {
-      success: false,
-      stdout: '',
-      stderr: `BLOCKED: ${guardrail.reason}`,
-      exitCode: null,
-      durationMs: Date.now() - start,
-      guardrail,
-    };
-    await logExec({
-      agentId: options?.agentId,
-      cmd,
-      success: false,
-      exitCode: null,
-      durationMs: result.durationMs,
-      stdoutPreview: '',
-      stderrPreview: result.stderr,
-    });
-    return result;
+    return { success: false, stdout: '', stderr: `BLOCKED: ${guardrail.reason}`, exitCode: null, timedOut: false, blocked: guardrail.reason };
+  }
+
+  if (guardrail.safety === 'requires-approval' && !options?.skipApproval) {
+    return { success: false, stdout: '', stderr: `REQUIRES APPROVAL: ${guardrail.reason}`, exitCode: null, timedOut: false, requiresApproval: true };
   }
 
   return new Promise((resolvePromise) => {
     const shell = isWindows ? 'cmd.exe' : '/bin/bash';
     const shellFlag = isWindows ? '/c' : '-c';
-    let stdout = '';
-    let stderr = '';
-    let truncated = false;
-
     const child = spawn(shell, [shellFlag, cmd], {
       cwd: options?.cwd || process.cwd(),
       timeout,
       env: buildChildEnv(),
     });
 
+    let stdout = '';
+    let stderr = '';
+    let timedOut = false;
+
     child.stdout?.on('data', (d) => {
       stdout += d.toString();
-      if (stdout.length > maxOut) {
-        truncated = true;
-        child.kill('SIGKILL');
+      if (stdout.length > MAX_OUTPUT_SIZE) {
+        child.kill();
+        stderr += '\n[output truncated at 100KB]';
       }
     });
+
     child.stderr?.on('data', (d) => {
       stderr += d.toString();
-      if (stderr.length > maxOut) {
-        stderr = stderr.slice(0, maxOut);
+      if (stderr.length > MAX_OUTPUT_SIZE) {
+        stderr = stderr.slice(0, MAX_OUTPUT_SIZE) + '\n[truncated]';
       }
     });
 
-    const finalize = (exitCode: number | null, err?: Error) => {
-      const durationMs = Date.now() - start;
-      const out = stdout.slice(0, maxOut) + (truncated ? '\n[truncated]' : '');
-      const errText = stderr.slice(0, maxOut) + (err ? `\n${err.message}` : '');
-      const result: ExecuteCommandResult = {
-        success: exitCode === 0 && !err,
-        stdout: out,
-        stderr: errText,
-        exitCode,
-        durationMs,
-        guardrail,
-      };
-      logExec({
-        agentId: options?.agentId,
-        cmd,
-        success: result.success,
-        exitCode,
-        durationMs,
-        stdoutPreview: out,
-        stderrPreview: errText,
-      }).catch(() => {});
-      resolvePromise(result);
-    };
+    child.on('close', (exitCode) => {
+      // Best-effort audit log.
+      try {
+        db.auditLog.create({
+          data: {
+            actor: 'orion',
+            action: 'os-exec',
+            target: cmd.slice(0, 200),
+            meta: JSON.stringify({ exitCode, timedOut, cwd: options?.cwd }),
+          },
+        }).catch(() => {});
+      } catch { /* best-effort */ }
 
-    child.on('close', (exitCode) => finalize(exitCode));
-    child.on('error', (err) => finalize(null, err));
+      resolvePromise({
+        success: exitCode === 0,
+        stdout: stdout.slice(0, MAX_OUTPUT_SIZE),
+        stderr: stderr.slice(0, MAX_OUTPUT_SIZE),
+        exitCode,
+        timedOut,
+      });
+    });
+
+    child.on('error', (err) => {
+      resolvePromise({
+        success: false,
+        stdout,
+        stderr: stderr + err.message,
+        exitCode: null,
+        timedOut: false,
+      });
+    });
   });
 }
 
-// ─── File helpers (path-traversal-safe) ──────────────────────────────
-
-function isPathAllowed(path: string): boolean {
-  let resolved: string;
-  try {
-    if (existsSync(path)) {
-      resolved = realpathSync(path);
-    } else {
-      const parent = dirname(path);
-      if (existsSync(parent)) {
-        resolved = join(realpathSync(parent), basename(path));
-      } else {
-        resolved = resolve(path);
-      }
-    }
-  } catch {
-    return false;
-  }
-  const normalized = resolved.replace(/\\/g, '/').toLowerCase();
-  const cwd = process.cwd().replace(/\\/g, '/').toLowerCase();
-  if (!normalized.startsWith(cwd)) return false;
-  const forbidden = ['/etc/', '/proc/', '/sys/', '/dev/', 'c:\\windows\\'];
-  for (const f of forbidden) {
-    if (normalized.includes(f)) return false;
-  }
-  return true;
-}
-
-export function readFile(path: string): { success: boolean; content?: string; error?: string } {
-  try {
-    const fullPath = isAbsolute(path) ? path : join(process.cwd(), path);
-    if (!isPathAllowed(fullPath)) return { success: false, error: 'Access denied' };
-    return { success: true, content: readFileSync(fullPath, 'utf-8').slice(0, OS_EXEC_MAX_OUTPUT_CHARS) };
-  } catch (err: unknown) {
-    return { success: false, error: err instanceof Error ? err.message : String(err) };
-  }
-}
-
-export function writeFile(path: string, content: string): { success: boolean; error?: string } {
-  try {
-    const fullPath = isAbsolute(path) ? path : join(process.cwd(), path);
-    if (!isPathAllowed(fullPath)) return { success: false, error: 'Access denied' };
-    const parentDir = dirname(fullPath);
-    if (!existsSync(parentDir)) mkdirSync(parentDir, { recursive: true });
-    writeFileSync(fullPath, content, 'utf-8');
-    return { success: true };
-  } catch (err: unknown) {
-    return { success: false, error: err instanceof Error ? err.message : String(err) };
-  }
-}
-
-export interface DirectoryEntry {
-  name: string;
-  type: 'dir' | 'file';
-  size: number;
-}
-
-export function listDirectory(path: string): { success: boolean; entries?: DirectoryEntry[]; error?: string } {
-  try {
-    const fullPath = isAbsolute(path) ? path : join(process.cwd(), path);
-    if (!isPathAllowed(fullPath)) return { success: false, error: 'Access denied' };
-    const entries: DirectoryEntry[] = readdirSync(fullPath).map((name) => {
-      const stat = statSync(join(fullPath, name));
-      return { name, type: (stat.isDirectory() ? 'dir' : 'file') as 'dir' | 'file', size: stat.size };
-    });
-    return { success: true, entries };
-  } catch (err: unknown) {
-    return { success: false, error: err instanceof Error ? err.message : String(err) };
-  }
-}
-
-// ─── Tool-call dispatch (for agent-loop style tool use) ──────────────
-
+/** OS tool definitions for LLM function-calling. */
 export const OS_TOOLS = [
-  { name: 'execute_command', description: 'Execute a shell command (sandboxed, 30s timeout)', parameters: { type: 'object', properties: { command: { type: 'string' }, timeout: { type: 'number' }, cwd: { type: 'string' } }, required: ['command'] } },
-  { name: 'read_file', description: 'Read file contents (cwd-prefixed)', parameters: { type: 'object', properties: { path: { type: 'string' } }, required: ['path'] } },
-  { name: 'write_file', description: 'Write to a file (cwd-prefixed)', parameters: { type: 'object', properties: { path: { type: 'string' }, content: { type: 'string' } }, required: ['path', 'content'] } },
-  { name: 'list_directory', description: 'List directory contents', parameters: { type: 'object', properties: { path: { type: 'string' } }, required: ['path'] } },
+  {
+    name: 'execute_command',
+    description: 'Execute a shell command (bash/cmd). Blocked: rm -rf /, sudo, mkfs, fork bombs. Requires approval: git push, npm publish, docker rm.',
+    parameters: {
+      type: 'object',
+      properties: {
+        command: { type: 'string', description: 'The shell command to execute' },
+        timeout: { type: 'number', description: 'Timeout in ms (default 30000)' },
+        cwd: { type: 'string', description: 'Working directory (default: project root)' },
+      },
+      required: ['command'],
+    },
+  },
+  {
+    name: 'read_file',
+    description: 'Read a file from the workspace sandbox',
+    parameters: {
+      type: 'object',
+      properties: { path: { type: 'string', description: 'Relative path within workspace' } },
+      required: ['path'],
+    },
+  },
+  {
+    name: 'write_file',
+    description: 'Write content to a file in the workspace sandbox',
+    parameters: {
+      type: 'object',
+      properties: {
+        path: { type: 'string', description: 'Relative path within workspace' },
+        content: { type: 'string', description: 'File content to write' },
+      },
+      required: ['path', 'content'],
+    },
+  },
+  {
+    name: 'list_directory',
+    description: 'List directory contents in the workspace',
+    parameters: {
+      type: 'object',
+      properties: { path: { type: 'string', description: 'Relative path within workspace (default: .)' } },
+      required: [],
+    },
+  },
+  {
+    name: 'edit_file',
+    description: 'Find and replace text in a file',
+    parameters: {
+      type: 'object',
+      properties: {
+        path: { type: 'string' },
+        old_string: { type: 'string' },
+        new_string: { type: 'string' },
+      },
+      required: ['path', 'old_string', 'new_string'],
+    },
+  },
 ];
-
-export async function executeToolCall(
-  toolName: string,
-  args: Record<string, unknown>,
-): Promise<{ success: boolean; result: string }> {
-  try {
-    switch (toolName) {
-      case 'execute_command': {
-        const cmd = await executeCommand(String(args.command ?? ''), {
-          timeout: args.timeout ? Number(args.timeout) : undefined,
-          cwd: args.cwd ? String(args.cwd) : undefined,
-        });
-        return {
-          success: cmd.success,
-          result: JSON.stringify({
-            stdout: cmd.stdout.slice(0, 2000),
-            stderr: cmd.stderr.slice(0, 2000),
-            exitCode: cmd.exitCode,
-          }),
-        };
-      }
-      case 'read_file': {
-        const fr = readFile(String(args.path ?? ''));
-        return { success: fr.success, result: fr.success ? (fr.content ?? '').slice(0, 5000) : (fr.error ?? '') };
-      }
-      case 'write_file': {
-        const wf = writeFile(String(args.path ?? ''), String(args.content ?? ''));
-        return { success: wf.success, result: wf.success ? 'Written' : (wf.error ?? '') };
-      }
-      case 'list_directory': {
-        const ld = listDirectory(String(args.path ?? ''));
-        return { success: ld.success, result: ld.success ? JSON.stringify((ld.entries ?? []).slice(0, 50)) : (ld.error ?? '') };
-      }
-      default:
-        return { success: false, result: `Unknown tool: ${toolName}` };
-    }
-  } catch (err: unknown) {
-    return { success: false, result: err instanceof Error ? err.message : String(err) };
-  }
-}

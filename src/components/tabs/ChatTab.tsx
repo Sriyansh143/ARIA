@@ -322,10 +322,15 @@ export default function ChatTab() {
   };
 
   const clear = async () => {
-    refresh();
-    setAiResponse(null);
-    setUndoInfo(null);
-    toast({ title: 'Chat refreshed' });
+    try {
+      await fetch('/api/chat', { method: 'DELETE' });
+      setAiResponse(null);
+      setUndoInfo(null);
+      refresh();
+      toast({ title: 'Chat history deleted' });
+    } catch {
+      toast({ title: 'Failed to delete chat', variant: 'destructive' });
+    }
   };
 
   const shown: Msg[] = [...messages];
