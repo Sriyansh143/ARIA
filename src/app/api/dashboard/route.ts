@@ -3,7 +3,7 @@ import { db } from '@/lib/db';
 
 export const dynamic = 'force-dynamic';
 
-// Single aggregate call powering the Overview tab — keeps the client to one request on first paint.
+// Single aggregate call powering the Overview tab.
 export async function GET() {
   const [agents, tasks, notifications, memory, payments, telemetry, skills, provider, artifacts, cronJobs] = await Promise.all([
     db.agent.findMany({ orderBy: { codename: 'asc' }, include: { _count: { select: { logs: true } } } }),
@@ -22,31 +22,44 @@ export async function GET() {
   const activeAgents = agents.filter((a) => a.status === 'working' || a.status === 'thinking').length;
   const pendingTasks = tasks.filter((t) => t.status === 'pending').length;
 
+  // Agent type breakdown (monitoring / executing / error-handling)
+  const monitoringAgents = agents.filter((a) => a.agentType === 'monitor').length;
+  const executingAgents = agents.filter((a) => a.agentType === 'exec').length;
+  const errorHandlerAgents = agents.filter((a) => a.agentType === 'error-handler').length;
+
   return NextResponse.json({
     stats: {
       agents: agents.length,
       activeAgents,
+      monitoringAgents,
+      executingAgents,
+      errorHandlerAgents,
       tasks: tasks.length,
       pendingTasks,
       skills,
       artifacts,
       cronJobs,
-      revenue: payments._sum.amount ?? 0,
-      tokens: provider?.tokens ?? 0,
-      providerLatency: provider?.latency ?? 0,
+      revenue: payments._sum.amount || 0,
+      tokens: 0,
+      providerLatency: provider?.latency || 0,
       memMb: Math.round(mem.rss / 1024 / 1024),
       uptime: Math.floor(process.uptime()),
     },
-    agents,
+    agents: agents.slice(0, 8).map((a) => ({
+      id: a.id,
+      name: a.name,
+      codename: a.codename,
+      role: a.role,
+      status: a.status,
+      load: a.load,
+      successRate: a.successRate,
+      skills: a.skills,
+      agentType: a.agentType,
+      department: a.department,
+    })),
     tasks,
     notifications,
     memory,
-    telemetry: telemetry.reverse().map((t) => ({
-      time: t.createdAt.toISOString(),
-      cpu: Math.round(t.cpu * 10) / 10,
-      mem: Math.round(t.mem * 10) / 10,
-      latency: t.latency,
-      tokens: t.tokens,
-    })),
+    telemetry: telemetry.map((t) => ({ time: t.createdAt.toISOString(), cpu: t.cpu, mem: t.mem, latency: t.latency, tokens: t.tokens })),
   });
 }

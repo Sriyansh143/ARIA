@@ -25,6 +25,8 @@ model Agent {
   name        String
   codename    String   @unique
   role        String
+  agentType   String   @default("exec") // monitor | exec | error-handler
+  department  String?  // engineering | marketing | operations | finance | testing | security
   status      String   @default("idle") // idle | thinking | working | error | offline
   skills      String   @default("[]") // JSON array of skill ids
   model       String   @default("glm-4.6")

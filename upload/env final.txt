@@ -4,7 +4,7 @@
 
 # ─── CORE ───────────────────────────────────────────────────────────
 NODE_ENV=development
-DATABASE_URL=file:/home/z/my-project/db/custom.db
+DATABASE_URL=file:./db/custom.db
 DASHBOARD_BASE=http://localhost:3000
 NEXTAUTH_URL=http://localhost:3000
 
@@ -170,69 +170,3 @@ MINI_SERVICE_MAX_MEMORY_MB=512
 # ─── NEXT PUBLIC LAYER ──────────────────────────────────────────────
 NEXT_PUBLIC_APP_URL=http://localhost:3000
 NEXT_PUBLIC_MULTI_TENANT=false
-# ─── APP-SPECIFIC ADDITIONS ─────────────────────────────────────────
-# Credential encryption key (64-char hex for AES-256-GCM)
-CREDENTIAL_ENCRYPTION_KEY=
-
-# Workspace root for file operations
-JARVIS_WORKSPACE_ROOT=/home/z/my-project/workspace
-
-# Child process env allowlist (comma-separated, added to default list)
-JARVIS_CHILD_ENV_ALLOWLIST=
-
-# WebSocket realtime service port
-REALTIME_SERVICE_PORT=3003
-
-# Telegram bridge service port
-TELEGRAM_SERVICE_PORT=3004
-
-# Plan executor service port
-PLAN_EXECUTOR_PORT=3005
-
-# Browser automation service port
-BROWSER_SERVICE_PORT=3006
-
-# Screen control service port
-SCREEN_CONTROL_PORT=3007
-
-# Ollama configuration
-OLLAMA_HOST=http://localhost:11434
-OLLAMA_API_BASE=http://localhost:11434/api
-
-# FreeSWITCH configuration (already set above, adding for clarity)
-FREESWITCH_SIP_PORT=5060
-FREESWITCH_WSS_PORT=7443
-FREESWITCH_RTP_PORT_RANGE=16384-32768
-
-# OpenAI (for GPT-4 models)
-OPENAI_API_KEY=
-
-# Anthropic (for Claude models)
-ANTHROPIC_API_KEY=
-
-# Together AI
-TOGETHER_API_KEY=
-
-# Fireworks AI
-FIREWORKS_API_KEY=
-
-# Mistral AI
-MISTRAL_API_KEY=
-
-# Cohere
-COHERE_API_KEY=
-
-# DeepSeek
-DEEPSEEK_API_KEY=
-
-# OpenRouter
-OPENROUTER_API_KEY=
-
-# Bytez
-BYTEZ_API_KEY=
-
-# Omniroute
-OMNIROUTE_API_KEY=
-
-# Ollama Cloud
-OLLAMA_CLOUD_API_KEY=

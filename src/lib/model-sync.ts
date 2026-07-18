@@ -152,6 +152,54 @@ const PROVIDER_ENDPOINTS: Record<string, ProviderEndpoint> = {
       return arr.map((m) => m.name ?? m.id ?? '').filter(Boolean);
     },
   },
+  'nvidia-nim': {
+    url: 'https://integrate.api.nvidia.com/v1/models',
+    authPrefix: 'Bearer',
+    extract: (j) => {
+      const arr = (j as { data?: Array<{ id: string }> })?.data ?? [];
+      return arr.map((m) => m.id).filter(Boolean);
+    },
+  },
+  'huggingface': {
+    url: 'https://huggingface.co/api/models?filter=text-generation&limit=100',
+    authPrefix: 'Bearer',
+    extract: (j) => {
+      const arr = j as Array<{ id: string }>;
+      return arr.map((m) => m.id).filter(Boolean);
+    },
+  },
+  'github-models': {
+    url: 'https://models.inference.ai.azure.com/models',
+    authPrefix: 'Bearer',
+    extract: (j) => {
+      const arr = (j as { data?: Array<{ id: string }> })?.data ?? [];
+      return arr.map((m) => m.id).filter(Boolean);
+    },
+  },
+  'siliconflow': {
+    url: 'https://api.siliconflow.cn/v1/models',
+    authPrefix: 'Bearer',
+    extract: (j) => {
+      const arr = (j as { data?: Array<{ id: string }> })?.data ?? [];
+      return arr.map((m) => m.id).filter(Boolean);
+    },
+  },
+  'qwen-playground': {
+    url: 'https://dashscope.aliyuncs.com/compatible-mode/v1/models',
+    authPrefix: 'Bearer',
+    extract: (j) => {
+      const arr = (j as { data?: Array<{ id: string }> })?.data ?? [];
+      return arr.map((m) => m.id).filter(Boolean);
+    },
+  },
+  'higgsfield': {
+    url: 'https://api.higgsfield.ai/v1/models',
+    authPrefix: 'Bearer',
+    extract: (j) => {
+      const arr = (j as { data?: Array<{ id: string }> })?.data ?? [];
+      return arr.map((m) => m.id).filter(Boolean);
+    },
+  },
 };
 
 // Anthropic has no public list-models endpoint. We hardcode their known
