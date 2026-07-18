@@ -621,6 +621,13 @@ export default function MissionControlDashboard() {
             ? prev.pinned.filter((k) => k !== key)
             : [...prev.pinned, key],
         }))}
+        hidden={tabPrefs.hidden}
+        onToggleHide={(key) => updateTabPrefs((prev) => ({
+          ...prev,
+          hidden: prev.hidden.includes(key)
+            ? prev.hidden.filter((k) => k !== key)
+            : [...prev.hidden, key],
+        }))}
       />
 
       {/* Global search overlay (Cmd+Shift+F) */}
@@ -817,21 +824,53 @@ function NotificationsBell({ open, setOpen }: { open: boolean; setOpen: (o: bool
   const [filter, setFilter] = useState<string>('all');
   const unread = data?.unread ?? 0;
   const criticalFindings = findingsData?.findings ?? [];
-  const totalBadge = unread + criticalFindings.length;
 
   const allNotifications = data?.notifications ?? [];
-  const typeCounts = allNotifications.reduce<Record<string, number>>((acc, n) => {
-    acc[n.type] = (acc[n.type] ?? 0) + 1;
-    return acc;
-  }, {});
-  const filtered = filter === 'all' ? allNotifications : allNotifications.filter((n) => n.type === filter);
 
   const markAll = async () => {
     if (!allNotifications.length) return;
-    await Promise.all(allNotifications.filter((n) => !n.read).map((n) => patchNotif(n.id, true)));
+    await Promise.all(visibleNotifications.filter((n) => !n.read).map((n) => patchNotif(n.id, true)));
     refresh();
     toast({ title: 'All notifications marked as read' });
   };
+
+  const [showSettings, setShowSettings] = useState(false);
+  const [settings, setSettings] = useState<{ sound: boolean; desktop: boolean; mutedTypes: string[] }>({ sound: false, desktop: false, mutedTypes: [] });
+
+  // Load settings from localStorage on mount.
+  useEffect(() => {
+    try {
+      const raw = localStorage.getItem('jarvis-notif-settings');
+      if (raw) setSettings(JSON.parse(raw));
+    } catch { /* ignore */ }
+  }, []);
+
+  const updateSettings = (updater: (prev: typeof settings) => typeof settings) => {
+    setSettings((prev) => {
+      const next = updater(prev);
+      try { localStorage.setItem('jarvis-notif-settings', JSON.stringify(next)); } catch { /* ignore */ }
+      return next;
+    });
+  };
+
+  const toggleMuteType = (type: string) => {
+    updateSettings((prev) => ({
+      ...prev,
+      mutedTypes: prev.mutedTypes.includes(type)
+        ? prev.mutedTypes.filter((t) => t !== type)
+        : [...prev.mutedTypes, type],
+    }));
+  };
+
+  // Filter out muted types from displayed notifications.
+  const visibleNotifications = allNotifications.filter((n) => !settings.mutedTypes.includes(n.type));
+  const visibleTypeCounts = visibleNotifications.reduce<Record<string, number>>((acc, n) => {
+    acc[n.type] = (acc[n.type] ?? 0) + 1;
+    return acc;
+  }, {});
+  const filteredVisible = filter === 'all' ? visibleNotifications : visibleNotifications.filter((n) => n.type === filter);
+  const visibleUnread = visibleNotifications.filter((n) => !n.read).length;
+  const visibleTotalBadge = visibleUnread + criticalFindings.length;
 
   const markOne = async (id: string, read: boolean) => {
     await patchNotif(id, read);
@@ -857,12 +896,12 @@ function NotificationsBell({ open, setOpen }: { open: boolean; setOpen: (o: bool
         aria-label="Notifications"
       >
         <Bell className="h-4 w-4" />
-        {totalBadge > 0 && (
+        {visibleTotalBadge > 0 && (
           <span className={cn(
             'absolute -top-1 -right-1 h-4 min-w-4 px-1 rounded-full text-[9px] font-bold text-white flex items-center justify-center',
             criticalFindings.length > 0 ? 'bg-[var(--j-red)] jarvis-pulse-dot' : 'bg-[var(--j-amber)]'
           )}>
-            {totalBadge}
+            {visibleTotalBadge}
           </span>
         )}
       </button>
@@ -881,12 +920,76 @@ function NotificationsBell({ open, setOpen }: { open: boolean; setOpen: (o: bool
                 <div className="flex items-center gap-2">
                   <Bell className="h-3.5 w-3.5 text-[var(--j-cyan)]" />
                   <span className="jarvis-mono text-[10px] uppercase text-[var(--j-text)]">Notifications</span>
-                  {totalBadge > 0 && <span className="jarvis-mono text-[9px] px-1.5 rounded bg-[var(--j-amber)]/20 text-[var(--j-amber)]">{totalBadge} unread</span>}
+                  {visibleTotalBadge > 0 && <span className="jarvis-mono text-[9px] px-1.5 rounded bg-[var(--j-amber)]/20 text-[var(--j-amber)]">{visibleUnread} unread</span>}
                 </div>
-                <button onClick={markAll} disabled={unread === 0} className="jarvis-mono text-[9px] uppercase text-[var(--j-cyan)] hover:underline disabled:opacity-40 disabled:no-underline">
-                  Mark all read
-                </button>
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={() => setShowSettings((s) => !s)}
+                    className={`flex h-6 w-6 items-center justify-center rounded transition-colors ${showSettings ? 'text-[var(--j-cyan)] bg-[var(--j-cyan)]/10' : 'text-[var(--j-text-mute)] hover:text-[var(--j-cyan)]'}`}
+                    title="Notification settings"
+                  >
+                    <Sliders className="h-3 w-3" />
+                  </button>
+                  <button onClick={markAll} disabled={visibleUnread === 0} className="jarvis-mono text-[9px] uppercase text-[var(--j-cyan)] hover:underline disabled:opacity-40 disabled:no-underline">
+                    Mark all read
+                  </button>
+                </div>
               </div>
+
+              {/* Settings panel (toggle) */}
+              <AnimatePresence>
+                {showSettings && (
+                  <motion.div
+                    initial={{ height: 0, opacity: 0 }}
+                    animate={{ height: 'auto', opacity: 1 }}
+                    exit={{ height: 0, opacity: 0 }}
+                    className="overflow-hidden border-b border-[var(--j-border)] bg-[var(--j-panel-soft)]/40"
+                  >
+                    <div className="p-3 space-y-3">
+                      <div className="jarvis-mono text-[9px] uppercase text-[var(--j-text-mute)] tracking-widest">Notification Settings</div>
+                      {/* Sound + Desktop toggles */}
+                      <div className="grid grid-cols-2 gap-2">
+                        <button
+                          onClick={() => updateSettings((p) => ({ ...p, sound: !p.sound }))}
+                          className={`flex items-center gap-2 px-2.5 py-1.5 rounded border text-xs transition-colors ${settings.sound ? 'border-[var(--j-green)] bg-[var(--j-green)]/10 text-[var(--j-green)]' : 'border-[var(--j-border)] text-[var(--j-text-mute)]'}`}
+                        >
+                          <span className="h-2 w-2 rounded-full" style={{ background: settings.sound ? JARVIS.colors.green : 'var(--j-text-mute)' }} />
+                          Sound alerts
+                        </button>
+                        <button
+                          onClick={() => updateSettings((p) => ({ ...p, desktop: !p.desktop }))}
+                          className={`flex items-center gap-2 px-2.5 py-1.5 rounded border text-xs transition-colors ${settings.desktop ? 'border-[var(--j-green)] bg-[var(--j-green)]/10 text-[var(--j-green)]' : 'border-[var(--j-border)] text-[var(--j-text-mute)]'}`}
+                        >
+                          <span className="h-2 w-2 rounded-full" style={{ background: settings.desktop ? JARVIS.colors.green : 'var(--j-text-mute)' }} />
+                          Desktop notifications
+                        </button>
+                      </div>
+                      {/* Per-type mute toggles */}
+                      <div>
+                        <div className="jarvis-mono text-[9px] uppercase text-[var(--j-text-mute)] mb-1.5">Mute by type</div>
+                        <div className="flex flex-wrap gap-1.5">
+                          {['success', 'warn', 'error', 'info'].map((t) => {
+                            const isMuted = settings.mutedTypes.includes(t);
+                            const color = notifColor(t);
+                            return (
+                              <button
+                                key={t}
+                                onClick={() => toggleMuteType(t)}
+                                className={`jarvis-mono text-[9px] uppercase px-2 py-1 rounded border flex items-center gap-1.5 transition-all ${isMuted ? 'opacity-40 line-through' : ''}`}
+                                style={{ borderColor: `${color}40`, color }}
+                              >
+                                <span className="h-1.5 w-1.5 rounded-full" style={{ background: color }} />
+                                {t}
+                                {isMuted && <span className="text-[var(--j-text-mute)]">· muted</span>}
+                              </button>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    </div>
+                  </motion.div>
+                )}
+              </AnimatePresence>
 
               {/* Filter chips */}
               {allNotifications.length > 0 && (
@@ -899,7 +1002,7 @@ function NotificationsBell({ open, setOpen }: { open: boolean; setOpen: (o: bool
                   >
                     All ({allNotifications.length})
                   </button>
-                  {Object.entries(typeCounts).map(([t, count]) => (
+                  {Object.entries(visibleTypeCounts).map(([t, count]) => (
                     <button
                       key={t}
                       onClick={() => setFilter(filter === t ? 'all' : t)}
@@ -942,8 +1045,8 @@ function NotificationsBell({ open, setOpen }: { open: boolean; setOpen: (o: bool
                   </div>
                 )}
                 {/* Regular notifications */}
-                {filtered.length > 0 ? (
-                  filtered.map((n) => (
+                {filteredVisible.length > 0 ? (
+                  filteredVisible.map((n) => (
                     <div
                       key={n.id}
                       className={cn('group px-3 py-2.5 border-b border-[var(--j-border-soft)] hover:bg-[var(--j-panel-soft)]/60 transition-colors', !n.read && 'bg-[var(--j-cyan)]/5')}
@@ -986,7 +1089,7 @@ function NotificationsBell({ open, setOpen }: { open: boolean; setOpen: (o: bool
 
               {/* Footer */}
               <div className="px-3 py-1.5 border-t border-[var(--j-border)] bg-[var(--j-panel-soft)]/40 flex items-center justify-between jarvis-mono text-[9px] uppercase text-[var(--j-text-mute)]">
-                <span>{filtered.length} shown{filter !== 'all' ? ` · filtered by ${filter}` : ''}</span>
+                <span>{filteredVisible.length} shown{filter !== 'all' ? ` · filtered by ${filter}` : ''}</span>
                 <button onClick={() => navigate('activity')} className="text-[var(--j-cyan)] hover:underline">View all activity →</button>
               </div>
             </motion.div>
@@ -1011,12 +1114,14 @@ async function patchNotif(id: string, read: boolean) {
 }
 
 /* ---------- Command palette ---------- */
-function CommandPalette({ open, onClose, onNavigate, pinned = [], onTogglePin }: {
+function CommandPalette({ open, onClose, onNavigate, pinned = [], onTogglePin, hidden = [], onToggleHide }: {
   open: boolean;
   onClose: () => void;
   onNavigate: (t: TabKey) => void;
   pinned?: TabKey[];
   onTogglePin?: (key: TabKey) => void;
+  hidden?: TabKey[];
+  onToggleHide?: (key: TabKey) => void;
 }) {
   // Fresh mount (via key in parent) ensures q/sel start empty each open.
   const [q, setQ] = useState('');
@@ -1056,6 +1161,8 @@ function CommandPalette({ open, onClose, onNavigate, pinned = [], onTogglePin }:
     onNavigate(key);
   }, [onNavigate]);
 
+  const [showHidden, setShowHidden] = useState(false);
+
   const results = useMemo(() => {
     const ql = q.toLowerCase();
     return TABS.filter((t) => !ql || t.label.toLowerCase().includes(ql) || t.group.toLowerCase().includes(ql));
@@ -1079,9 +1186,16 @@ function CommandPalette({ open, onClose, onNavigate, pinned = [], onTogglePin }:
         .filter((t): t is TabDef => Boolean(t));
       if (items.length > 0) sections.push({ label: 'Frequent', items });
     }
-    sections.push({ label: 'All Tabs', items: TABS });
+    // All visible tabs (exclude hidden unless showHidden is on)
+    const visibleTabs = TABS.filter((t) => showHidden || !hidden.includes(t.key));
+    sections.push({ label: 'All Tabs', items: visibleTabs });
+    // Hidden tabs section (only when showHidden is on and there are hidden tabs)
+    if (showHidden && hidden.length > 0) {
+      const hiddenItems = hidden.map((k) => TABS.find((t) => t.key === k)).filter((t): t is TabDef => Boolean(t));
+      if (hiddenItems.length > 0) sections.push({ label: 'Hidden', items: hiddenItems });
+    }
     return sections;
-  }, [q, results, recentTabs, frequentTabs]);
+  }, [q, results, recentTabs, frequentTabs, hidden, showHidden]);
 
   // Flatten for keyboard nav.
   const flatItems = displaySections.flatMap((s) => s.items);
@@ -1178,6 +1292,26 @@ function CommandPalette({ open, onClose, onNavigate, pinned = [], onTogglePin }:
                                 <Pin className={cn('h-3 w-3', isPinned && 'fill-current')} />
                               </button>
                             )}
+                            {/* Hide/unhide button — quick-hide from palette */}
+                            {onToggleHide && section.label !== 'Hidden' && (
+                              <button
+                                onClick={(e) => { e.stopPropagation(); onToggleHide(t.key); }}
+                                className="shrink-0 h-5 w-5 flex items-center justify-center rounded text-[var(--j-text-mute)] opacity-0 group-hover:opacity-100 hover:text-[var(--j-red)] transition-all"
+                                title="Hide from sidebar"
+                              >
+                                <EyeOff className="h-3 w-3" />
+                              </button>
+                            )}
+                            {/* Unhide button — only in Hidden section */}
+                            {onToggleHide && section.label === 'Hidden' && (
+                              <button
+                                onClick={(e) => { e.stopPropagation(); onToggleHide(t.key); }}
+                                className="shrink-0 h-5 w-5 flex items-center justify-center rounded text-[var(--j-green)] opacity-0 group-hover:opacity-100 hover:text-[var(--j-green)] transition-all"
+                                title="Show in sidebar"
+                              >
+                                <Eye className="h-3 w-3" />
+                              </button>
+                            )}
                           </div>
                         );
                       })}
@@ -1187,7 +1321,18 @@ function CommandPalette({ open, onClose, onNavigate, pinned = [], onTogglePin }:
               )}
             </div>
             <div className="px-4 py-2 border-t border-[var(--j-border)] bg-[var(--j-panel-soft)]/40 flex items-center justify-between jarvis-mono text-[9px] uppercase text-[var(--j-text-mute)]">
-              <span>{flatItems.length} items</span>
+              <span className="flex items-center gap-3">
+                <span>{flatItems.length} items</span>
+                {hidden.length > 0 && (
+                  <button
+                    onClick={() => setShowHidden((s) => !s)}
+                    className={`flex items-center gap-1 hover:text-[var(--j-cyan)] transition-colors ${showHidden ? 'text-[var(--j-cyan)]' : ''}`}
+                  >
+                    {showHidden ? <Eye className="h-3 w-3" /> : <EyeOff className="h-3 w-3" />}
+                    {hidden.length} hidden
+                  </button>
+                )}
+              </span>
               <span className="flex items-center gap-2">
                 <span>↑↓ navigate</span>
                 <span>⏎ open</span>

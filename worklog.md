@@ -2864,3 +2864,71 @@ Stage Summary:
 6. Add notifications settings (per-type enable/disable, sound, desktop notifications).
 7. Add tab hiding from command palette (quick-hide less-used tabs).
 8. Add agent comparison timeline (performance over time chart).
+
+---
+Task ID: CRON-WEBDEVREVIEW-9
+Agent: main (Z.ai Code) — webDevReview cron run #9
+Task: Assess project status, perform QA via agent-browser, fix bugs, add features, improve styling.
+
+Work Log:
+- Read worklog tail (CRON-WEBDEVREVIEW-8) — prior session added tab pinning from command palette + agent comparison radar chart.
+- **QA Assessment**:
+  - Dev server: HTTP 200, lint clean, 0 errors in dev.log.
+  - agent-browser sweep of 7 tabs (Overview, Fleet, Tasks, Kanban, Health, Models, Agent Monitor): ALL 0 errors, 0 console errors.
+  - No bugs found — app is stable.
+
+**FEATURE 1: Tab Hiding from Command Palette** (`src/app/page-client.tsx`):
+- CommandPalette now accepts `hidden` + `onToggleHide` props.
+- Each result item now has a **hide button** (EyeOff icon) next to the pin button:
+  - Appears on hover (opacity-0 → group-hover:opacity-100).
+  - Click hides the tab from the sidebar — calls `onToggleHide(key)` which updates `tabPrefs.hidden` in localStorage.
+  - `stopPropagation` prevents navigation when clicking hide.
+  - Tooltip: "Hide from sidebar".
+- **Hidden section**: when `showHidden` is toggled on (via footer button), a "Hidden" section appears at the bottom of the palette showing all hidden tabs. Each hidden tab has an **unhide button** (Eye icon, green) to restore it.
+- **Footer**: shows "N items" + "N hidden" toggle button (with Eye/EyeOff icon). Clicking toggles the hidden section visibility.
+- Hidden tabs are excluded from the "All Tabs" section when `showHidden` is off.
+- Verified: hid "Overview" → "1 hidden" appeared in footer → clicked to show Hidden section → "Overview" listed there with unhide button.
+
+**FEATURE 2: Notifications Settings Panel** (`src/app/page-client.tsx` — NotificationsBell):
+- New settings gear button (Sliders icon) in the notifications header next to "Mark all read".
+- Animated settings panel (slide-down via AnimatePresence height animation) with:
+  - **Sound alerts** toggle: green when enabled, gray when disabled. Persisted to `localStorage['jarvis-notif-settings']`.
+  - **Desktop notifications** toggle: same styling, persisted.
+  - **Mute by type** chips: 4 chips (success, warn, error, info) — each colored with its type color. Clicking toggles mute state. Muted chips show line-through + "· muted" label + reduced opacity.
+- **Muted type filtering**: notifications of muted types are filtered out from:
+  - The badge count (visibleUnread instead of unread).
+  - The filter chips (muted types don't appear in the type filter row).
+  - The notification list (muted types are hidden).
+  - The "Mark all read" button disabled state (based on visibleUnread).
+- Settings persisted to `localStorage['jarvis-notif-settings']` as `{ sound, desktop, mutedTypes }`.
+- Verified: opened settings, clicked "success" chip → "success · muted" shown, SUCCESS (7) chip disappeared from filter row, success notifications hidden from list. Badge count updated to reflect only visible (non-muted) notifications.
+
+**Verification (agent-browser)**:
+- App loads HTTP 200, 0 page errors, 0 console errors.
+- Command Palette: 43 items each with pin + hide buttons. Hid "Overview" → "1 hidden" in footer → Hidden section shows it with unhide button.
+- Notifications Bell: settings gear opens panel with Sound/Desktop toggles + 4 mute-by-type chips. Muting "success" hides 7 success notifications from the list + filter chips.
+- Sticky footer: reachable on short content (top:880 after minor scroll, vh:900).
+- Lint: clean (0 errors, 0 warnings).
+
+Stage Summary:
+- ✅ QA: app stable, 0 bugs, all endpoints 200, lint clean.
+- ✅ FEATURE 1: Tab Hiding from Command Palette — hide/unhide buttons, Hidden section, footer toggle, localStorage persistence.
+- ✅ FEATURE 2: Notifications Settings Panel — sound/desktop toggles, per-type mute, filtered badge/list, localStorage persistence.
+- ✅ Dev server stable HTTP 200.
+- ✅ Lint clean. 0 page errors. All features verified via agent-browser.
+
+## Updated App Stats
+- **41 tabs** across 8 intelligent groups
+- **Command Palette**: recent + frequent + pin + hide/unhide with Hidden section
+- **Notifications Bell**: filter chips + timestamps + per-notification mark-read + settings panel (sound/desktop/mute-by-type)
+- **0 lint errors, 0 page errors, 0 console errors**
+
+## Pending Works (for next cron run)
+1. Add WebSocket mini-service for true real-time updates (currently polling 10-30s).
+2. Wire skill execution to actually invoke web-search/web-reader skills.
+3. Add PDF export for reports (currently CSV only).
+4. Add scheduled email reports.
+5. Add drag-and-drop task reordering within Kanban columns.
+6. Add agent comparison timeline (performance over time chart).
+7. Wire sound alerts to actually play a sound when enabled.
+8. Wire desktop notifications to use the Notification API when enabled.
