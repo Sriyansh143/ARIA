@@ -501,6 +501,36 @@ function matchBareNavigate(t: string): MatchResult | null {
   };
 }
 
+/* ---- make-plan (task decomposition) ---- */
+function matchMakePlan(t: string): MatchResult | null {
+  // "plan: decompose Q3 roadmap", "make a plan for...", "decompose...", "break down..."
+  const m = t.match(/^(?:plan|make\s+a\s+plan|create\s+a\s+plan|decompose|break\s+down|analyze\s+and\s+plan)\s*[:\s]*(.+)$/);
+  if (m) {
+    const topic = m[1].trim();
+    return {
+      intent: 'make-plan',
+      confidence: 0.95,
+      action: { type: 'make-plan', topic },
+      params: { topic },
+      response: `Planning: ${topic}. I'll decompose this into actionable steps.`,
+      suggestions: ['Execute plan', 'Modify plan', 'Save as tasks'],
+    };
+  }
+  // "plan to...", "plan for..."
+  const m2 = t.match(/^plan\s+(?:to|for)\s+(.+)$/);
+  if (m2) {
+    return {
+      intent: 'make-plan',
+      confidence: 0.92,
+      action: { type: 'make-plan', topic: m2[1].trim() },
+      params: { topic: m2[1].trim() },
+      response: `Planning: ${m2[1].trim()}. Decomposing into steps.`,
+      suggestions: ['Execute plan', 'Modify plan', 'Save as tasks'],
+    };
+  }
+  return null;
+}
+
 /* ------------------------------------------------------------------ */
 /* Ordered matcher pipeline                                            */
 /* ------------------------------------------------------------------ */
@@ -511,6 +541,7 @@ const MATCHERS: Array<(t: string) => MatchResult | null> = [
   matchSearch,
   matchHealth,
   matchSyncModels,
+  matchMakePlan,
   matchCreateTask,
   matchCreateAgent,
   matchRunSkill,

@@ -118,6 +118,9 @@ export async function POST(req: NextRequest): Promise<NextResponse<CommandRespon
       case 'help':
         out = await handleHelp(sessionId);
         break;
+      case 'make-plan':
+        out = await handleMakePlan(text, parsed, sessionId);
+        break;
       default:
         out = await handleChat(text, parsed, sessionId);
     }
@@ -684,12 +687,13 @@ async function handleSearch(parsed: ParsedIntent, sessionId: string): Promise<Co
 
 async function handleHelp(sessionId: string): Promise<CommandResponse> {
   const response =
-    "I can do fourteen things. Navigate: 'open fleet'. " +
+    "I can do fifteen things. Navigate: 'open fleet'. " +
     "Create: 'create a task to ship the API', 'spawn an agent under orion for research'. " +
     "Run: 'run skill summarize on <text>', 'use web-search for AI agents'. " +
     "Communicate: 'send message to orion: deploy now', 'broadcast: stand-up in 5'. " +
     "Query: 'fleet status', 'revenue today', 'what is pending?'. " +
     "Operate: 'health check', 'sync models', 'dark mode', 'search for vega'. " +
+    "Plan: 'plan: decompose Q3 roadmap', 'make a plan for launching the API'. " +
     "Or just ask me anything for a conversational reply.";
   return {
     intent: 'help',
@@ -699,10 +703,97 @@ async function handleHelp(sessionId: string): Promise<CommandResponse> {
     suggestions: [
       'Show fleet status',
       'Create a task to review PRs',
-      'Run skill summarize on the latest report',
+      'Plan: ship the pricing page',
       'What is the revenue today?',
     ],
   };
+}
+
+/**
+ * make-plan — task decomposition pipeline.
+ * Takes a complex prompt, uses the LLM to decompose it into actionable steps,
+ * creates tasks for each step, and returns the plan.
+ */
+async function handleMakePlan(text: string, parsed: ParsedIntent, sessionId: string): Promise<CommandResponse> {
+  const topic = (parsed.params as { topic?: string })?.topic || text.replace(/^plan\s*[:\s]*/i, '').trim();
+  const t0 = Date.now();
+
+  // Gather context: fleet state, recent tasks, memory items.
+  const [agents, tasks, memoryItems] = await Promise.all([
+    db.agent.findMany({ select: { codename: true, role: true, status: true, load: true }, take: 10 }),
+    db.task.findMany({ select: { title: true, status: true, priority: true }, take: 10, orderBy: { createdAt: 'desc' } }),
+    db.memoryItem.findMany({ select: { key: true, value: true, scope: true }, take: 5, orderBy: { updatedAt: 'desc' } }),
+  ]);
+
+  const context = [
+    `Fleet: ${agents.length} agents (${agents.filter(a => a.status === 'idle').length} idle, ${agents.filter(a => a.status === 'working').length} working).`,
+    `Recent tasks: ${tasks.map(t => `"${t.title}" (${t.status})`).join(', ') || 'none'}.`,
+    `Memory: ${memoryItems.map(m => m.key).join(', ') || 'none'}.`,
+    `Available agents: ${agents.map(a => `${a.codename} (${a.role}, ${a.status})`).join('; ')}.`,
+  ].join('\n');
+
+  const planPrompt = `You are ARIA, an autonomous task planner. Decompose the following request into 3-7 concrete, actionable tasks. For each task, specify: title, priority (low/medium/high/critical), and suggested assignee agent from the fleet.
+
+Request: "${topic}"
+
+Context:
+${context}
+
+Return your response as a numbered list with this format:
+1. [PRIORITY] Task title — assignee: AGENT_CODENAME
+2. [PRIORITY] Task title — assignee: AGENT_CODENAME
+...
+
+Be specific and actionable. Each task should be independently executable.`;
+
+  try {
+    const { content, latencyMs } = await chat(planPrompt, []);
+    const planLines = content.split('\n').filter(l => /^\d+\./.test(l.trim()));
+
+    // Create tasks for each plan step.
+    const createdTasks = [];
+    for (const line of planLines) {
+      const priorityMatch = line.match(/\[(low|medium|high|critical)\]/i);
+      const priority = priorityMatch ? priorityMatch[1].toLowerCase() : 'medium';
+      const assigneeMatch = line.match(/assignee:\s*(\w+)/i);
+      const assigneeCodename = assigneeMatch ? assigneeMatch[1].toUpperCase() : null;
+      const titleMatch = line.match(/^\d+\.\s*\[\w+\]\s*(.+?)(?:\s*—\s*assignee:|$)/i);
+      const title = titleMatch ? titleMatch[1].trim() : line.replace(/^\d+\.\s*/, '').replace(/\[.*?\]/g, '').replace(/—\s*assignee:.*$/i, '').trim();
+
+      if (title) {
+        const assignee = assigneeCodename ? agents.find(a => a.codename === assigneeCodename) : null;
+        const task = await db.task.create({
+          data: {
+            title,
+            priority,
+            assigneeId: assignee?.id || null,
+            tags: JSON.stringify(['plan', topic.slice(0, 50)]),
+          },
+        });
+        createdTasks.push({ id: task.id, title, priority, assignee: assigneeCodename || 'unassigned' });
+      }
+    }
+
+    const response = `Plan for: "${topic}"\n\n${content}\n\n✅ Created ${createdTasks.length} tasks from this plan. View them in the Tasks tab.`;
+
+    return {
+      intent: 'make-plan',
+      response,
+      latencyMs: Date.now() - t0,
+      sessionId,
+      task: createdTasks[0],
+      suggestions: ['View tasks', 'Execute next task', 'Modify plan'],
+    };
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : 'unknown error';
+    return {
+      intent: 'make-plan',
+      response: `Planning failed: ${msg}. Try a simpler request.`,
+      latencyMs: Date.now() - t0,
+      sessionId,
+      error: msg,
+    };
+  }
 }
 
 /* ============================================================

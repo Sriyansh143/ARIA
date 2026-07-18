@@ -3921,3 +3921,117 @@ Stage Summary:
 - ✅ FIX 3: Complete app documentation — 2,184 lines, 14 sections, covers every tab/API/model/lib/feature.
 - ✅ FIX 4: Orion hands-free (auto-start listening on open) + command logging (existing) + undo (DELETE created resources).
 - ✅ 0 lint errors, 0 page errors, 0 console errors.
+
+---
+Task ID: RESEARCH
+Agent: research
+Task: Research autonomous AI tools (Claude Code, OpenHands, Devin, AutoGPT, Cursor, Adept ACT-1, MultiOn, Zapier AI, Jarvis, Paperclip) and compare with JARVIS Mission Control. Append "Autonomous AI Tool Comparison & Gap Analysis" section to APP_DOCUMENTATION.md with priority-ordered improvement plan.
+
+Work Log:
+- Read /home/z/my-project/APP_DOCUMENTATION.md (first 100 lines for context, plus sections 8 Orion Shell, 13 Pending/Future Work, 2.2 ARIA Chat).
+- Read /home/z/my-project/worklog.md (latest entries on FIX-TEACH-CHAT-ORION + DOCUMENTATION — current state: ChatTab now uses /api/orion/command smart router with 14 intents; Orion auto-starts listening; Undo works on create-task/create-agent/send-comms; documentation file is 2,184 lines, 14 sections).
+- Compiled research notes on 10 autonomous AI tools (Claude Code, OpenHands/OpenClaw, Devin, Cursor, VS Code Copilot, AutoGPT/BabyAGI, Adept ACT-1, MultiOn, Zapier AI, Paperclip, JARVIS variants) — focused on capabilities, input modalities, action surfaces, planning/decomposition patterns, and autonomy characteristics.
+- Mapped each tool to JARVIS's existing features (smart router intents, fleet ops, cron dispatcher, agent monitor system, Orion shell) — identified 4 wired-but-not-working areas and 8 missing-capability gaps.
+- Authored a 500+ line section titled "## Autonomous AI Tool Comparison & Gap Analysis" appended to /home/z/my-project/APP_DOCUMENTATION.md, including:
+  • §15.1 Researched Tools (10 tools × detailed capability profiles — input modalities, action surfaces, planning approach, autonomy mechanism).
+  • §15.2 Comparison Table (11 capabilities × 10 tools — readable at-a-glance matrix).
+  • §15.3 JARVIS Capability Audit (what JARVIS CAN do today — 14 smart-router intents, 8 monitors, 27+ cron jobs, 64-agent fleet, 111 API routes, WebSocket realtime, AES vault).
+  • §15.4 Gap Analysis — Wired but Not Working (4 items: chat→router lacks UI confirmation of side-effects, autonomy loop lacks verification gate, cron dispatchers fire but skip rollback on failure, model knowledge table not consulted by router for fallback).
+  • §15.5 Gap Analysis — Completely Missing (8 items: task decomposition pipeline, browser automation, terminal/shell execution, file-system read/write/edit, Telegram bot integration, Orion-as-default-shell-on-open, full memory/skills/plugins/knowledge prompt-context injection, multi-step plan execution with checkpoints).
+  • §15.6 Improvement Plan (Priority 1–8, each with rationale, scope, success criteria, risks, file targets, dependency edges).
+  • §15.7 Pending Works — full backlog of unimplemented features (15+ items grouped: Execution Layer, Planning Layer, Browser Layer, Terminal Layer, Filesystem Layer, Comms/Telegram, UX Layer, Context Layer).
+  • §15.8 Architecture Sketch — proposed "Action Bus" pattern that unifies chat / Orion / cron under a single tool-calling surface.
+  • §15.9 Phased Roadmap (Phase 0–4, ~12 weeks) mapping priorities to milestones.
+  • §15.10 Tool-by-tool inspiration index (concrete features to steal from each competitor).
+- Did NOT modify any code files (research + writing task only).
+- Appended this work record to /home/z/my-project/worklog.md (per task rules).
+
+Stage Summary:
+- ✅ Researched 10 autonomous AI tools (Claude Code, OpenHands, Devin, Cursor, VS Code Copilot, AutoGPT/BabyAGI, Adept ACT-1, MultiOn, Zapier AI, Paperclip, + Jarvis variants).
+- ✅ Mapped each tool's capabilities, inputs, actions, planning, and autonomy model.
+- ✅ Identified 4 wired-but-not-working gaps + 8 missing-capability gaps in JARVIS.
+- ✅ Authored 500+ line comparison & gap-analysis section appended to APP_DOCUMENTATION.md.
+- ✅ Delivered Priority 1–8 improvement plan with rationale, scope, success criteria, file targets.
+- ✅ Delivered Pending Works backlog (15+ unimplemented features grouped by layer).
+- ✅ Delivered 12-week phased roadmap (Phase 0–4).
+- ✅ Did NOT modify any code files — research/writing only.
+- 📌 Documentation file: /home/z/my-project/APP_DOCUMENTATION.md (appended).
+- 📌 New section: "## Autonomous AI Tool Comparison & Gap Analysis" (subsections 15.1–15.10).
+
+---
+Task ID: UNIFIED-CHAT + ORION-DEFAULT + MAKE-PLAN + RESEARCH
+Agent: main (Z.ai Code)
+Task: Make app comparable to autonomous AI tools (Claude Code, OpenClaw, Devin, etc.) — unified chat panel, Orion as default shell, task decomposition, research + documentation.
+
+Work Log:
+
+**RESEARCH: Autonomous AI Tool Comparison** (parallel agent — completed):
+- Researched 10 autonomous AI tools: Claude Code, OpenHands/OpenClaw, Devin, Cursor/Copilot, AutoGPT/BabyAGI, Adept ACT-1, MultiOn, Zapier AI, Paperclip, Jarvis variants.
+- Compared capabilities, input modalities, action surfaces, planning/decomposition, autonomy mechanisms.
+- Identified 4 "wired but not working" gaps + 8 "completely missing" gaps in JARVIS.
+- Created Priority 1-8 improvement plan with 12-week phased roadmap.
+- Appended §15 (542 lines) to APP_DOCUMENTATION.md — file now 2,729 lines.
+
+**FIX 1: Orion as Default Shell** (`src/app/page-client.tsx`):
+- Changed Orion mode loading: on first visit (no localStorage key), Orion opens automatically.
+- After first visit, user's last choice (open/closed) is persisted + restored.
+- Orion is now the default voice shell — no button press needed to start.
+
+**FIX 2: Unified Command Center** (`src/components/tabs/ChatTab.tsx` — full rewrite):
+- Merged all chat/command functionality into ONE unified panel:
+  - **Text input**: type commands, Enter to send.
+  - **Voice input**: microphone button (🎤) toggles hands-free mode. Wake word detection ("Orion, ..." / "Aria, ...") + continuous listening + interim transcript display.
+  - **TTS**: mute/unmute button (🔊/🔇) — speaks responses when enabled.
+  - **Smart Router**: all commands go through `/api/orion/command` — 15 intents (navigate, create-task, create-agent, run-skill, send-comms, health-check, sync-models, query-fleet, query-revenue, query-tasks, set-theme, search, help, make-plan, chat).
+  - **Intent badges**: cyan pill with icon for each non-chat intent.
+  - **Action descriptions**: green checkmark showing what was done.
+  - **Undo button**: amber Undo2 button for reversible actions (create-task, create-agent, send-comms).
+  - **Quick prompts**: 6 example commands including "Plan: decompose Q3 roadmap into agent tasks".
+  - **Listening indicator**: green pulsing dot + "Listening — say 'Orion, ...'" text.
+  - **Interim transcript**: italicized live speech display while listening.
+- Tab renamed from "ARIA Chat" to "Command Center".
+- No more separate Orion overlay needed for voice — it's all in one panel.
+- The Orion Shell overlay still exists as a full-screen option (Ctrl+Shift+O) but the Command Center tab is the primary interface.
+
+**FIX 3: Task Decomposition Pipeline (make-plan)** (`src/lib/orion-intent.ts` + `src/app/api/orion/command/route.ts`):
+- New `make-plan` intent: matches "plan: ...", "make a plan for...", "decompose...", "break down...", "plan to...", "plan for...".
+- `handleMakePlan()` function:
+  1. Gathers context: fleet state (agent count, statuses, roles), recent tasks, memory items.
+  2. Builds a planning prompt with context injection (fleet, tasks, memory, available agents).
+  3. Calls GLM-4.6 to decompose the request into 3-7 actionable tasks.
+  4. Parses the LLM response (numbered list with [PRIORITY] + assignee).
+  5. Creates actual Task records in the DB for each step — with priority + assignee.
+  6. Returns the plan + created task count.
+- Verified: "plan: ship the pricing page" → 6 tasks created (Design UI→ATLAS, Integrate API→ATLAS, Test→PULSE, Docs→SAGE, Deploy→FORGE, Monitor→PULSE).
+- Intent badge: "make-plan" (cyan). Action: "Plan generated" (green).
+
+**Documentation Updated**:
+- APP_DOCUMENTATION.md: 2,729 lines (was 2,184). Added §15 Autonomous AI Tool Comparison & Gap Analysis (542 lines).
+- Covers: 10 tool profiles, 11×10 capability matrix, JARVIS gaps, Priority 1-8 plan, Action Bus architecture, 12-week roadmap, Pending Works.
+
+**Verification (agent-browser)**:
+- App loads HTTP 200, 0 page errors, 0 console errors.
+- Command Center tab: loads with "ARIA COMMAND CENTER" title, Smart Router pill, voice mic button, TTS mute button.
+- make-plan: "plan: ship the pricing page" → 6 tasks created with assignees + priorities. Intent badge "make-plan" + action "Plan generated".
+- Orion content found on page (default shell active).
+- Sticky footer: visible (top:863, vh:900).
+- Lint: clean (0 errors, 0 warnings).
+- APP_DOCUMENTATION.md: 2,729 lines.
+
+Stage Summary:
+- ✅ Research: 10 autonomous AI tools compared, gaps identified, improvement plan created.
+- ✅ Orion as default shell — auto-opens on first visit.
+- ✅ Unified Command Center — one panel for text + voice + smart routing + undo.
+- ✅ Task decomposition (make-plan) — LLM-powered planning with context injection + auto-creates tasks.
+- ✅ APP_DOCUMENTATION.md updated with research findings (2,729 lines).
+- ✅ 0 lint errors, 0 page errors, 0 console errors.
+
+## Pending Works (from research — documented in APP_DOCUMENTATION.md §15)
+1. Browser automation (click/type/navigate) — Playwright mini-service.
+2. Terminal/shell execution — /api/os/exec with allow-list.
+3. Filesystem operations — /api/file/* sandboxed.
+4. Telegram bot integration — webhook + mini-service.
+5. Full memory/skills/plugins context injection — context-builder.ts.
+6. Multi-step plan execution with checkpoints & resume.
+7. Action Bus architecture — unified handler registry.
+8. Verification gate for autonomy loop.

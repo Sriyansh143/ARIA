@@ -234,7 +234,7 @@ interface TabDef {
 const TABS: TabDef[] = [
   // ─── Command Center (4) ───
   { key: 'overview', label: 'Overview', icon: LayoutDashboard, group: 'Command', accent: JARVIS.colors.cyan },
-  { key: 'chat', label: 'ARIA Chat', icon: MessageSquare, group: 'Command', accent: JARVIS.colors.violet },
+  { key: 'chat', label: 'Command Center', icon: MessageSquare, group: 'Command', accent: JARVIS.colors.violet },
   { key: 'activity', label: 'Activity Feed', icon: History, group: 'Command', accent: JARVIS.colors.green },
   { key: 'insights', label: 'AI Insights', icon: Lightbulb, group: 'Command', accent: JARVIS.colors.cyan },
 
@@ -465,11 +465,19 @@ export default function MissionControlDashboard() {
     return () => window.removeEventListener('keydown', onKey);
   }, [toggleTheme]);
 
-  // Orion mode: load persisted preference on mount, then persist on change.
+  // Orion mode: default shell on app open. On first visit (no localStorage
+  // key), Orion opens automatically. After that, the user's last choice
+  // (open/closed) is persisted and restored.
   useEffect(() => {
     try {
       const raw = localStorage.getItem('jarvis-orion-mode');
-      if (raw === '1') setOrionMode(true);
+      if (raw === null) {
+        // First visit — default to Orion open (hands-free voice shell).
+        setOrionMode(true);
+        localStorage.setItem('jarvis-orion-mode', '1');
+      } else if (raw === '1') {
+        setOrionMode(true);
+      }
     } catch { /* ignore */ }
   }, []);
   useEffect(() => {
