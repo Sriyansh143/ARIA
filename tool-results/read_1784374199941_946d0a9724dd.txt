@@ -1,0 +1,292 @@
+     1→// JARVIS Mission Control — central config, roster, skill catalog, cron roster.
+     2→
+     3→export const JARVIS = {
+     4→  version: '9.0.0',
+     5→  codename: 'JARVIS',
+     6→  fullName: 'Just A Rather Very Intelligent System',
+     7→  tagline: 'Autonomous Agent Orchestration',
+     8→  // Core JARVIS cyberpunk palette
+     9→  colors: {
+    10→    bg: '#08090A',
+    11→    bgSoft: '#0C0F14',
+    12→    panel: '#0E1218',
+    13→    panelSoft: '#121821',
+    14→    border: '#1B2330',
+    15→    borderSoft: '#141B26',
+    16→    cyan: '#7DD3FC',
+    17→    cyanDim: '#38BDF8',
+    18→    green: '#34D399',
+    19→    amber: '#FBBF24',
+    20→    red: '#F87171',
+    21→    violet: '#C4B5FD',
+    22→    text: '#E2E8F0',
+    23→    textDim: '#94A3B8',
+    24→    textMute: '#64748B',
+    25→  },
+    26→} as const;
+    27→
+    28→export type AgentStatus = 'idle' | 'thinking' | 'working' | 'error' | 'offline';
+    29→
+    30→export interface AgentSeed {
+    31→  name: string;
+    32→  codename: string;
+    33→  role: string;
+    34→  status: AgentStatus;
+    35→  skills: string[];
+    36→  model: string;
+    37→  load: number;
+    38→  successRate: number;
+    39→  department: string;
+    40→  seniority: 'intern' | 'junior' | 'mid' | 'senior' | 'lead' | 'director' | 'vp' | 'c-suite';
+    41→  title: string;
+    42→}
+    43→
+    44→// 16 departments across the JARVIS MNC-style org.
+    45→export const DEPARTMENTS = [
+    46→  { key: 'engineering', name: 'Engineering', color: '#7DD3FC', icon: 'Code2' },
+    47→  { key: 'research', name: 'Research', color: '#C4B5FD', icon: 'Microscope' },
+    48→  { key: 'data', name: 'Data', color: '#34D399', icon: 'BarChart3' },
+    49→  { key: 'design', name: 'Design', color: '#FBBF24', icon: 'Palette' },
+    50→  { key: 'product', name: 'Product', color: '#F87171', icon: 'Package' },
+    51→  { key: 'marketing', name: 'Marketing', color: '#38BDF8', icon: 'Megaphone' },
+    52→  { key: 'sales', name: 'Sales', color: '#A78BFA', icon: 'TrendingUp' },
+    53→  { key: 'finance', name: 'Finance', color: '#34D399', icon: 'Wallet' },
+    54→  { key: 'legal', name: 'Legal', color: '#FBBF24', icon: 'Gavel' },
+    55→  { key: 'hr', name: 'Human Resources', color: '#F472B6', icon: 'Users' },
+    56→  { key: 'operations', name: 'Operations', color: '#7DD3FC', icon: 'Settings' },
+    57→  { key: 'security', name: 'Security', color: '#F87171', icon: 'ShieldCheck' },
+    58→  { key: 'support', name: 'Support', color: '#34D399', icon: 'Headphones' },
+    59→  { key: 'content', name: 'Content', color: '#C4B5FD', icon: 'PenLine' },
+    60→  { key: 'qa', name: 'Quality Assurance', color: '#FBBF24', icon: 'Bug' },
+    61→  { key: 'infrastructure', name: 'Infrastructure', color: '#38BDF8', icon: 'Server' },
+    62→] as const;
+    63→
+    64→// 64-agent roster — each department staffed with 4 specialists.
+    65→// Codenames are mythological / star / celestial names. Names are friendly handles.
+    66→export const AGENT_ROSTER: AgentSeed[] = [
+    67→  // ── 1. Engineering (4) ──
+    68→  { name: 'Orion', codename: 'ORION', role: 'Lead Orchestrator', status: 'working', skills: ['planning', 'decompose', 'dispatch'], model: 'glm-4.6', load: 62, successRate: 99.2, department: 'engineering', seniority: 'c-suite', title: 'Chief Technology Officer' },
+    69→  { name: 'Atlas', codename: 'ATLAS', role: 'Code Engineer', status: 'working', skills: ['code-gen', 'code-review', 'refactor'], model: 'glm-4.6', load: 78, successRate: 96.4, department: 'engineering', seniority: 'senior', title: 'Senior Software Engineer' },
+    70→  { name: 'Forge', codename: 'FORGE', role: 'Build & Deploy', status: 'working', skills: ['ci-cd', 'docker', 'rollback'], model: 'glm-4.6', load: 55, successRate: 94.7, department: 'engineering', seniority: 'mid', title: 'DevOps Engineer' },
+    71→  { name: 'Volt', codename: 'VOLT', role: 'Mobile Builder', status: 'idle', skills: ['react-native', 'expo', 'flutter'], model: 'glm-4.6', load: 22, successRate: 95.3, department: 'engineering', seniority: 'mid', title: 'Mobile Engineer' },
+    72→
+    73→  // ── 2. Research (4) ──
+    74→  { name: 'Vega', codename: 'VEGA', role: 'Research Analyst', status: 'thinking', skills: ['web-search', 'web-reader', 'summarize'], model: 'glm-4.6', load: 41, successRate: 97.8, department: 'research', seniority: 'senior', title: 'Senior Research Analyst' },
+    75→  { name: 'Lyra', codename: 'LYRA', role: 'Synthesist', status: 'thinking', skills: ['synthesize', 'cross-check', 'summarize'], model: 'glm-4.6', load: 38, successRate: 98.1, department: 'research', seniority: 'mid', title: 'Research Synthesist' },
+    76→  { name: 'Sirius', codename: 'SIRIUS', role: 'Tech Writer', status: 'idle', skills: ['docs', 'diagrams', 'tutorials'], model: 'glm-4.6', load: 14, successRate: 96.7, department: 'research', seniority: 'mid', title: 'Technical Writer' },
+    77→  { name: 'Quasar', codename: 'QUASAR', role: 'Fact Checker', status: 'idle', skills: ['verify', 'cite', 'audit'], model: 'glm-4.6', load: 9, successRate: 99.4, department: 'research', seniority: 'junior', title: 'Fact-Checking Analyst' },
+    78→
+    79→  // ── 3. Data (4) ──
+    80→  { name: 'Nova', codename: 'NOVA', role: 'Data Scientist', status: 'idle', skills: ['data-analysis', 'charts', 'forecast'], model: 'glm-4.6', load: 12, successRate: 98.6, department: 'data', seniority: 'senior', title: 'Senior Data Scientist' },
+    81→  { name: 'Draco', codename: 'DRACO', role: 'ML Engineer', status: 'working', skills: ['ml-pipelines', 'training', 'inference'], model: 'glm-4.6', load: 67, successRate: 95.8, department: 'data', seniority: 'senior', title: 'ML Engineer' },
+    82→  { name: 'Hydra', codename: 'HYDRA', role: 'Data Analyst', status: 'thinking', skills: ['sql', 'dashboards', 'reports'], model: 'glm-4.6', load: 44, successRate: 97.2, department: 'data', seniority: 'mid', title: 'Data Analyst' },
+    83→  { name: 'Phoenix', codename: 'PHOENIX', role: 'BI Specialist', status: 'idle', skills: ['bi', 'etl', 'warehouse'], model: 'glm-4.6', load: 18, successRate: 96.5, department: 'data', seniority: 'mid', title: 'BI Specialist' },
+    84→
+    85→  // ── 4. Design (4) ──
+    86→  { name: 'Echo', codename: 'ECHO', role: 'Brand & Comms', status: 'idle', skills: ['email', 'outreach', 'crm'], model: 'glm-4.6', load: 8, successRate: 95.1, department: 'design', seniority: 'mid', title: 'Brand Designer' },
+    87→  { name: 'Prism', codename: 'PRISM', role: 'UI/UX Designer', status: 'thinking', skills: ['wireframes', 'design-system', 'prototyping'], model: 'glm-4.6', load: 35, successRate: 96.9, department: 'design', seniority: 'senior', title: 'Senior UX Designer' },
+    88→  { name: 'Aurora', codename: 'AURORA', role: 'Visual Designer', status: 'working', skills: ['graphics', 'illustration', 'motion'], model: 'glm-4.6', load: 49, successRate: 94.2, department: 'design', seniority: 'mid', title: 'Visual Designer' },
+    89→  { name: 'Iris', codename: 'IRIS', role: 'Design Researcher', status: 'idle', skills: ['user-research', 'journey-maps', 'usability'], model: 'glm-4.6', load: 11, successRate: 97.5, department: 'design', seniority: 'junior', title: 'UX Researcher' },
+    90→
+    91→  // ── 5. Product (4) ──
+    92→  { name: 'Sage', codename: 'SAGE', role: 'Knowledge Keeper / PM', status: 'thinking', skills: ['memory', 'index', 'retrieve', 'roadmap'], model: 'glm-4.6', load: 33, successRate: 99.9, department: 'product', seniority: 'lead', title: 'Lead Product Manager' },
+    93→  { name: 'Polaris', codename: 'POLARIS', role: 'Product Strategist', status: 'idle', skills: ['market-analysis', 'positioning', 'pricing'], model: 'glm-4.6', load: 19, successRate: 96.4, department: 'product', seniority: 'senior', title: 'Product Strategist' },
+    94→  { name: 'Centaurus', codename: 'CENTAURUS', role: 'Product Manager', status: 'working', skills: ['prds', 'backlog', 'prioritization'], model: 'glm-4.6', load: 52, successRate: 95.6, department: 'product', seniority: 'mid', title: 'Product Manager' },
+    95→  { name: 'Rigel', codename: 'RIGEL', role: 'User Researcher', status: 'idle', skills: ['interviews', 'surveys', 'insights'], model: 'glm-4.6', load: 7, successRate: 98.0, department: 'product', seniority: 'junior', title: 'Associate User Researcher' },
+    96→
+    97→  // ── 6. Marketing (4) ──
+    98→  { name: 'Helios', codename: 'HELIOS', role: 'Content Marketer', status: 'thinking', skills: ['blog', 'seo-content', 'lead-magnets'], model: 'glm-4.6', load: 36, successRate: 96.0, department: 'marketing', seniority: 'mid', title: 'Content Marketing Manager' },
+    99→  { name: 'Zephyr', codename: 'ZEPHYR', role: 'Social Media Manager', status: 'working', skills: ['twitter', 'linkedin', 'instagram'], model: 'glm-4.6', load: 41, successRate: 94.8, department: 'marketing', seniority: 'mid', title: 'Social Media Manager' },
+   100→  { name: 'Catalyst', codename: 'CATALYST', role: 'Growth Hacker', status: 'working', skills: ['experiments', 'ab-tests', 'viral-loops'], model: 'glm-4.6', load: 58, successRate: 93.7, department: 'marketing', seniority: 'senior', title: 'Senior Growth Marketer' },
+   101→  { name: 'Spectrum', codename: 'SPECTRUM', role: 'SEO Specialist', status: 'idle', skills: ['keyword-research', 'on-page-seo', 'backlinks'], model: 'glm-4.6', load: 16, successRate: 96.3, department: 'marketing', seniority: 'mid', title: 'SEO Specialist' },
+   102→
+   103→  // ── 7. Sales (4) ──
+   104→  { name: 'Antares', codename: 'ANTARES', role: 'Sales Development Rep', status: 'working', skills: ['prospecting', 'cold-email', 'booking'], model: 'glm-4.6', load: 71, successRate: 92.4, department: 'sales', seniority: 'junior', title: 'SDR' },
+   105→  { name: 'Andromeda', codename: 'ANDROMEDA', role: 'Account Executive', status: 'working', skills: ['demos', 'negotiation', 'closing'], model: 'glm-4.6', load: 64, successRate: 93.9, department: 'sales', seniority: 'senior', title: 'Senior Account Executive' },
+   106→  { name: 'Aquila', codename: 'AQUILA', role: 'Sales Engineer', status: 'thinking', skills: ['pre-sales', 'pocs', 'solutions'], model: 'glm-4.6', load: 39, successRate: 95.6, department: 'sales', seniority: 'mid', title: 'Sales Engineer' },
+   107→  { name: 'Cygnus', codename: 'CYGNUS', role: 'Channel Manager', status: 'idle', skills: ['partners', 'resellers', 'co-sell'], model: 'glm-4.6', load: 12, successRate: 94.1, department: 'sales', seniority: 'mid', title: 'Channel Manager' },
+   108→
+   109→  // ── 8. Finance (4) ──
+   110→  { name: 'Perseus', codename: 'PERSEUS', role: 'CFO', status: 'thinking', skills: ['pnl', 'capital', 'board-reporting'], model: 'glm-4.6', load: 47, successRate: 98.7, department: 'finance', seniority: 'c-suite', title: 'Chief Financial Officer' },
+   111→  { name: 'Meridian', codename: 'MERIDIAN', role: 'Revenue Manager', status: 'working', skills: ['asc-606', 'mrr', 'pricing'], model: 'glm-4.6', load: 53, successRate: 96.8, department: 'finance', seniority: 'senior', title: 'Senior Revenue Manager' },
+   112→  { name: 'Apex', codename: 'APEX', role: 'Billing Specialist', status: 'working', skills: ['invoices', 'subscriptions', 'dunning'], model: 'glm-4.6', load: 38, successRate: 97.0, department: 'finance', seniority: 'mid', title: 'Billing Specialist' },
+   113→  { name: 'Zenith', codename: 'ZENITH', role: 'Bookkeeper', status: 'idle', skills: ['general-ledger', 'reconciliation', 'month-end'], model: 'glm-4.6', load: 14, successRate: 98.2, department: 'finance', seniority: 'mid', title: 'Bookkeeper' },
+   114→
+   115→  // ── 9. Legal (4) ──
+   116→  { name: 'Themis', codename: 'THEMIS', role: 'General Counsel', status: 'idle', skills: ['legal-strategy', 'risk', 'regulatory'], model: 'glm-4.6', load: 18, successRate: 99.0, department: 'legal', seniority: 'c-suite', title: 'General Counsel' },
+   117→  { name: 'Halcyon', codename: 'HALCYON', role: 'Contract Attorney', status: 'idle', skills: ['msa', 'sow', 'nda', 'saas'], model: 'glm-4.6', load: 22, successRate: 97.6, department: 'legal', seniority: 'senior', title: 'Senior Contract Attorney' },
+   118→  { name: 'Aegis', codename: 'AEGIS', role: 'IP Counsel', status: 'idle', skills: ['patents', 'trademarks', 'oss'], model: 'glm-4.6', load: 9, successRate: 96.4, department: 'legal', seniority: 'mid', title: 'IP Counsel' },
+   119→  { name: 'Veritas', codename: 'VERITAS', role: 'Privacy Officer', status: 'thinking', skills: ['gdpr', 'dsar', 'dpa'], model: 'glm-4.6', load: 27, successRate: 97.8, department: 'legal', seniority: 'mid', title: 'Privacy Officer' },
+   120→
+   121→  // ── 10. HR (4) ──
+   122→  { name: 'Maia', codename: 'MAIA', role: 'HR Director', status: 'thinking', skills: ['org-design', 'comp', 'culture'], model: 'glm-4.6', load: 31, successRate: 98.3, department: 'hr', seniority: 'director', title: 'HR Director' },
+   123→  { name: 'Clio', codename: 'CLIO', role: 'Recruiter', status: 'working', skills: ['sourcing', 'screening', 'ats'], model: 'glm-4.6', load: 56, successRate: 94.7, department: 'hr', seniority: 'mid', title: 'Recruiter' },
+   124→  { name: 'Calliope', codename: 'CALLIOPE', role: 'Onboarding Specialist', status: 'idle', skills: ['onboarding', 'equipment', '90-day-plans'], model: 'glm-4.6', load: 19, successRate: 96.1, department: 'hr', seniority: 'mid', title: 'Onboarding Specialist' },
+   125→  { name: 'Erato', codename: 'ERATO', role: 'People Operations', status: 'idle', skills: ['payroll', 'benefits', 'hris'], model: 'glm-4.6', load: 23, successRate: 97.4, department: 'hr', seniority: 'mid', title: 'People Ops Generalist' },
+   126→
+   127→  // ── 11. Operations (4) ──
+   128→  { name: 'Hyperion', codename: 'HYPERION', role: 'Operations Manager', status: 'working', skills: ['process', 'resources', 'sops'], model: 'glm-4.6', load: 49, successRate: 96.0, department: 'operations', seniority: 'director', title: 'Operations Manager' },
+   129→  { name: 'Vulcan', codename: 'VULCAN', role: 'Process Automator', status: 'working', skills: ['rpa', 'workflows', 'automation'], model: 'glm-4.6', load: 42, successRate: 95.2, department: 'operations', seniority: 'mid', title: 'Process Automation Engineer' },
+   130→  { name: 'Hermes', codename: 'HERMES', role: 'Project Coordinator', status: 'thinking', skills: ['gantt', 'sprints', 'dependencies'], model: 'glm-4.6', load: 36, successRate: 96.7, department: 'operations', seniority: 'mid', title: 'Project Coordinator' },
+   131→  { name: 'Vesta', codename: 'VESTA', role: 'Procurement Specialist', status: 'idle', skills: ['rfps', 'vendors', 'negotiation'], model: 'glm-4.6', load: 14, successRate: 95.0, department: 'operations', seniority: 'mid', title: 'Procurement Specialist' },
+   132→
+   133→  // ── 12. Security (4) ──
+   134→  { name: 'Sentinel', codename: 'SENTINEL', role: 'Security Engineer', status: 'working', skills: ['threat-modeling', 'audits', 'pentest'], model: 'glm-4.6', load: 51, successRate: 97.9, department: 'security', seniority: 'senior', title: 'Senior Security Engineer' },
+   135→  { name: 'Phalanx', codename: 'PHALANX', role: 'Compliance Officer', status: 'idle', skills: ['gdpr', 'soc2', 'hipaa'], model: 'glm-4.6', load: 17, successRate: 98.4, department: 'security', seniority: 'mid', title: 'Compliance Officer' },
+   136→  { name: 'Bastion', codename: 'BASTION', role: 'Incident Responder', status: 'idle', skills: ['triage', 'forensics', 'breach'], model: 'glm-4.6', load: 8, successRate: 96.6, department: 'security', seniority: 'mid', title: 'Incident Responder' },
+   137→  { name: 'Argus', codename: 'ARGUS', role: 'Data Protection Officer', status: 'idle', skills: ['ropa', 'dpia', 'breach-notify'], model: 'glm-4.6', load: 11, successRate: 97.7, department: 'security', seniority: 'mid', title: 'Data Protection Officer' },
+   138→
+   139→  // ── 13. Support (4) ──
+   140→  { name: 'Nereid', codename: 'NEREID', role: 'Support Lead', status: 'working', skills: ['csat', 'sla', 'playbooks'], model: 'glm-4.6', load: 44, successRate: 96.8, department: 'support', seniority: 'lead', title: 'Support Team Lead' },
+   141→  { name: 'Triton', codename: 'TRITON', role: 'Tier-1 Support', status: 'working', skills: ['triage', 'faq', 'routing'], model: 'glm-4.6', load: 67, successRate: 94.2, department: 'support', seniority: 'junior', title: 'T1 Support Agent' },
+   142→  { name: 'Calypso', codename: 'CALYPSO', role: 'Tier-2 Support', status: 'thinking', skills: ['troubleshoot', 'bug-repro', 'workarounds'], model: 'glm-4.6', load: 38, successRate: 95.5, department: 'support', seniority: 'mid', title: 'T2 Support Engineer' },
+   143→  { name: 'Galene', codename: 'GALENE', role: 'Customer Success Manager', status: 'idle', skills: ['qbrs', 'renewals', 'expansion'], model: 'glm-4.6', load: 21, successRate: 96.9, department: 'support', seniority: 'senior', title: 'Senior CSM' },
+   144→
+   145→  // ── 14. Content (4) ──
+   146→  { name: 'Polyhymnia', codename: 'POLYHYMNIA', role: 'Technical Documentarian', status: 'idle', skills: ['api-docs', 'adrs', 'dev-guides'], model: 'glm-4.6', load: 13, successRate: 97.5, department: 'content', seniority: 'mid', title: 'Technical Writer' },
+   147→  { name: 'Melpomene', codename: 'MELPOMENE', role: 'Copywriter', status: 'thinking', skills: ['landing-pages', 'ad-copy', 'email-sequences'], model: 'glm-4.6', load: 34, successRate: 95.8, department: 'content', seniority: 'mid', title: 'Copywriter' },
+   148→  { name: 'Euterpe', codename: 'EUTERPE', role: 'Editor', status: 'idle', skills: ['edit', 'proofread', 'style-guide'], model: 'glm-4.6', load: 16, successRate: 98.1, department: 'content', seniority: 'senior', title: 'Senior Editor' },
+   149→  { name: 'Terpsichore', codename: 'TERPSICHORE', role: 'Blogger', status: 'idle', skills: ['long-form', 'thought-leadership', 'guest-posts'], model: 'glm-4.6', load: 9, successRate: 95.0, department: 'content', seniority: 'junior', title: 'Associate Blogger' },
+   150→
+   151→  // ── 15. Quality Assurance (4) ──
+   152→  { name: 'Labyrinth', codename: 'LABYRINTH', role: 'QA Tester', status: 'working', skills: ['test-plans', 'regression', 'bug-reports'], model: 'glm-4.6', load: 48, successRate: 96.2, department: 'qa', seniority: 'mid', title: 'QA Engineer' },
+   153→  { name: 'Sphinx', codename: 'SPHINX', role: 'Quality Reviewer', status: 'thinking', skills: ['review', 'gaps', 'improvements'], model: 'glm-4.6', load: 31, successRate: 97.3, department: 'qa', seniority: 'senior', title: 'Senior Quality Reviewer' },
+   154→  { name: 'Minotaur', codename: 'MINOTAUR', role: 'Performance Benchmarker', status: 'idle', skills: ['benchmarks', 'profiling', 'latency'], model: 'glm-4.6', load: 12, successRate: 96.5, department: 'qa', seniority: 'mid', title: 'Performance Engineer' },
+   155→  { name: 'Daedalus', codename: 'DAEDALUS', role: 'Test Engineer', status: 'idle', skills: ['e2e', 'integration', 'load-testing'], model: 'glm-4.6', load: 18, successRate: 95.9, department: 'qa', seniority: 'mid', title: 'Test Engineer' },
+   156→
+   157→  // ── 16. Infrastructure (4) ──
+   158→  { name: 'Pulse', codename: 'PULSE', role: 'Monitoring', status: 'working', skills: ['telemetry', 'alerts', 'self-heal'], model: 'glm-4.6', load: 47, successRate: 99.5, department: 'infrastructure', seniority: 'mid', title: 'Monitoring Engineer' },
+   159→  { name: 'Gaia', codename: 'GAIA', role: 'Site Reliability Engineer', status: 'working', skills: ['sli', 'slo', 'incident-response'], model: 'glm-4.6', load: 43, successRate: 96.4, department: 'infrastructure', seniority: 'senior', title: 'Senior SRE' },
+   160→  { name: 'Cronos', codename: 'CRONOS', role: 'Release Engineer', status: 'idle', skills: ['canary', 'blue-green', 'rollout'], model: 'glm-4.6', load: 19, successRate: 95.7, department: 'infrastructure', seniority: 'mid', title: 'Release Engineer' },
+   161→  { name: 'Titan', codename: 'TITAN', role: 'Cloud Architect', status: 'thinking', skills: ['aws', 'gcp', 'multi-region'], model: 'glm-4.6', load: 28, successRate: 97.0, department: 'infrastructure', seniority: 'senior', title: 'Senior Cloud Architect' },
+   162→];
+   163→
+   164→export interface SkillSeed {
+   165→  key: string;
+   166→  name: string;
+   167→  description: string;
+   168→  category: 'general' | 'research' | 'code' | 'comms' | 'data' | 'security' | 'media';
+   169→  icon: string;
+   170→  enabled: boolean;
+   171→}
+   172→
+   173→export const SKILL_CATALOG: SkillSeed[] = [
+   174→  { key: 'web-search', name: 'Web Search', description: 'Search the live web for up-to-date information and citations.', category: 'research', icon: 'Globe', enabled: true },
+   175→  { key: 'web-reader', name: 'Web Reader', description: 'Extract clean article content from any URL.', category: 'research', icon: 'BookOpen', enabled: true },
+   176→  { key: 'summarize', name: 'Summarize', description: 'Condense long documents into crisp bullet points.', category: 'general', icon: 'ScrollText', enabled: true },
+   177→  { key: 'code-gen', name: 'Code Generation', description: 'Generate production-ready code from natural language.', category: 'code', icon: 'Code2', enabled: true },
+   178→  { key: 'code-review', name: 'Code Review', description: 'Analyze code for bugs, security, and style.', category: 'code', icon: 'ShieldCheck', enabled: true },
+   179→  { key: 'refactor', name: 'Refactor', description: 'Restructure code without changing behavior.', category: 'code', icon: 'Wrench', enabled: true },
+   180→  { key: 'data-analysis', name: 'Data Analysis', description: 'Explore datasets and surface insights.', category: 'data', icon: 'ChartLine', enabled: true },
+   181→  { key: 'charts', name: 'Chart Rendering', description: 'Render charts and visualizations from data.', category: 'data', icon: 'BarChart3', enabled: true },
+   182→  { key: 'forecast', name: 'Forecasting', description: 'Predict trends from historical series.', category: 'data', icon: 'TrendingUp', enabled: true },
+   183→  { key: 'email', name: 'Email Compose', description: 'Draft professional emails and replies.', category: 'comms', icon: 'Mail', enabled: true },
+   184→  { key: 'outreach', name: 'Client Outreach', description: 'Generate personalized outreach sequences.', category: 'comms', icon: 'Send', enabled: false },
+   185→  { key: 'crm', name: 'CRM Sync', description: 'Sync contacts and deals to the CRM.', category: 'comms', icon: 'Users', enabled: false },
+   186→  { key: 'planning', name: 'Task Planning', description: 'Decompose goals into executable task graphs.', category: 'general', icon: 'Workflow', enabled: true },
+   187→  { key: 'decompose', name: 'Decompose', description: 'Break epics into atomic sub-tasks.', category: 'general', icon: 'GitBranch', enabled: true },
+   188→  { key: 'dispatch', name: 'Dispatch', description: 'Route tasks to the best-suited agent.', category: 'general', icon: 'Share2', enabled: true },
+   189→  { key: 'memory', name: 'Memory Store', description: 'Persist and retrieve long-term memory.', category: 'general', icon: 'Database', enabled: true },
+   190→  { key: 'telemetry', name: 'Telemetry', description: 'Collect and visualize live system metrics.', category: 'general', icon: 'Activity', enabled: true },
+   191→  { key: 'self-heal', name: 'Self-Heal', description: 'Detect anomalies and auto-remediate.', category: 'security', icon: 'HeartPulse', enabled: true },
+   192→  { key: 'image-gen', name: 'Image Generation', description: 'Create images from text prompts.', category: 'media', icon: 'Image', enabled: true },
+   193→  { key: 'tts', name: 'Text to Speech', description: 'Synthesize natural speech from text.', category: 'media', icon: 'Volume2', enabled: false },
+   194→];
+   195→
+   196→export interface CronSeed {
+   197→  key: string;
+   198→  name: string;
+   199→  schedule: string;
+   200→  description: string;
+   201→  enabled: boolean;
+   202→}
+   203→
+   204→export const CRON_ROSTER: CronSeed[] = [
+   205→  // ── Core Operations ──
+   206→  { key: 'webdev-review', name: 'Web Dev Review', schedule: '*/15 * * * *', description: 'Autonomous QA + feature improvement loop (agent-browser driven).', enabled: true },
+   207→  { key: 'health-check', name: 'Fleet Health Check', schedule: '*/5 * * * *', description: 'Heartbeat all agents and rotate stale status to offline.', enabled: true },
+   208→  { key: 'telemetry-prune', name: 'Telemetry Prune', schedule: '0 2 * * *', description: 'Trim telemetry older than 7 days.', enabled: true },
+   209→  { key: 'backup', name: 'Nightly Backup', schedule: '0 3 * * *', description: 'Snapshot the database and artifacts to /backups/.', enabled: true },
+   210→
+   211→  // ── Memory & Intelligence ──
+   212→  { key: 'memory-consolidation', name: 'Memory Consolidation', schedule: '0 */3 * * *', description: 'Compress and deduplicate episodic memory every 3h.', enabled: true },
+   213→  { key: 'memory-graph-rebuild', name: 'Memory Graph Rebuild', schedule: '0 */6 * * *', description: 'Rebuild the semantic memory graph from MemoryItem rows.', enabled: true },
+   214→  { key: 'blackbox-flush', name: 'Blackbox Flush', schedule: '*/10 * * * *', description: 'Flush in-memory blackbox audit buffer to AgentLog table.', enabled: true },
+   215→  { key: 'dag-checkpoint-cleanup', name: 'DAG Checkpoint Cleanup', schedule: '0 4 * * *', description: 'Remove completed DAG saga checkpoints older than 24h.', enabled: true },
+   216→
+   217→  // ── Agent Lifecycle ──
+   218→  { key: 'spawned-cleanup', name: 'Spawned Agent Cleanup', schedule: '0 3 * * *', description: 'Auto-delete spawned agents inactive for 30 days (logs preserved for respawn).', enabled: true },
+   219→  { key: 'agent-load-balance', name: 'Agent Load Balancer', schedule: '*/10 * * * *', description: 'Check agent loads; auto-spawn sub-agent if load > 80%.', enabled: false },
+   220→  { key: 'agent-roster-sync', name: 'Agent Roster Sync', schedule: '0 5 * * *', description: 'Sync DB agents with AGENT_ROSTER config (upsert new, update stale).', enabled: true },
+   221→
+   222→  // ── Learning & Skills ──
+   223→  { key: 'skill-proficiency-decay', name: 'Skill Proficiency Decay', schedule: '0 0 * * *', description: 'Decay unused skill proficiency by 1% per day (lastUsed > 7 days).', enabled: true },
+   224→  { key: 'learning-review', name: 'Learning Review', schedule: '0 8 * * *', description: 'Review learning records and surface mastered skills for promotion.', enabled: false },
+   225→
+   226→  // ── Earning & Revenue ──
+   227→  { key: 'earning-methods-research', name: 'Earning Methods Research', schedule: '0 9 * * *', description: 'Research and discover new earning methods daily.', enabled: true },
+   228→  { key: 'revenue-tracking', name: 'Revenue Tracking', schedule: '0 */4 * * *', description: 'Aggregate revenue from earning methods + update totals.', enabled: true },
+   229→  { key: 'credential-health-check', name: 'Credential Health Check', schedule: '0 6 * * *', description: 'Check platform credentials for expiring/suspended status.', enabled: false },
+   230→
+   231→  // ── Research & Outreach ──
+   232→  { key: 'daily-research', name: 'Daily Research', schedule: '0 7 * * *', description: 'Run the daily research engine on trending topics.', enabled: true },
+   233→  { key: 'outreach-followup', name: 'Outreach Follow-up', schedule: '0 10 * * 1-5', description: 'Send follow-up emails for pending outreach (weekdays only).', enabled: false },
+   234→  { key: 'social-media-post', name: 'Social Media Auto-Post', schedule: '0 9,13,17 * * *', description: 'Auto-post to social media 3x/day via marketing agents.', enabled: false },
+   235→
+   236→  // ── System Health ──
+   237→  { key: 'self-improve', name: 'Self-Improve', schedule: '0 */6 * * *', description: 'Analyze logs and propose optimization patches.', enabled: false },
+   238→  { key: 'rollback-snapshot-cleanup', name: 'Rollback Snapshot Cleanup', schedule: '0 4 * * 0', description: 'Remove rollback snapshots older than 7 days (weekly).', enabled: true },
+   239→  { key: 'upload-cleanup', name: 'Upload Cleanup', schedule: '0 4 * * *', description: 'Remove orphaned uploaded files not referenced by Artifact rows.', enabled: false },
+   240→  { key: 'notification-cleanup', name: 'Notification Cleanup', schedule: '0 */12 * * *', description: 'Mark old read notifications as archived (older than 7 days).', enabled: true },
+   241→  { key: 'log-rotation', name: 'Log Rotation', schedule: '0 5 * * *', description: 'Archive AgentLog entries older than 30 days to /backups/logs/.', enabled: true },
+   242→
+   243→  // ── Analytics & Reporting ──
+   244→  { key: 'daily-report', name: 'Daily Report', schedule: '0 8 * * *', description: 'Generate the daily fleet report and store to memory.', enabled: true },
+   245→  { key: 'weekly-summary', name: 'Weekly Summary', schedule: '0 9 * * 1', description: 'Generate weekly summary report every Monday 9 AM.', enabled: true },
+   246→  { key: 'proactive-insights', name: 'Proactive Insights', schedule: '0 */4 * * *', description: 'Generate proactive LLM-driven insights from fleet data.', enabled: true },
+   247→
+   248→  // ── Model Provider Sync (Task ID 12 / PARALLEL-D) ──
+   249→  { key: 'model-sync', name: 'Model Provider Sync', schedule: '0 */6 * * *', description: 'Sync models from providers + detect local + purge broken.', enabled: true },
+   250→];
+   251→
+   252→export const STATUS_COLORS: Record<AgentStatus, string> = {
+   253→  idle: JARVIS.colors.cyan,
+   254→  thinking: JARVIS.colors.violet,
+   255→  working: JARVIS.colors.green,
+   256→  error: JARVIS.colors.red,
+   257→  offline: JARVIS.colors.textMute,
+   258→};
+   259→
+   260→export const PRIORITY_COLORS: Record<string, string> = {
+   261→  low: JARVIS.colors.cyan,
+   262→  medium: JARVIS.colors.violet,
+   263→  high: JARVIS.colors.amber,
+   264→  critical: JARVIS.colors.red,
+   265→};
+   266→
+   267→export const LEVEL_COLORS: Record<string, string> = {
+   268→  info: JARVIS.colors.cyan,
+   269→  success: JARVIS.colors.green,
+   270→  warn: JARVIS.colors.amber,
+   271→  error: JARVIS.colors.red,
+   272→  debug: JARVIS.colors.textMute,
+   273→};
+   274→
+   275→export function timeAgo(date: Date | string | number): string {
+   276→  const d = typeof date === 'object' ? date : new Date(date);
+   277→  const s = Math.floor((Date.now() - d.getTime()) / 1000);
+   278→  if (s < 5) return 'just now';
+   279→  if (s < 60) return `${s}s ago`;
+   280→  const m = Math.floor(s / 60);
+   281→  if (m < 60) return `${m}m ago`;
+   282→  const h = Math.floor(m / 60);
+   283→  if (h < 24) return `${h}h ago`;
+   284→  const dd = Math.floor(h / 24);
+   285→  return `${dd}d ago`;
+   286→}
+   287→
+   288→export function fmtTime(date: Date | string | number): string {
+   289→  const d = typeof date === 'object' ? date : new Date(date);
+   290→  return d.toLocaleTimeString('en-US', { hour12: false });
+   291→}
+   292→

@@ -11,7 +11,19 @@ export async function GET() {
 export async function POST(req: NextRequest) {
   const body = await req.json().catch(() => ({}));
   const { key, name, description, category, icon } = body;
-  if (!key || !name) return NextResponse.json({ error: 'key and name required' }, { status: 400 });
+  // ── Input validation ────────────────────────────────────────────
+  if (typeof key !== 'string' || key.trim().length === 0) {
+    return NextResponse.json({ error: 'key required' }, { status: 400 });
+  }
+  if (key.length > 128) {
+    return NextResponse.json({ error: 'key must be 128 characters or fewer' }, { status: 400 });
+  }
+  if (typeof name !== 'string' || name.trim().length === 0) {
+    return NextResponse.json({ error: 'name required' }, { status: 400 });
+  }
+  if (name.length > 200) {
+    return NextResponse.json({ error: 'name must be 200 characters or fewer' }, { status: 400 });
+  }
   const skill = await db.skill.upsert({
     where: { key },
     update: { name, description, category, icon },

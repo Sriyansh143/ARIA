@@ -3,13 +3,17 @@
 import { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
-  FileText, Download, Loader2, FileSpreadsheet, Brain, Sparkles, RefreshCw, CheckCircle2, GitCompare, X, History,
+  FileText, Download, Loader2, FileSpreadsheet, Brain, Sparkles, RefreshCw, CheckCircle2, GitCompare, X, History, Mail, Send,
 } from 'lucide-react';
 import { useApi, postJson } from '@/lib/hooks/use-api';
 import { JARVIS } from '@/lib/config';
 import { SectionTitle, StatCard, Pill } from '@/components/jarvis/shared';
 import { useToast } from '@/hooks/use-toast';
 import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import {
+  Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription,
+} from '@/components/ui/dialog';
 import ReactMarkdown from 'react-markdown';
 
 interface ReportData {
@@ -38,6 +42,7 @@ export default function ReportsTab() {
   const [generating, setGenerating] = useState(false);
   const [report, setReport] = useState<ReportData | null>(null);
   const [diffOpen, setDiffOpen] = useState(false);
+  const [emailOpen, setEmailOpen] = useState(false);
   const { data: reportsList } = useApi<{ reports: Array<{ id: string; key: string; preview: string; updatedAt: string }> }>('/api/reports/diff', 0);
   const { data: diffHistory, refresh: refreshDiffHistory } = useApi<{ diffs: Array<{ id: string; reportAKey: string; reportBKey: string; diff: string; createdAt: string }> }>('/api/reports/diffs', 15000);
 
@@ -87,6 +92,15 @@ export default function ReportsTab() {
               title="Open a print-friendly PDF report in a new tab"
             >
               <FileText className="h-3.5 w-3.5 mr-1.5" /> PDF Report
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setEmailOpen(true)}
+              className="border-[var(--j-border)] bg-transparent hover:bg-[var(--j-panel-soft)] text-[var(--j-violet)]"
+              title="Email the current report to a recipient"
+            >
+              <Mail className="h-3.5 w-3.5 mr-1.5" /> Email
             </Button>
             <Button onClick={generateReport} disabled={generating} className="jarvis-btn-accent border-0">
               {generating ? <><Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" /> Generating…</> : <><Sparkles className="h-3.5 w-3.5 mr-1.5" /> Generate</>}
@@ -216,6 +230,13 @@ export default function ReportsTab() {
       <AnimatePresence>
         {diffOpen && <ReportDiffModal reports={reportsList?.reports ?? []} onClose={() => setDiffOpen(false)} onGenerated={() => refreshDiffHistory()} />}
       </AnimatePresence>
+
+      <EmailReportDialog
+        open={emailOpen}
+        onOpenChange={setEmailOpen}
+        hasReport={!!report}
+        reportContent={report?.report}
+      />
     </div>
   );
 }
@@ -291,5 +312,148 @@ function ReportDiffModal({ reports, onClose, onGenerated }: { reports: Array<{ i
         </div>
       </motion.div>
     </motion.div>
+  );
+}
+
+// ──────────────────────────────────────────────────────────────────────
+// EmailReportDialog — collect a recipient email + choose whether to send
+// the currently displayed report or generate a fresh one. POSTs to
+// /api/reports/email (a stub — no SMTP in the sandbox; the email is
+// logged to the server console + persisted as a Notification(type='email')).
+// ──────────────────────────────────────────────────────────────────────
+function EmailReportDialog({
+  open,
+  onOpenChange,
+  hasReport,
+  reportContent,
+}: {
+  open: boolean;
+  onOpenChange: (v: boolean) => void;
+  hasReport: boolean;
+  reportContent?: string;
+}) {
+  const { toast } = useToast();
+  const [email, setEmail] = useState('');
+  const [sending, setSending] = useState(false);
+
+  const send = async (generate: boolean) => {
+    const trimmed = email.trim();
+    if (!trimmed) {
+      toast({ title: 'Email address required', variant: 'destructive' });
+      return;
+    }
+    setSending(true);
+    try {
+      const res = await fetch('/api/reports/email', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(
+          generate
+            ? { email: trimmed, generate: true }
+            : { email: trimmed, reportContent: reportContent ?? '' },
+        ),
+      });
+      const json = await res.json();
+      if (!res.ok) {
+        toast({
+          title: 'Email failed',
+          description: typeof json.error === 'string' ? json.error : 'Unknown error',
+          variant: 'destructive',
+        });
+        return;
+      }
+      toast({
+        title: 'Email queued (stub)',
+        description: `Saved to EmailLog · ${trimmed}`,
+      });
+      onOpenChange(false);
+      setEmail('');
+    } catch (e) {
+      toast({
+        title: 'Email failed',
+        description: e instanceof Error ? e.message : '',
+        variant: 'destructive',
+      });
+    } finally {
+      setSending(false);
+    }
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={(v) => { if (!sending) onOpenChange(v); }}>
+      <DialogContent className="bg-[var(--j-panel)] border-[var(--j-border)] text-[var(--j-text)]">
+        <DialogHeader>
+          <DialogTitle className="jarvis-mono text-sm uppercase tracking-widest text-[var(--j-violet)]">
+            Email Daily Report
+          </DialogTitle>
+          <DialogDescription className="text-[var(--j-text-dim)]">
+            Send the fleet report to an email address. Sandbox has no SMTP — the email is logged to the server console + saved as an EmailLog notification.
+          </DialogDescription>
+        </DialogHeader>
+
+        <div className="space-y-3">
+          <div>
+            <label className="jarvis-mono text-[10px] uppercase text-[var(--j-text-mute)] mb-1 block">
+              Recipient Email
+            </label>
+            <Input
+              type="email"
+              inputMode="email"
+              autoComplete="email"
+              placeholder="commander@jarvis.mil"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              disabled={sending}
+              className="bg-[var(--j-panel-soft)] border-[var(--j-border)] text-[var(--j-text)] jarvis-mono text-xs"
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' && !sending) {
+                  e.preventDefault();
+                  void send(false);
+                }
+              }}
+            />
+          </div>
+
+          <div className="flex items-center gap-2 text-[10px] text-[var(--j-text-mute)] jarvis-mono">
+            <span className={`h-1.5 w-1.5 rounded-full ${hasReport ? 'bg-[var(--j-green)]' : 'bg-[var(--j-text-mute)]'}`} />
+            {hasReport
+              ? 'Current report available — can send as-is or regenerate.'
+              : 'No report loaded — will generate a fresh one.'}
+          </div>
+        </div>
+
+        <DialogFooter className="gap-2">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => onOpenChange(false)}
+            disabled={sending}
+            className="border-[var(--j-border)] bg-transparent text-[var(--j-text-dim)] hover:bg-[var(--j-panel-soft)]"
+          >
+            Cancel
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => void send(true)}
+            disabled={sending || !email.trim()}
+            className="border-[var(--j-violet)]/40 bg-[var(--j-violet)]/10 text-[var(--j-violet)] hover:bg-[var(--j-violet)]/20"
+          >
+            {sending ? <Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" /> : <Sparkles className="h-3.5 w-3.5 mr-1.5" />}
+            Generate &amp; Send
+          </Button>
+          <Button
+            size="sm"
+            onClick={() => void send(false)}
+            disabled={sending || !email.trim() || !hasReport}
+            className="jarvis-btn-accent border-0"
+            title={!hasReport ? 'Generate a report first' : 'Send the currently displayed report'}
+          >
+            {sending ? <Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" /> : <Send className="h-3.5 w-3.5 mr-1.5" />}
+            Send Current
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   );
 }

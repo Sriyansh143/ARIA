@@ -50,8 +50,12 @@ export async function GET(req: NextRequest) {
 export async function POST(req: NextRequest) {
   const body = await req.json().catch(() => ({}));
   const { id, title, description, status, priority, progress, owner, dueDate, tags, pinned } = body;
-  if (!title) {
+  // ── Input validation ────────────────────────────────────────────
+  if (typeof title !== 'string' || title.trim().length === 0) {
     return NextResponse.json({ error: 'title required' }, { status: 400 });
+  }
+  if (title.length > 500) {
+    return NextResponse.json({ error: 'title must be 500 characters or fewer' }, { status: 400 });
   }
   const key = (id as string) || `goal-${String(title).toLowerCase().replace(/[^a-z0-9]+/g, '-').slice(0, 40)}`;
   const value = JSON.stringify({

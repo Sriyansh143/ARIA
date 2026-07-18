@@ -611,37 +611,3 @@ model AgentMonitorFinding {
   @@index([severity])
   @@index([status])
 }
-
-// ===== Task ID 4 (PARALLEL-C — zip import): Audit Log + Cron History =====
-// AuditLog — structured audit trail for all admin/operator actions.
-// cron-history.ts writes CronHistory rows for every cron execution.
-// Both are best-effort (write helpers swallow errors so they never
-// break the main request flow).
-
-model AuditLog {
-  id        String   @id @default(cuid())
-  actor     String   @default("operator") // who performed the action (userId / codename / "operator")
-  action    String   // e.g. "agent.create", "settings.update"
-  target    String?  // resource identifier e.g. "agent:abc" or "rule:rls-1"
-  meta      String   @default("{}") // JSON: contextual details
-  ipAddress String?
-  userAgent String?
-  createdAt DateTime @default(now())
-
-  @@index([createdAt])
-  @@index([actor])
-  @@index([action])
-}
-
-model CronHistory {
-  id          String   @id @default(cuid())
-  cronKey     String   // CronJob.key
-  status      String   @default("success") // success | error | timeout | skipped
-  durationMs  Int      @default(0)
-  detail      String   @default("") // message or error string (cap 500)
-  createdAt   DateTime @default(now())
-
-  @@index([cronKey])
-  @@index([createdAt])
-  @@index([status])
-}

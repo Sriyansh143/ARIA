@@ -23,6 +23,7 @@ import {
   CheckCircle2, XCircle, Wand2, History, Bell, Radio, Bot, Cpu,
   GraduationCap, Boxes, ScrollText, Layers, ShoppingCart, MessagesSquare,
   FileText, Target, Brain, Clock, Server, Workflow, KeyRound, ShieldCheck,
+  DatabaseBackup, Download, Save,
   type LucideIcon,
 } from 'lucide-react';
 import { useApi, postJson } from '@/lib/hooks/use-api';
@@ -613,6 +614,9 @@ export default function DataManagementTab() {
         </div>
       </div>
 
+      {/* ─── Task ID 4 (PARALLEL-C): Backups section ─────────────────── */}
+      <BackupsSection />
+
       {/* Footer note */}
       <div className="text-[10px] text-[var(--j-text-mute)] text-center pt-2">
         Counts auto-refresh every 20 seconds. Last refresh: {countsData?.ts ? new Date(countsData.ts).toLocaleTimeString() : '—'}
@@ -752,6 +756,268 @@ export default function DataManagementTab() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+    </div>
+  );
+}
+
+// ─── BackupsSection (Task ID 4 / PARALLEL-C) ────────────────────────
+// Inline sub-component: lists /api/admin/backup entries and exposes
+// Create / Download / Restore / Delete actions. Self-contained — no
+// parent state is touched.
+interface BackupMeta {
+  filename: string;
+  path: string;
+  sizeBytes: number;
+  createdAt: string;
+  ageDays: number;
+}
+interface BackupsResponse {
+  backups: BackupMeta[];
+  count: number;
+  totalBytes?: number;
+  maxBackups?: number;
+  maxAgeDays?: number;
+  error?: string;
+}
+
+function formatBytes(n: number): string {
+  if (n < 1024) return `${n} B`;
+  if (n < 1024 * 1024) return `${(n / 1024).toFixed(1)} KB`;
+  return `${(n / (1024 * 1024)).toFixed(2)} MB`;
+}
+
+function BackupsSection() {
+  const { toast } = useToast();
+  const { data, loading, refresh } = useApi<BackupsResponse>('/api/admin/backup', 30000);
+  const [busyAction, setBusyAction] = useState<string | null>(null);
+  const [pendingDelete, setPendingDelete] = useState<BackupMeta | null>(null);
+
+  const backups = data?.backups ?? [];
+  const totalBytes = data?.totalBytes ?? backups.reduce((a, b) => a + b.sizeBytes, 0);
+
+  const createBackup = async () => {
+    setBusyAction('create');
+    toast({ title: 'Creating backup…', description: 'Exporting key DB tables as gzip JSON.' });
+    try {
+      const res = await postJson<{ ok: boolean; backup?: BackupMeta; message?: string; error?: string }>(
+        '/api/admin/backup',
+        { label: 'manual' },
+      );
+      if (res.ok) {
+        toast({ title: 'Backup created', description: res.message ?? res.backup?.filename });
+      } else {
+        toast({ title: 'Backup failed', description: res.error ?? 'Unknown error', variant: 'destructive' });
+      }
+      refresh();
+    } catch (e) {
+      toast({ title: 'Backup failed', description: e instanceof Error ? e.message : 'Network error', variant: 'destructive' });
+    } finally {
+      setBusyAction(null);
+    }
+  };
+
+  const downloadBackup = (b: BackupMeta) => {
+    // Direct browser download — the API streams the .gz file.
+    const a = document.createElement('a');
+    a.href = `/api/admin/backup?download=${encodeURIComponent(b.filename)}`;
+    a.download = b.filename;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    toast({ title: 'Downloading backup', description: b.filename });
+  };
+
+  const restoreBackup = async (b: BackupMeta) => {
+    setBusyAction(`restore-${b.filename}`);
+    toast({ title: 'Loading backup payload…', description: b.filename });
+    try {
+      const res = await fetch(`/api/admin/backup?restore=${encodeURIComponent(b.filename)}`);
+      const json = await res.json() as { ok: boolean; payload?: unknown; error?: string };
+      if (json.ok) {
+        // For safety, we DON'T auto-restore — just preview the snapshot in
+        // a downloadable JSON file so the operator can inspect it. A full
+        // automated restore would wipe the current DB and is too dangerous
+        // to wire up without a typed confirmation flow.
+        const blob = new Blob([JSON.stringify(json.payload, null, 2)], { type: 'application/json' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = b.filename.replace('.json.gz', '.preview.json');
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+        toast({
+          title: 'Backup preview downloaded',
+          description: 'Inspect the JSON; for full restore, contact your DB administrator.',
+        });
+      } else {
+        toast({ title: 'Restore failed', description: json.error ?? 'Unknown error', variant: 'destructive' });
+      }
+    } catch (e) {
+      toast({ title: 'Restore failed', description: e instanceof Error ? e.message : 'Network error', variant: 'destructive' });
+    } finally {
+      setBusyAction(null);
+    }
+  };
+
+  const confirmDelete = async () => {
+    if (!pendingDelete) return;
+    const b = pendingDelete;
+    setPendingDelete(null);
+    setBusyAction(`delete-${b.filename}`);
+    try {
+      const res = await fetch('/api/admin/backup', {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ filename: b.filename }),
+      }).then((r) => r.json() as Promise<{ ok: boolean; error?: string }>);
+      if (res.ok) {
+        toast({ title: 'Backup deleted', description: b.filename });
+      } else {
+        toast({ title: 'Delete failed', description: res.error ?? 'Unknown error', variant: 'destructive' });
+      }
+      refresh();
+    } catch (e) {
+      toast({ title: 'Delete failed', description: e instanceof Error ? e.message : 'Network error', variant: 'destructive' });
+    } finally {
+      setBusyAction(null);
+    }
+  };
+
+  const accent = JARVIS.colors.violet;
+
+  return (
+    <div>
+      <h3 className="jarvis-mono text-xs uppercase tracking-widest text-[var(--j-text-dim)] mb-2 flex items-center gap-2">
+        <DatabaseBackup className="h-3.5 w-3.5" style={{ color: accent }} />
+        Backups
+        <span className="jarvis-mono text-[10px] text-[var(--j-text-mute)] normal-case font-normal ml-1">
+          · {backups.length} file(s) · {formatBytes(totalBytes)}
+          {data?.maxBackups ? ` · cap ${data.maxBackups}/${data.maxAgeDays}d` : ''}
+        </span>
+        <Button
+          size="sm"
+          className="ml-auto h-7 text-xs gap-1 jarvis-btn-accent border-0"
+          disabled={busyAction !== null}
+          onClick={createBackup}
+        >
+          {busyAction === 'create' ? <Loader2 className="h-3 w-3 animate-spin" /> : <Save className="h-3 w-3" />}
+          {busyAction === 'create' ? 'Creating…' : 'Create Backup'}
+        </Button>
+      </h3>
+
+      <p className="text-[10px] text-[var(--j-text-mute)] mb-2">
+        Snapshots of the key DB tables (agents, tasks, skills, providers, models, rules,
+        payments, comms, etc.) saved as gzip-compressed JSON. Auto-rotates to keep at most
+        {data?.maxBackups ?? 20} backups, deleting anything older than {data?.maxAgeDays ?? 90} days.
+      </p>
+
+      <div className="jarvis-panel p-0 overflow-hidden">
+        <div className="max-h-72 overflow-y-auto jarvis-scroll">
+          {loading && !data ? (
+            <div className="p-4 flex items-center gap-2 text-[var(--j-text-mute)] text-xs">
+              <Loader2 className="h-3.5 w-3.5 animate-spin" /> loading backups…
+            </div>
+          ) : backups.length ? (
+            <div className="font-mono text-xs">
+              {backups.map((b, i) => {
+                const isBusy = busyAction === `restore-${b.filename}` || busyAction === `delete-${b.filename}`;
+                return (
+                  <motion.div
+                    key={b.filename}
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    transition={{ delay: Math.min(i * 0.02, 0.3) }}
+                    className="grid grid-cols-[1fr_90px_70px_140px] gap-2 px-4 py-2 border-b border-[var(--j-border-soft)] hover:bg-[var(--j-panel-soft)]/40 items-center"
+                  >
+                    <div className="min-w-0 flex flex-col gap-0.5">
+                      <span className="text-[var(--j-text)] truncate">{b.filename}</span>
+                      <span className="text-[10px] text-[var(--j-text-mute)]">
+                        {new Date(b.createdAt).toLocaleString()} · {b.ageDays.toFixed(1)}d old
+                      </span>
+                    </div>
+                    <span className="text-[var(--j-cyan)] tabular-nums text-[11px]">{formatBytes(b.sizeBytes)}</span>
+                    <span className="text-[10px]">
+                      <Pill color={b.ageDays > (data?.maxAgeDays ?? 90) * 0.8 ? JARVIS.colors.amber : JARVIS.colors.green}>
+                        {b.ageDays < 1 ? 'today' : `${Math.floor(b.ageDays)}d`}
+                      </Pill>
+                    </span>
+                    <div className="flex items-center gap-1 justify-end">
+                      <button
+                        onClick={() => downloadBackup(b)}
+                        disabled={isBusy}
+                        className="h-7 w-7 flex items-center justify-center rounded-md border border-[var(--j-border)] text-[var(--j-text-dim)] hover:text-[var(--j-cyan)] hover:border-[var(--j-cyan)]/40 disabled:opacity-40"
+                        title="Download .gz"
+                        aria-label={`Download ${b.filename}`}
+                      >
+                        <Download className="h-3 w-3" />
+                      </button>
+                      <button
+                        onClick={() => restoreBackup(b)}
+                        disabled={isBusy}
+                        className="h-7 w-7 flex items-center justify-center rounded-md border border-[var(--j-border)] text-[var(--j-text-dim)] hover:text-[var(--j-violet)] hover:border-[var(--j-violet)]/40 disabled:opacity-40"
+                        title="Preview (restore JSON)"
+                        aria-label={`Preview ${b.filename}`}
+                      >
+                        {busyAction === `restore-${b.filename}` ? <Loader2 className="h-3 w-3 animate-spin" /> : <FileText className="h-3 w-3" />}
+                      </button>
+                      <button
+                        onClick={() => setPendingDelete(b)}
+                        disabled={isBusy}
+                        className="h-7 w-7 flex items-center justify-center rounded-md border border-[var(--j-border)] text-[var(--j-text-dim)] hover:text-[var(--j-red)] hover:border-[var(--j-red)]/40 disabled:opacity-40"
+                        title="Delete"
+                        aria-label={`Delete ${b.filename}`}
+                      >
+                        {busyAction === `delete-${b.filename}` ? <Loader2 className="h-3 w-3 animate-spin" /> : <Trash2 className="h-3 w-3" />}
+                      </button>
+                    </div>
+                  </motion.div>
+                );
+              })}
+            </div>
+          ) : (
+            <div className="p-6 flex flex-col items-center justify-center text-center">
+              <DatabaseBackup className="h-8 w-8 text-[var(--j-text-mute)] mb-2" />
+              <div className="jarvis-mono text-[10px] uppercase text-[var(--j-text-dim)]">no backups yet</div>
+              <div className="text-[10px] text-[var(--j-text-mute)] mt-1">Click &ldquo;Create Backup&rdquo; to snapshot the DB.</div>
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* Delete-confirmation dialog */}
+      <Dialog open={pendingDelete !== null} onOpenChange={(o) => !o && setPendingDelete(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Trash2 className="h-4 w-4" style={{ color: JARVIS.colors.red }} />
+              Delete backup
+            </DialogTitle>
+            <DialogDescription>
+              This permanently deletes the backup file. This action cannot be undone.
+            </DialogDescription>
+          </DialogHeader>
+          {pendingDelete && (
+            <div className="rounded-md border border-[var(--j-red)]/40 bg-[var(--j-red)]/10 p-2 font-mono text-xs">
+              {pendingDelete.filename}
+              <div className="text-[10px] text-[var(--j-text-mute)] mt-1">
+                {formatBytes(pendingDelete.sizeBytes)} · created {new Date(pendingDelete.createdAt).toLocaleString()}
+              </div>
+            </div>
+          )}
+          <DialogFooter>
+            <Button variant="outline" size="sm" onClick={() => setPendingDelete(null)}>Cancel</Button>
+            <Button
+              size="sm"
+              className="bg-[var(--j-red)] text-white hover:bg-[var(--j-red)]/90 gap-1.5"
+              onClick={confirmDelete}
+            >
+              <Trash2 className="h-3.5 w-3.5" /> Delete
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

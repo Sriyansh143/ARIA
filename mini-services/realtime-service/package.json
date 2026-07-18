@@ -1,0 +1,21 @@
+{
+  "name": "jarvis-realtime-service",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "WebSocket mini-service for JARVIS Mission Control — pushes real-time fleet, metrics, notifications, and activity updates every 5 seconds.",
+  "scripts": {
+    "dev": "bun --hot index.ts",
+    "start": "bun index.ts",
+    "postinstall": "prisma generate"
+  },
+  "dependencies": {
+    "@prisma/client": "^6.11.1",
+    "prisma": "^6.11.1",
+    "socket.io": "^4.8.1"
+  },
+  "devDependencies": {
+    "@types/bun": "latest",
+    "typescript": "^5"
+  }
+}

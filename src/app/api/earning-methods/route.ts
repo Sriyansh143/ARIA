@@ -145,8 +145,19 @@ export async function POST(req: NextRequest) {
     autoExecute?: boolean;
   };
 
-  if (!name) {
+  if (typeof name !== 'string' || name.trim().length === 0) {
     return NextResponse.json({ error: 'name required' }, { status: 400 });
+  }
+  if (name.length > 200) {
+    return NextResponse.json({ error: 'name must be 200 characters or fewer' }, { status: 400 });
+  }
+  if (key !== undefined && key !== null) {
+    if (typeof key !== 'string' || key.trim().length === 0) {
+      return NextResponse.json({ error: 'key must be a non-empty string when provided' }, { status: 400 });
+    }
+    if (key.length > 128) {
+      return NextResponse.json({ error: 'key must be 128 characters or fewer' }, { status: 400 });
+    }
   }
 
   // Auto-derive a key from the name if not supplied.

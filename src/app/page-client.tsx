@@ -17,6 +17,7 @@ import { useApi } from '@/lib/hooks/use-api';
 import { cn } from '@/lib/utils';
 import { useToast } from '@/hooks/use-toast';
 import { useNavStore } from '@/lib/nav-store';
+import { MergedTab } from '@/components/jarvis/MergedTab';
 
 import OrionShell from '@/components/jarvis/OrionShell';
 import OverviewTab from '@/components/tabs/OverviewTab';
@@ -60,15 +61,168 @@ import AppTreeTab from '@/components/tabs/AppTreeTab';
 import GoalsTab from '@/components/tabs/GoalsTab';
 import DataManagementTab from '@/components/tabs/DataManagementTab';
 import AgentMonitorTab from '@/components/tabs/AgentMonitorTab';
+import AuditLogTab from '@/components/tabs/AuditLogTab';
+
+// ─── Merged tab components (combine related tabs with sub-view toggles) ───
+
+// Agent Fleet: Cards + Topology + Spawned + Workforce
+function FleetMergedTab() {
+  return (
+    <MergedTab
+      accent={JARVIS.colors.cyan}
+      views={[
+        { key: 'roster', label: 'Roster', component: <FleetTab /> },
+        { key: 'topology', label: 'Topology', component: <FleetTopologyTab /> },
+        { key: 'spawned', label: 'Spawned', component: <SpawnedAgentsTab /> },
+        { key: 'workforce', label: 'Workforce', component: <WorkforceTab /> },
+      ]}
+    />
+  );
+}
+
+// Tasks: List + Kanban + DAG
+function TasksMergedTab() {
+  return (
+    <MergedTab
+      accent={JARVIS.colors.amber}
+      views={[
+        { key: 'list', label: 'List', component: <TasksTab /> },
+        { key: 'kanban', label: 'Kanban', component: <KanbanTab /> },
+        { key: 'dag', label: 'DAG', component: <TaskDagTab /> },
+      ]}
+    />
+  );
+}
+
+// Skills: Catalog + Runner + Pipeline
+function SkillsMergedTab() {
+  return (
+    <MergedTab
+      accent={JARVIS.colors.cyan}
+      views={[
+        { key: 'catalog', label: 'Catalog', component: <SkillsTab /> },
+        { key: 'runner', label: 'Runner', component: <SkillRunnerTab /> },
+        { key: 'pipeline', label: 'Pipeline', component: <SkillChainTab /> },
+      ]}
+    />
+  );
+}
+
+// AI Models: Models + Providers
+function ModelsMergedTab() {
+  return (
+    <MergedTab
+      accent={JARVIS.colors.cyan}
+      views={[
+        { key: 'models', label: 'Models', component: <ModelsTab /> },
+        { key: 'providers', label: 'Providers', component: <ProvidersTab /> },
+      ]}
+    />
+  );
+}
+
+// Memory: Store + Graph
+function MemoryMergedTab() {
+  return (
+    <MergedTab
+      accent={JARVIS.colors.violet}
+      views={[
+        { key: 'store', label: 'Store', component: <MemoryTab /> },
+        { key: 'graph', label: 'Graph', component: <MemoryGraphTab /> },
+      ]}
+    />
+  );
+}
+
+// Learning: Learn & Earn + Teach
+function LearningMergedTab() {
+  return (
+    <MergedTab
+      accent={JARVIS.colors.cyan}
+      views={[
+        { key: 'learn', label: 'Learn & Earn', component: <LearningTab /> },
+        { key: 'teach', label: 'Teach', component: <TeachSourceCard /> },
+      ]}
+    />
+  );
+}
+
+// Rules & Plugins
+function RulesPluginsMergedTab() {
+  return (
+    <MergedTab
+      accent={JARVIS.colors.amber}
+      views={[
+        { key: 'rules', label: 'Rules', component: <RulesTab /> },
+        { key: 'plugins', label: 'Plugins', component: <PluginsTab /> },
+      ]}
+    />
+  );
+}
+
+// Fleet Health: Health + Telemetry
+function HealthMergedTab() {
+  return (
+    <MergedTab
+      accent={JARVIS.colors.green}
+      views={[
+        { key: 'health', label: 'Health', component: <HealthTab /> },
+        { key: 'telemetry', label: 'Telemetry', component: <TelemetryTab /> },
+      ]}
+    />
+  );
+}
+
+// Monitoring: Logs + Black Box + Agent Monitor + Audit
+function MonitoringMergedTab() {
+  return (
+    <MergedTab
+      accent={JARVIS.colors.red}
+      views={[
+        { key: 'agent-monitor', label: 'Monitors', component: <AgentMonitorTab /> },
+        { key: 'logs', label: 'Logs', component: <LogsTab /> },
+        { key: 'blackbox', label: 'Black Box', component: <BlackboxTab /> },
+        { key: 'audit', label: 'Audit Log', component: <AuditLogTab /> },
+      ]}
+    />
+  );
+}
+
+// Analytics & Reports
+function AnalyticsReportsMergedTab() {
+  return (
+    <MergedTab
+      accent={JARVIS.colors.cyan}
+      views={[
+        { key: 'analytics', label: 'Analytics', component: <AnalyticsTab /> },
+        { key: 'reports', label: 'Reports', component: <ReportsTab /> },
+      ]}
+    />
+  );
+}
+
+// Payments: Transactions + Payout Methods
+function PaymentsMergedTab() {
+  return (
+    <MergedTab
+      accent={JARVIS.colors.green}
+      views={[
+        { key: 'transactions', label: 'Transactions', component: <PaymentsTab /> },
+        { key: 'methods', label: 'Payout Methods', component: <PaymentMethodsTab /> },
+      ]}
+    />
+  );
+}
 
 export type TabKey =
-  | 'overview' | 'fleet' | 'chat' | 'skills' | 'memory' | 'telemetry'
-  | 'scheduler' | 'payments' | 'health' | 'logs' | 'tasks' | 'activity'
-  | 'artifacts' | 'providers' | 'insights' | 'kanban' | 'comms' | 'runner'
-  | 'memory-graph' | 'fleet-topology' | 'chain' | 'task-dag' | 'autonomy' | 'analytics' | 'reports'
-  | 'spawned' | 'earnings' | 'branding' | 'teach'
-  | 'workforce' | 'learning' | 'rules' | 'plugins' | 'models'
-  | 'blackbox' | 'services' | 'apptree' | 'goals' | 'payment-methods' | 'data-mgmt' | 'agent-monitor';
+  | 'overview' | 'chat' | 'activity' | 'insights'
+  | 'fleet' | 'comms'
+  | 'tasks' | 'goals'
+  | 'skills' | 'autonomy' | 'models'
+  | 'memory' | 'learning' | 'rules-plugins' | 'artifacts'
+  | 'health' | 'monitoring' | 'scheduler'
+  | 'payments' | 'earnings' | 'analytics' | 'services'
+  | 'data-mgmt' | 'branding' | 'apptree';
 
 interface TabDef {
   key: TabKey;
@@ -79,68 +233,51 @@ interface TabDef {
 }
 
 const TABS: TabDef[] = [
-  // ─── Command Center ─── the operator's primary entry points
+  // ─── Command Center (4) ───
   { key: 'overview', label: 'Overview', icon: LayoutDashboard, group: 'Command', accent: JARVIS.colors.cyan },
-  { key: 'chat', label: 'JARVIS Chat', icon: MessageSquare, group: 'Command', accent: JARVIS.colors.violet },
+  { key: 'chat', label: 'ARIA Chat', icon: MessageSquare, group: 'Command', accent: JARVIS.colors.violet },
   { key: 'activity', label: 'Activity Feed', icon: History, group: 'Command', accent: JARVIS.colors.green },
   { key: 'insights', label: 'AI Insights', icon: Lightbulb, group: 'Command', accent: JARVIS.colors.cyan },
 
-  // ─── Agent Fleet ─── all agent management + inter-agent comms
+  // ─── Agent Fleet (2) — merged 5→2 ───
   { key: 'fleet', label: 'Agent Fleet', icon: Bot, group: 'Fleet', accent: JARVIS.colors.cyan },
-  { key: 'fleet-topology', label: 'Fleet Topology', icon: Share2, group: 'Fleet', accent: JARVIS.colors.cyan },
-  { key: 'spawned', label: 'Spawned Agents', icon: Copy, group: 'Fleet', accent: JARVIS.colors.cyan },
-  { key: 'workforce', label: 'Workforce', icon: Building2, group: 'Fleet', accent: JARVIS.colors.cyan },
   { key: 'comms', label: 'Agent Comms', icon: MessagesSquare, group: 'Fleet', accent: JARVIS.colors.violet },
 
-  // ─── Work ─── task management + goals
+  // ─── Work & Tasks (2) — merged 4→2 ───
   { key: 'tasks', label: 'Tasks', icon: ListTodo, group: 'Work', accent: JARVIS.colors.amber },
-  { key: 'kanban', label: 'Kanban Board', icon: LayoutGrid, group: 'Work', accent: JARVIS.colors.amber },
-  { key: 'task-dag', label: 'Task DAG', icon: GitBranch, group: 'Work', accent: JARVIS.colors.violet },
   { key: 'goals', label: 'Goals', icon: Target, group: 'Work', accent: JARVIS.colors.cyan },
 
-  // ─── Intelligence ─── AI capabilities + models + autonomy
-  { key: 'skills', label: 'Skills Catalog', icon: Sparkles, group: 'Intelligence', accent: JARVIS.colors.cyan },
-  { key: 'runner', label: 'Skill Runner', icon: Terminal, group: 'Intelligence', accent: JARVIS.colors.green },
-  { key: 'chain', label: 'Skill Pipeline', icon: Workflow, group: 'Intelligence', accent: JARVIS.colors.green },
+  // ─── Intelligence (3) — merged 6→3 ───
+  { key: 'skills', label: 'Skills', icon: Sparkles, group: 'Intelligence', accent: JARVIS.colors.cyan },
   { key: 'autonomy', label: 'Autonomy Loop', icon: Rocket, group: 'Intelligence', accent: JARVIS.colors.cyan },
   { key: 'models', label: 'AI Models', icon: Cpu, group: 'Intelligence', accent: JARVIS.colors.cyan },
-  { key: 'providers', label: 'AI Providers', icon: Network, group: 'Intelligence', accent: JARVIS.colors.green },
 
-  // ─── Knowledge ─── memory + learning + rules + plugins
-  { key: 'memory', label: 'Memory Store', icon: Database, group: 'Knowledge', accent: JARVIS.colors.violet },
-  { key: 'memory-graph', label: 'Memory Graph', icon: Network, group: 'Knowledge', accent: JARVIS.colors.violet },
-  { key: 'learning', label: 'Learn & Earn', icon: GraduationCap, group: 'Knowledge', accent: JARVIS.colors.cyan },
-  { key: 'teach', label: 'Teach', icon: GraduationCap, group: 'Knowledge', accent: JARVIS.colors.violet },
-  { key: 'rules', label: 'Operator Rules', icon: Gavel, group: 'Knowledge', accent: JARVIS.colors.amber },
-  { key: 'plugins', label: 'Plugins', icon: Puzzle, group: 'Knowledge', accent: JARVIS.colors.violet },
+  // ─── Knowledge Base (4) — merged 7→4 ───
+  { key: 'memory', label: 'Memory', icon: Database, group: 'Knowledge', accent: JARVIS.colors.violet },
+  { key: 'learning', label: 'Learning', icon: GraduationCap, group: 'Knowledge', accent: JARVIS.colors.cyan },
+  { key: 'rules-plugins', label: 'Rules & Plugins', icon: Gavel, group: 'Knowledge', accent: JARVIS.colors.amber },
   { key: 'artifacts', label: 'Artifacts', icon: FolderArchive, group: 'Knowledge', accent: JARVIS.colors.amber },
 
-  // ─── Monitoring ─── observability + health + audit
-  { key: 'telemetry', label: 'Telemetry', icon: Gauge, group: 'Monitoring', accent: JARVIS.colors.cyan },
+  // ─── Monitoring & Ops (3) — merged 6→3 ───
   { key: 'health', label: 'Fleet Health', icon: HeartPulse, group: 'Monitoring', accent: JARVIS.colors.green },
-  { key: 'logs', label: 'System Logs', icon: ScrollText, group: 'Monitoring', accent: JARVIS.colors.amber },
-  { key: 'blackbox', label: 'Black Box', icon: ShieldCheck, group: 'Monitoring', accent: JARVIS.colors.red },
-  { key: 'agent-monitor', label: 'Agent Monitor', icon: ShieldCheck, group: 'Monitoring', accent: JARVIS.colors.red },
+  { key: 'monitoring', label: 'Monitoring', icon: ShieldCheck, group: 'Monitoring', accent: JARVIS.colors.red },
   { key: 'scheduler', label: 'Scheduler', icon: CalendarClock, group: 'Monitoring', accent: JARVIS.colors.violet },
 
-  // ─── Business ─── revenue + analytics + services
+  // ─── Business & Revenue (4) — merged 6→4 ───
   { key: 'payments', label: 'Payments', icon: Wallet, group: 'Business', accent: JARVIS.colors.green },
-  { key: 'payment-methods', label: 'Payout Methods', icon: CreditCard, group: 'Business', accent: JARVIS.colors.green },
   { key: 'earnings', label: 'Earning Methods', icon: DollarSign, group: 'Business', accent: JARVIS.colors.green },
-  { key: 'analytics', label: 'Analytics', icon: BarChart3, group: 'Business', accent: JARVIS.colors.cyan },
-  { key: 'reports', label: 'Reports', icon: FileText, group: 'Business', accent: JARVIS.colors.green },
+  { key: 'analytics', label: 'Analytics & Reports', icon: BarChart3, group: 'Business', accent: JARVIS.colors.cyan },
   { key: 'services', label: 'Services Hub', icon: Briefcase, group: 'Business', accent: JARVIS.colors.amber },
 
-  // ─── System ─── admin + configuration
+  // ─── System & Admin (3) ───
   { key: 'data-mgmt', label: 'Data Management', icon: Database, group: 'System', accent: JARVIS.colors.amber },
   { key: 'branding', label: 'Branding', icon: Palette, group: 'System', accent: JARVIS.colors.violet },
   { key: 'apptree', label: 'App Tree', icon: FolderArchive, group: 'System', accent: JARVIS.colors.cyan },
 ];
 
 /**
- * Explicit sidebar group order + accent color per group. Without this the
- * sidebar would derive order from the TABS array (fragile). This makes the
- * information architecture intentional: Command → Fleet → Work → Intelligence
+ * Explicit sidebar group order + accent color per group.
+ * Information architecture: Command → Fleet → Work → Intelligence
  * → Knowledge → Monitoring → Business → System.
  */
 const SIDEBAR_GROUPS: { key: string; label: string; accent: string }[] = [
@@ -155,47 +292,39 @@ const SIDEBAR_GROUPS: { key: string; label: string; accent: string }[] = [
 ];
 
 const TAB_MAP: Record<TabKey, () => JSX.Element> = {
+  // Command
   overview: OverviewTab,
-  fleet: FleetTab,
   chat: ChatTab,
-  skills: SkillsTab,
-  memory: MemoryTab,
-  telemetry: TelemetryTab,
-  scheduler: SchedulerTab,
-  payments: PaymentsTab,
-  'payment-methods': PaymentMethodsTab,
-  health: HealthTab,
-  logs: LogsTab,
-  tasks: TasksTab,
   activity: ActivityTab,
-  artifacts: ArtifactsTab,
-  providers: ProvidersTab,
   insights: InsightsTab,
-  kanban: KanbanTab,
+  // Fleet (merged)
+  fleet: FleetMergedTab,
   comms: CommsTab,
-  runner: SkillRunnerTab,
-  'memory-graph': MemoryGraphTab,
-  'fleet-topology': FleetTopologyTab,
-  chain: SkillChainTab,
-  'task-dag': TaskDagTab,
-  autonomy: AutonomyTab,
-  analytics: AnalyticsTab,
-  reports: ReportsTab,
-  spawned: SpawnedAgentsTab,
-  earnings: EarningMethodsTab,
-  branding: BrandingTab,
-  teach: TeachSourceCard,
-  workforce: WorkforceTab,
-  learning: LearningTab,
-  rules: RulesTab,
-  plugins: PluginsTab,
-  models: ModelsTab,
-  blackbox: BlackboxTab,
-  services: ServicesHubTab,
-  apptree: AppTreeTab,
+  // Work (merged)
+  tasks: TasksMergedTab,
   goals: GoalsTab,
+  // Intelligence (merged)
+  skills: SkillsMergedTab,
+  autonomy: AutonomyTab,
+  models: ModelsMergedTab,
+  // Knowledge (merged)
+  memory: MemoryMergedTab,
+  learning: LearningMergedTab,
+  'rules-plugins': RulesPluginsMergedTab,
+  artifacts: ArtifactsTab,
+  // Monitoring (merged)
+  health: HealthMergedTab,
+  monitoring: MonitoringMergedTab,
+  scheduler: SchedulerTab,
+  // Business (merged)
+  payments: PaymentsMergedTab,
+  earnings: EarningMethodsTab,
+  analytics: AnalyticsReportsMergedTab,
+  services: ServicesHubTab,
+  // System
   'data-mgmt': DataManagementTab,
-  'agent-monitor': AgentMonitorTab,
+  branding: BrandingTab,
+  apptree: AppTreeTab,
 };
 
 interface MetricsData {
@@ -801,12 +930,12 @@ function activityIcon(type: string): typeof Activity {
 
 function activityTab(type: string): string {
   switch (type) {
-    case 'error': return 'logs';
+    case 'error': return 'monitoring';
     case 'comms': return 'comms';
     case 'task': return 'tasks';
     case 'agent': return 'fleet';
-    case 'spawn': return 'spawned';
-    case 'skill': return 'runner';
+    case 'spawn': return 'fleet';
+    case 'skill': return 'skills';
     case 'notification': return 'activity';
     case 'info': return 'activity';
     default: return 'activity';
@@ -1139,7 +1268,7 @@ function NotificationsBell({ open, setOpen }: { open: boolean; setOpen: (o: bool
                       <button
                         key={f.id}
                         onClick={() => {
-                          navigate(f.actionTab || 'agent-monitor', f.actionMeta ? JSON.parse(f.actionMeta) : { findingId: f.id });
+                          navigate(f.actionTab || 'monitoring', f.actionMeta ? JSON.parse(f.actionMeta) : { findingId: f.id });
                           setOpen(false);
                         }}
                         className="w-full text-left px-3 py-2.5 border-b border-[var(--j-border-soft)] hover:bg-[var(--j-red)]/10 transition-colors block"
@@ -1150,7 +1279,7 @@ function NotificationsBell({ open, setOpen }: { open: boolean; setOpen: (o: bool
                           <span className="jarvis-mono text-[9px] text-[var(--j-text-mute)] shrink-0">{formatTime(f.createdAt)}</span>
                         </div>
                         <div className="text-[11px] text-[var(--j-text-dim)] line-clamp-2">{f.detail}</div>
-                        <div className="jarvis-mono text-[9px] uppercase text-[var(--j-cyan)] mt-1">→ {f.actionTab || 'agent-monitor'} tab</div>
+                        <div className="jarvis-mono text-[9px] uppercase text-[var(--j-cyan)] mt-1">→ {f.actionTab || 'monitoring'} tab</div>
                       </button>
                     ))}
                   </div>
@@ -1770,7 +1899,7 @@ const SHORTCUT_GROUPS: { label: string; accent: string; items: { keys: string[];
       { keys: ['G', 'H'], label: 'Fleet Health', tab: 'health' },
       { keys: ['G', 'M'], label: 'AI Models', tab: 'models' },
       { keys: ['G', 'P'], label: 'Payments', tab: 'payments' },
-      { keys: ['G', 'A'], label: 'Agent Monitor', tab: 'agent-monitor' },
+      { keys: ['G', 'A'], label: 'Monitoring', tab: 'monitoring' },
       { keys: ['G', 'S'], label: 'Scheduler', tab: 'scheduler' },
     ],
   },

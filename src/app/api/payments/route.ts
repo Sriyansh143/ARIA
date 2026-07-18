@@ -24,7 +24,17 @@ export async function GET(req: NextRequest) {
 export async function POST(req: NextRequest) {
   const body = await req.json().catch(() => ({}));
   const { method, amount, payer, note, status, currency } = body;
-  if (!method || typeof amount !== 'number') return NextResponse.json({ error: 'method and amount required' }, { status: 400 });
+  // ── Input validation ────────────────────────────────────────────
+  const ALLOWED_METHODS = ['upi', 'card', 'netbanking', 'qr', 'wallet'];
+  if (typeof method !== 'string' || !ALLOWED_METHODS.includes(method)) {
+    return NextResponse.json(
+      { error: `method must be one of: ${ALLOWED_METHODS.join(', ')}` },
+      { status: 400 },
+    );
+  }
+  if (typeof amount !== 'number' || !isFinite(amount) || amount <= 0) {
+    return NextResponse.json({ error: 'amount must be a positive number' }, { status: 400 });
+  }
   const payment = await db.payment.create({
     data: { method, amount, payer, note, status: status ?? 'pending', currency: currency ?? 'INR' },
   });

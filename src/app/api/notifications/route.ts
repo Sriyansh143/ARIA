@@ -12,7 +12,13 @@ export async function GET() {
 export async function POST(req: NextRequest) {
   const body = await req.json().catch(() => ({}));
   const { type, title, message } = body;
-  if (!title) return NextResponse.json({ error: 'title required' }, { status: 400 });
+  // ── Input validation ────────────────────────────────────────────
+  if (typeof title !== 'string' || title.trim().length === 0) {
+    return NextResponse.json({ error: 'title required' }, { status: 400 });
+  }
+  if (title.length > 500) {
+    return NextResponse.json({ error: 'title must be 500 characters or fewer' }, { status: 400 });
+  }
   const n = await db.notification.create({ data: { type: type ?? 'info', title, message: message ?? '' } });
   return NextResponse.json({ notification: n });
 }

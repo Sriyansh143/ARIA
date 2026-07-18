@@ -1,0 +1,791 @@
+     1→'use client';
+     2→
+     3→// =====================================================================
+     4→// DataManagementTab — in-app Demo Data Management panel.
+     5→// =====================================================================
+     6→// Shows a live inventory of every demo-able table, lets the operator seed
+     7→// any of 7 catalogs (or all of them at once), and clear demo data in 7
+     8→// scopes (transactions / logs / comms / telemetry / notifications /
+     9→// spawned / all). Every destructive action opens a confirmation dialog;
+    10→// the "Reset ALL" action requires typing "RESET" to confirm.
+    11→//
+    12→// API surface:
+    13→//   GET    /api/admin/data              → { counts, seedScripts, ts }
+    14→//   GET    /api/admin/data/counts       → { counts, ts }  (lightweight polling)
+    15→//   POST   /api/admin/data              → { ok, message, counts, elapsed }
+    16→//   DELETE /api/admin/data              → { ok, deleted, total, message, counts }
+    17→// =====================================================================
+    18→
+    19→import { useCallback, useMemo, useState } from 'react';
+    20→import { motion } from 'framer-motion';
+    21→import {
+    22→  Database, AlertTriangle, Loader2, RefreshCw, Sparkles, Trash2,
+    23→  CheckCircle2, XCircle, Wand2, History, Bell, Radio, Bot, Cpu,
+    24→  GraduationCap, Boxes, ScrollText, Layers, ShoppingCart, MessagesSquare,
+    25→  FileText, Target, Brain, Clock, Server, Workflow, KeyRound, ShieldCheck,
+    26→  type LucideIcon,
+    27→} from 'lucide-react';
+    28→import { useApi, postJson } from '@/lib/hooks/use-api';
+    29→import { JARVIS } from '@/lib/config';
+    30→import { SectionTitle, Pill } from '@/components/jarvis/shared';
+    31→import { useToast } from '@/hooks/use-toast';
+    32→import { Button } from '@/components/ui/button';
+    33→import { Input } from '@/components/ui/input';
+    34→import {
+    35→  Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription,
+    36→} from '@/components/ui/dialog';
+    37→import {
+    38→  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
+    39→  AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
+    40→} from '@/components/ui/alert-dialog';
+    41→import { cn } from '@/lib/utils';
+    42→
+    43→// ─── Types ───────────────────────────────────────────────────────────
+    44→type Counts = Record<string, number>;
+    45→
+    46→interface SeedScriptMeta {
+    47→  key: string;
+    48→  label: string;
+    49→  description: string;
+    50→  tableCount: number;
+    51→}
+    52→
+    53→interface DataStatus {
+    54→  counts: Counts;
+    55→  seedScripts: SeedScriptMeta[];
+    56→  ts: number;
+    57→}
+    58→
+    59→interface PostResponse {
+    60→  ok: boolean;
+    61→  message?: string;
+    62→  error?: string;
+    63→  counts?: Counts;
+    64→  elapsed?: number;
+    65→}
+    66→
+    67→interface DeleteResponse {
+    68→  ok: boolean;
+    69→  deleted?: Counts;
+    70→  total?: number;
+    71→  message?: string;
+    72→  error?: string;
+    73→  counts?: Counts;
+    74→  elapsed?: number;
+    75→}
+    76→
+    77→// ─── Static table metadata (so the inventory grid renders even before
+    78→// the API responds; the API just supplies the counts).
+    79→interface TableMeta {
+    80→  key: string;
+    81→  label: string;
+    82→  icon: LucideIcon;
+    83→  hint: string;
+    84→  // Tab to deep-link to when clicked (omitted if there's no dedicated tab).
+    85→  href?: string;
+    86→}
+    87→
+    88→const TABLES: TableMeta[] = [
+    89→  { key: 'agents',          label: 'Agents',          icon: Bot,            hint: 'Active agent fleet roster' },
+    90→  { key: 'workforceAgents', label: 'Workforce',       icon: Bot,            hint: 'Org-chart workforce agents' },
+    91→  { key: 'spawnedAgents',   label: 'Spawned',         icon: Bot,            hint: 'On-demand sub-agents' },
+    92→  { key: 'skills',          label: 'Skills',          icon: Sparkles,       hint: 'Skill catalog entries' },
+    93→  { key: 'plugins',         label: 'Plugins',         icon: Boxes,          hint: 'Installed plugins' },
+    94→  { key: 'cronJobs',        label: 'Cron Jobs',       icon: Clock,          hint: 'Scheduled dispatchers' },
+    95→  { key: 'providers',       label: 'Providers',       icon: Server,         hint: 'AI provider connections' },
+    96→  { key: 'models',          label: 'Models',          icon: Cpu,            hint: 'Catalog models per provider' },
+    97→  { key: 'rules',           label: 'Rules',           icon: ShieldCheck,    hint: 'Operator governance rules' },
+    98→  { key: 'earningMethods',  label: 'Earning Methods', icon: ShoppingCart,   hint: 'Approved earning methods' },
+    99→  { key: 'learningItems',   label: 'Learning',        icon: GraduationCap,  hint: 'Skill proficiency records' },
+   100→  { key: 'memoryItems',     label: 'Memory',          icon: Brain,          hint: 'Stored memory items' },
+   101→  { key: 'goals',           label: 'Goals',           icon: Target,         hint: 'MemoryItem(scope=goal)' },
+   102→  { key: 'tasks',           label: 'Tasks',           icon: ScrollText,     hint: 'Task queue entries' },
+   103→  { key: 'artifacts',       label: 'Artifacts',       icon: FileText,       hint: 'Generated artifacts' },
+   104→  { key: 'comms',           label: 'Comms',           icon: MessagesSquare, hint: 'Agent-to-agent messages' },
+   105→  { key: 'payments',        label: 'Payments',        icon: ShoppingCart,   hint: 'Historical payment rows' },
+   106→  { key: 'notifications',   label: 'Notifications',   icon: Bell,           hint: 'Operator notifications' },
+   107→  { key: 'telemetry',       label: 'Telemetry',       icon: Radio,          hint: 'Live system telemetry' },
+   108→  { key: 'agentLogs',       label: 'Agent Logs',      icon: History,        hint: 'Per-agent log lines' },
+   109→  { key: 'blackboxLogs',    label: 'Blackbox',        icon: Layers,         hint: 'In-memory audit buffer' },
+   110→  { key: 'credentials',     label: 'Credentials',     icon: KeyRound,       hint: 'Encrypted platform creds' },
+   111→  { key: 'scheduledAutonomy', label: 'Scheduled Auto', icon: Workflow,      hint: 'Recurring autonomy loops' },
+   112→  { key: 'autonomyTemplates', label: 'Auto Templates', icon: Workflow,     hint: 'Reusable autonomy templates' },
+   113→  { key: 'pipelines',       label: 'Pipelines',       icon: Workflow,       hint: 'Saved skill pipelines' },
+   114→];
+   115→
+   116→// ─── Seed button definitions ─────────────────────────────────────────
+   117→interface SeedButton {
+   118→  key: 'all' | 'agents' | 'cron' | 'providers-models' | 'rules' | 'earning-methods' | 'comms-payments' | 'learning';
+   119→  label: string;
+   120→  description: string;
+   121→  targetTables: string;
+   122→  estimate: string;
+   123→  icon: LucideIcon;
+   124→  variant: 'primary' | 'default';
+   125→}
+   126→
+   127→const SEED_BUTTONS: SeedButton[] = [
+   128→  {
+   129→    key: 'all',
+   130→    label: 'Seed Everything',
+   131→    description: 'Runs every seed script in sequence — agents, cron, providers+models, rules, earning methods, comms+payments, learning.',
+   132→    targetTables: '14 tables',
+   133→    estimate: '~5–10s · providers-models is the heaviest',
+   134→    icon: Wand2,
+   135→    variant: 'primary',
+   136→  },
+   137→  {
+   138→    key: 'agents',
+   139→    label: 'Seed Agents',
+   140→    description: 'Upserts the 64-agent roster + 16 departments + 25 workforce agents from AGENT_ROSTER.',
+   141→    targetTables: 'agent, department, workforceAgent',
+   142→    estimate: '64 agents · 16 depts · 25 workforce',
+   143→    icon: Bot,
+   144→    variant: 'default',
+   145→  },
+   146→  {
+   147→    key: 'cron',
+   148→    label: 'Seed Cron Jobs',
+   149→    description: 'Upserts all 27 cron jobs from CRON_ROSTER with their schedules + dispatchers.',
+   150→    targetTables: 'cronJob',
+   151→    estimate: '27 jobs',
+   152→    icon: Clock,
+   153→    variant: 'default',
+   154→  },
+   155→  {
+   156→    key: 'providers-models',
+   157→    label: 'Seed Providers + Models',
+   158→    description: 'Upserts 23 AI providers + 453 models from the catalog (PROVIDER_SEEDS + MODEL_CATALOG).',
+   159→    targetTables: 'provider, model',
+   160→    estimate: '23 providers · 453 models',
+   161→    icon: Server,
+   162→    variant: 'default',
+   163→  },
+   164→  {
+   165→    key: 'rules',
+   166→    label: 'Seed Rules',
+   167→    description: 'Upserts 33 operator rules across 5 categories (financial, operational, safety, legal, intelligence).',
+   168→    targetTables: 'rule',
+   169→    estimate: '33 rules',
+   170→    icon: ShieldCheck,
+   171→    variant: 'default',
+   172→  },
+   173→  {
+   174→    key: 'earning-methods',
+   175→    label: 'Seed Earning Methods',
+   176→    description: 'Seeds 15 earning methods across 9 categories. Existing keys are skipped.',
+   177→    targetTables: 'earningMethod',
+   178→    estimate: '15 methods',
+   179→    icon: ShoppingCart,
+   180→    variant: 'default',
+   181→  },
+   182→  {
+   183→    key: 'comms-payments',
+   184→    label: 'Seed Comms + Payments',
+   185→    description: 'Seeds 10 agent comms messages + 14 days of varied historical payment records.',
+   186→    targetTables: 'agentMessage, payment',
+   187→    estimate: '10 messages · ~17 payments',
+   188→    icon: MessagesSquare,
+   189→    variant: 'default',
+   190→  },
+   191→  {
+   192→    key: 'learning',
+   193→    label: 'Seed Learning Items',
+   194→    description: 'Upserts 15 SkillLearning records (agent × skill proficiency + earnings) for the Learn & Earn tab.',
+   195→    targetTables: 'skillLearning',
+   196→    estimate: '15 records',
+   197→    icon: GraduationCap,
+   198→    variant: 'default',
+   199→  },
+   200→];
+   201→
+   202→// ─── Remove button definitions ───────────────────────────────────────
+   203→interface RemoveButton {
+   204→  key: 'all' | 'transactions' | 'logs' | 'comms' | 'telemetry' | 'notifications' | 'spawned';
+   205→  label: string;
+   206→  description: string;
+   207→  countKey: keyof Counts;     // which counts entry to show as "current"
+   208→  deletes: string;
+   209→  icon: LucideIcon;
+   210→  variant: 'danger' | 'default';
+   211→  requireTypedConfirm?: string;  // if set, user must type this string to confirm
+   212→}
+   213→
+   214→const REMOVE_BUTTONS: RemoveButton[] = [
+   215→  {
+   216→    key: 'transactions',
+   217→    label: 'Clear Transactions',
+   218→    description: 'Delete all Payment rows from the database. Useful for resetting the revenue chart.',
+   219→    countKey: 'payments',
+   220→    deletes: 'payment',
+   221→    icon: ShoppingCart,
+   222→    variant: 'default',
+   223→  },
+   224→  {
+   225→    key: 'logs',
+   226→    label: 'Clear Logs',
+   227→    description: 'Delete all AgentLog rows older than 1 hour. Recent logs are preserved so in-flight issues stay visible.',
+   228→    countKey: 'agentLogs',
+   229→    deletes: 'agentLog (age > 1h)',
+   230→    icon: History,
+   231→    variant: 'default',
+   232→  },
+   233→  {
+   234→    key: 'comms',
+   235→    label: 'Clear Comms',
+   236→    description: 'Delete all AgentMessage rows. The agent-to-agent comms timeline will be empty after this.',
+   237→    countKey: 'comms',
+   238→    deletes: 'agentMessage',
+   239→    icon: MessagesSquare,
+   240→    variant: 'default',
+   241→  },
+   242→  {
+   243→    key: 'telemetry',
+   244→    label: 'Clear Telemetry',
+   245→    description: 'Delete all Telemetry rows. The telemetry chart will start fresh on the next sample.',
+   246→    countKey: 'telemetry',
+   247→    deletes: 'telemetry',
+   248→    icon: Radio,
+   249→    variant: 'default',
+   250→  },
+   251→  {
+   252→    key: 'notifications',
+   253→    label: 'Clear Notifications',
+   254→    description: 'Delete all Notification rows. The bell-icon unread counter will reset to zero.',
+   255→    countKey: 'notifications',
+   256→    deletes: 'notification',
+   257→    icon: Bell,
+   258→    variant: 'default',
+   259→  },
+   260→  {
+   261→    key: 'spawned',
+   262→    label: 'Clear Spawned Agents',
+   263→    description: 'Delete all SpawnedAgent rows. SpawnedAgentLog entries are preserved (permanent record).',
+   264→    countKey: 'spawnedAgents',
+   265→    deletes: 'spawnedAgent',
+   266→    icon: Bot,
+   267→    variant: 'default',
+   268→  },
+   269→  {
+   270→    key: 'all',
+   271→    label: 'Reset ALL Demo Data',
+   272→    description: 'Deletes payments, comms, telemetry, notifications, spawned agents, and agent logs (>1h) in one shot. Reference data (providers, models, rules, earning methods, agents, plugins, skills) is preserved.',
+   273→    countKey: 'agentLogs',
+   274→    deletes: 'payment + agentMessage + telemetry + notification + spawnedAgent + agentLog(>1h)',
+   275→    icon: AlertTriangle,
+   276→    variant: 'danger',
+   277→    requireTypedConfirm: 'RESET',
+   278→  },
+   279→];
+   280→
+   281→// ─── Component ───────────────────────────────────────────────────────
+   282→export default function DataManagementTab() {
+   283→  const { toast } = useToast();
+   284→  // We use the lightweight /counts endpoint for polling (every 20s) and
+   285→  // only hit the full /api/admin/data once on mount to fetch the seed
+   286→  // script catalog (which is static, but cheap to grab once).
+   287→  const { data: fullData, error: fullError, refresh: refreshFull } = useApi<DataStatus>('/api/admin/data', -1);
+   288→  const { data: countsData, error: countsError, refresh: refreshCounts } = useApi<{ counts: Counts; ts: number }>('/api/admin/data/counts', 20000);
+   289→
+   290→  const counts = countsData?.counts ?? fullData?.counts ?? {};
+   291→
+   292→  // Track which seed/clear action is currently in-flight (so we can
+   293→  // disable the matching button + show a spinner).
+   294→  const [busy, setBusy] = useState<string | null>(null);
+   295→  // The seed/clear action awaiting confirmation.
+   296→  const [pendingSeed, setPendingSeed] = useState<SeedButton | null>(null);
+   297→  const [pendingRemove, setPendingRemove] = useState<RemoveButton | null>(null);
+   298→  // Typed-confirmation state for the "Reset ALL" action.
+   299→  const [typedConfirm, setTypedConfirm] = useState('');
+   300→
+   301→  // ─── Handlers ─────────────────────────────────────────────────────
+   302→  const handleSeed = useCallback(async (btn: SeedButton) => {
+   303→    setPendingSeed(null);
+   304→    setBusy(btn.key);
+   305→    toast({ title: `${btn.label}…`, description: 'Running seed. This may take a few seconds.' });
+   306→    try {
+   307→      const res = await postJson<PostResponse>('/api/admin/data', { script: btn.key });
+   308→      if (res.ok) {
+   309→        toast({ title: `${btn.label} complete`, description: res.message ?? 'Done' });
+   310→      } else {
+   311→        toast({ title: `${btn.label} failed`, description: res.error ?? 'Unknown error' });
+   312→      }
+   313→      refreshCounts();
+   314→    } catch (e) {
+   315→      toast({ title: `${btn.label} failed`, description: e instanceof Error ? e.message : 'Network error' });
+   316→    } finally {
+   317→      setBusy(null);
+   318→    }
+   319→  }, [refreshCounts, toast]);
+   320→
+   321→  const handleRemove = useCallback(async (btn: RemoveButton) => {
+   322→    setPendingRemove(null);
+   323→    setBusy(btn.key);
+   324→    setTypedConfirm('');
+   325→    toast({ title: `${btn.label}…`, description: 'Clearing demo data.' });
+   326→    try {
+   327→      const res = await fetch('/api/admin/data', {
+   328→        method: 'DELETE',
+   329→        headers: { 'Content-Type': 'application/json' },
+   330→        body: JSON.stringify({ scope: btn.key }),
+   331→      }).then((r) => r.json() as Promise<DeleteResponse>);
+   332→      if (res.ok) {
+   333→        toast({ title: `${btn.label} complete`, description: res.message ?? 'Done' });
+   334→      } else {
+   335→        toast({ title: `${btn.label} failed`, description: res.error ?? 'Unknown error' });
+   336→      }
+   337→      refreshCounts();
+   338→    } catch (e) {
+   339→      toast({ title: `${btn.label} failed`, description: e instanceof Error ? e.message : 'Network error' });
+   340→    } finally {
+   341→      setBusy(null);
+   342→    }
+   343→  }, [refreshCounts, toast]);
+   344→
+   345→  // ─── Render ───────────────────────────────────────────────────────
+   346→  const totalRows = useMemo(
+   347→    () => Object.values(counts).reduce((a, b) => a + (typeof b === 'number' ? b : 0), 0),
+   348→    [counts],
+   349→  );
+   350→  const populatedTables = TABLES.filter((t) => (counts[t.key] ?? 0) > 0).length;
+   351→  const isLoading = !fullData && !countsData;
+   352→
+   353→  return (
+   354→    <div className="space-y-6">
+   355→      <SectionTitle
+   356→        title="Data Management"
+   357→        icon={Database}
+   358→        accent={JARVIS.colors.amber}
+   359→        action={
+   360→          <Button
+   361→            size="sm"
+   362→            variant="outline"
+   363→            className="jarvis-btn-accent border-0"
+   364→            onClick={() => { refreshFull(); refreshCounts(); }}
+   365→            disabled={busy !== null}
+   366→          >
+   367→            <RefreshCw className={cn('h-3.5 w-3.5 mr-1', isLoading && 'animate-spin')} />
+   368→            Refresh
+   369→          </Button>
+   370→        }
+   371→      />
+   372→
+   373→      {/* Warning banner */}
+   374→      <motion.div
+   375→        initial={{ opacity: 0, y: -5 }}
+   376→        animate={{ opacity: 1, y: 0 }}
+   377→        className="rounded-lg border p-3 flex items-start gap-3"
+   378→        style={{
+   379→          borderColor: `${JARVIS.colors.amber}40`,
+   380→          background: `${JARVIS.colors.amber}0d`,
+   381→        }}
+   382→      >
+   383→        <AlertTriangle className="h-4 w-4 mt-0.5 shrink-0" style={{ color: JARVIS.colors.amber }} />
+   384→        <div className="text-xs leading-relaxed">
+   385→          <span className="font-semibold" style={{ color: JARVIS.colors.amber }}>
+   386→            Caution:
+   387→          </span>{' '}
+   388→          <span className="text-[var(--j-text-dim)]">
+   389→            These actions modify the database directly. Use with caution in production.
+   390→            Seeding is idempotent (safe to re-run); clearing is destructive and
+   391→            cannot be undone.
+   392→          </span>
+   393→        </div>
+   394→      </motion.div>
+   395→
+   396→      {/* Errors */}
+   397→      {(fullError || countsError) && (
+   398→        <div className="rounded-lg border border-[var(--j-red)]/40 bg-[var(--j-red)]/10 p-3 text-xs text-[var(--j-red)]">
+   399→          Failed to load data status: {fullError ?? countsError}. Showing cached counts.
+   400→        </div>
+   401→      )}
+   402→
+   403→      {/* Stats strip */}
+   404→      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+   405→        <StatTile label="Tables Tracked" value={TABLES.length} icon={Database} accent={JARVIS.colors.cyan} />
+   406→        <StatTile label="Populated" value={populatedTables} icon={CheckCircle2} accent={JARVIS.colors.green} />
+   407→        <StatTile label="Empty" value={TABLES.length - populatedTables} icon={XCircle} accent={JARVIS.colors.textMute} />
+   408→        <StatTile label="Total Rows" value={totalRows.toLocaleString()} icon={Layers} accent={JARVIS.colors.amber} />
+   409→      </div>
+   410→
+   411→      {/* Current Data Inventory */}
+   412→      <div>
+   413→        <h3 className="jarvis-mono text-xs uppercase tracking-widest text-[var(--j-text-dim)] mb-2">
+   414→          Current Data Inventory
+   415→        </h3>
+   416→        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-2.5">
+   417→          {TABLES.map((t, i) => {
+   418→            const count = counts[t.key] ?? 0;
+   419→            const hasData = count > 0;
+   420→            const accent = hasData ? JARVIS.colors.green : JARVIS.colors.textMute;
+   421→            const Icon = t.icon;
+   422→            return (
+   423→              <motion.div
+   424→                key={t.key}
+   425→                initial={{ opacity: 0, y: 5 }}
+   426→                animate={{ opacity: 1, y: 0 }}
+   427→                transition={{ duration: 0.25, delay: i * 0.012 }}
+   428→                className="jarvis-panel p-3 relative overflow-hidden"
+   429→                style={{ borderColor: hasData ? `${accent}40` : 'var(--j-border)' }}
+   430→              >
+   431→                <div className="flex items-start justify-between mb-1.5">
+   432→                  <div
+   433→                    className="flex h-7 w-7 items-center justify-center rounded-md shrink-0"
+   434→                    style={{ background: `${accent}1a`, border: `1px solid ${accent}33`, color: accent }}
+   435→                  >
+   436→                    <Icon className="h-3.5 w-3.5" />
+   437→                  </div>
+   438→                  <span
+   439→                    className="jarvis-mono text-lg font-semibold tabular-nums"
+   440→                    style={{ color: accent }}
+   441→                  >
+   442→                    {count.toLocaleString()}
+   443→                  </span>
+   444→                </div>
+   445→                <div className="text-xs font-medium text-[var(--j-text)] truncate">{t.label}</div>
+   446→                <div className="text-[10px] text-[var(--j-text-mute)] mt-0.5 truncate" title={t.hint}>
+   447→                  {t.hint}
+   448→                </div>
+   449→                {hasData && (
+   450→                  <div
+   451→                    className="absolute bottom-0 left-0 h-[2px]"
+   452→                    style={{ width: '60%', background: `linear-gradient(90deg, ${accent}, transparent)` }}
+   453→                  />
+   454→                )}
+   455→              </motion.div>
+   456→            );
+   457→          })}
+   458→        </div>
+   459→      </div>
+   460→
+   461→      {/* Seed Demo Data */}
+   462→      <div>
+   463→        <h3 className="jarvis-mono text-xs uppercase tracking-widest text-[var(--j-text-dim)] mb-2 flex items-center gap-2">
+   464→          <Sparkles className="h-3.5 w-3.5" style={{ color: JARVIS.colors.green }} />
+   465→          Seed Demo Data
+   466→        </h3>
+   467→        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+   468→          {SEED_BUTTONS.map((btn, i) => {
+   469→            const Icon = btn.icon;
+   470→            const isBusy = busy === btn.key;
+   471→            const isPrimary = btn.variant === 'primary';
+   472→            const accent = isPrimary ? JARVIS.colors.amber : JARVIS.colors.green;
+   473→            return (
+   474→              <motion.div
+   475→                key={btn.key}
+   476→                initial={{ opacity: 0, y: 8 }}
+   477→                animate={{ opacity: 1, y: 0 }}
+   478→                transition={{ duration: 0.3, delay: i * 0.025 }}
+   479→                className={cn(
+   480→                  'jarvis-panel p-4 flex flex-col gap-2 relative overflow-hidden',
+   481→                  isPrimary && 'ring-1',
+   482→                )}
+   483→                style={isPrimary ? { borderColor: `${accent}66`, boxShadow: `0 0 20px ${accent}10` } : undefined}
+   484→              >
+   485→                <div className="flex items-center gap-2">
+   486→                  <div
+   487→                    className="flex h-8 w-8 items-center justify-center rounded-md shrink-0"
+   488→                    style={{ background: `${accent}1a`, border: `1px solid ${accent}33`, color: accent }}
+   489→                  >
+   490→                    <Icon className="h-4 w-4" />
+   491→                  </div>
+   492→                  <div className="min-w-0">
+   493→                    <div className="text-sm font-semibold text-[var(--j-text)] truncate">{btn.label}</div>
+   494→                    <div className="text-[10px] text-[var(--j-text-mute)]">{btn.targetTables}</div>
+   495→                  </div>
+   496→                  {isPrimary && (
+   497→                    <Pill color={JARVIS.colors.amber}>PRIMARY</Pill>
+   498→                  )}
+   499→                </div>
+   500→                <p className="text-xs text-[var(--j-text-dim)] leading-relaxed flex-1">
+   501→                  {btn.description}
+   502→                </p>
+   503→                <div className="flex items-center justify-between gap-2 mt-1">
+   504→                  <span className="text-[10px] text-[var(--j-text-mute)] jarvis-mono">{btn.estimate}</span>
+   505→                  <Button
+   506→                    size="sm"
+   507→                    disabled={isBusy || (busy !== null && busy !== btn.key)}
+   508→                    onClick={() => setPendingSeed(btn)}
+   509→                    className={cn(
+   510→                      'h-7 text-xs gap-1',
+   511→                      isPrimary
+   512→                        ? 'bg-[var(--j-amber)] text-black hover:bg-[var(--j-amber)]/90'
+   513→                        : 'jarvis-btn-accent border-0',
+   514→                    )}
+   515→                  >
+   516→                    {isBusy ? (
+   517→                      <Loader2 className="h-3 w-3 animate-spin" />
+   518→                    ) : (
+   519→                      <Wand2 className="h-3 w-3" />
+   520→                    )}
+   521→                    {isBusy ? 'Running…' : 'Seed'}
+   522→                  </Button>
+   523→                </div>
+   524→                {isPrimary && (
+   525→                  <div
+   526→                    className="absolute bottom-0 left-0 h-[2px]"
+   527→                    style={{ width: '80%', background: `linear-gradient(90deg, ${accent}, transparent)` }}
+   528→                  />
+   529→                )}
+   530→              </motion.div>
+   531→            );
+   532→          })}
+   533→        </div>
+   534→      </div>
+   535→
+   536→      {/* Remove Demo Data */}
+   537→      <div>
+   538→        <h3 className="jarvis-mono text-xs uppercase tracking-widest text-[var(--j-text-dim)] mb-2 flex items-center gap-2">
+   539→          <Trash2 className="h-3.5 w-3.5" style={{ color: JARVIS.colors.red }} />
+   540→          Remove Demo Data
+   541→        </h3>
+   542→        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+   543→          {REMOVE_BUTTONS.map((btn, i) => {
+   544→            const Icon = btn.icon;
+   545→            const isBusy = busy === btn.key;
+   546→            const isDanger = btn.variant === 'danger';
+   547→            const currentCount = counts[btn.countKey] ?? 0;
+   548→            const accent = isDanger ? JARVIS.colors.red : JARVIS.colors.amber;
+   549→            return (
+   550→              <motion.div
+   551→                key={btn.key}
+   552→                initial={{ opacity: 0, y: 8 }}
+   553→                animate={{ opacity: 1, y: 0 }}
+   554→                transition={{ duration: 0.3, delay: i * 0.025 }}
+   555→                className={cn(
+   556→                  'jarvis-panel p-4 flex flex-col gap-2 relative overflow-hidden',
+   557→                  isDanger && 'ring-1',
+   558→                )}
+   559→                style={isDanger ? { borderColor: `${accent}66`, boxShadow: `0 0 20px ${accent}10` } : undefined}
+   560→              >
+   561→                <div className="flex items-center gap-2">
+   562→                  <div
+   563→                    className="flex h-8 w-8 items-center justify-center rounded-md shrink-0"
+   564→                    style={{ background: `${accent}1a`, border: `1px solid ${accent}33`, color: accent }}
+   565→                  >
+   566→                    <Icon className="h-4 w-4" />
+   567→                  </div>
+   568→                  <div className="min-w-0 flex-1">
+   569→                    <div className="text-sm font-semibold text-[var(--j-text)] truncate">{btn.label}</div>
+   570→                    <div className="text-[10px] text-[var(--j-text-mute)]">
+   571→                      Current: <span className="jarvis-mono tabular-nums" style={{ color: currentCount > 0 ? accent : 'var(--j-text-mute)' }}>{currentCount.toLocaleString()}</span>
+   572→                    </div>
+   573→                  </div>
+   574→                  {isDanger && (
+   575→                    <Pill color={JARVIS.colors.red}>DANGER</Pill>
+   576→                  )}
+   577→                </div>
+   578→                <p className="text-xs text-[var(--j-text-dim)] leading-relaxed flex-1">
+   579→                  {btn.description}
+   580→                </p>
+   581→                <div className="flex items-center justify-between gap-2 mt-1">
+   582→                  <span className="text-[10px] text-[var(--j-text-mute)] jarvis-mono truncate" title={btn.deletes}>
+   583→                    deletes: {btn.deletes}
+   584→                  </span>
+   585→                  <Button
+   586→                    size="sm"
+   587→                    disabled={isBusy || (busy !== null && busy !== btn.key) || (currentCount === 0 && !isDanger)}
+   588→                    onClick={() => setPendingRemove(btn)}
+   589→                    className={cn(
+   590→                      'h-7 text-xs gap-1',
+   591→                      isDanger
+   592→                        ? 'bg-[var(--j-red)] text-white hover:bg-[var(--j-red)]/90'
+   593→                        : 'bg-transparent border border-[var(--j-amber)]/50 text-[var(--j-amber)] hover:bg-[var(--j-amber)]/10',
+   594→                    )}
+   595→                  >
+   596→                    {isBusy ? (
+   597→                      <Loader2 className="h-3 w-3 animate-spin" />
+   598→                    ) : (
+   599→                      <Trash2 className="h-3 w-3" />
+   600→                    )}
+   601→                    {isBusy ? 'Clearing…' : 'Clear'}
+   602→                  </Button>
+   603→                </div>
+   604→                {isDanger && (
+   605→                  <div
+   606→                    className="absolute bottom-0 left-0 h-[2px]"
+   607→                    style={{ width: '80%', background: `linear-gradient(90deg, ${accent}, transparent)` }}
+   608→                  />
+   609→                )}
+   610→              </motion.div>
+   611→            );
+   612→          })}
+   613→        </div>
+   614→      </div>
+   615→
+   616→      {/* Footer note */}
+   617→      <div className="text-[10px] text-[var(--j-text-mute)] text-center pt-2">
+   618→        Counts auto-refresh every 20 seconds. Last refresh: {countsData?.ts ? new Date(countsData.ts).toLocaleTimeString() : '—'}
+   619→      </div>
+   620→
+   621→      {/* ─── Seed confirmation dialog ────────────────────────────────── */}
+   622→      <Dialog open={pendingSeed !== null} onOpenChange={(o) => !o && setPendingSeed(null)}>
+   623→        <DialogContent>
+   624→          <DialogHeader>
+   625→            <DialogTitle className="flex items-center gap-2">
+   626→              <Wand2 className="h-4 w-4" style={{ color: JARVIS.colors.green }} />
+   627→              {pendingSeed?.label}
+   628→            </DialogTitle>
+   629→            <DialogDescription>
+   630→              This will ADD demo data to the database. The action is idempotent —
+   631→              existing rows will be upserted (updated), not duplicated.
+   632→            </DialogDescription>
+   633→          </DialogHeader>
+   634→          {pendingSeed && (
+   635→            <div className="space-y-3 text-sm">
+   636→              <p className="text-[var(--j-text-dim)]">{pendingSeed.description}</p>
+   637→              <div className="grid grid-cols-2 gap-2">
+   638→                <div className="rounded-md border border-[var(--j-border)] p-2">
+   639→                  <div className="text-[10px] uppercase text-[var(--j-text-mute)] jarvis-mono">Target tables</div>
+   640→                  <div className="text-xs text-[var(--j-text)] mt-0.5">{pendingSeed.targetTables}</div>
+   641→                </div>
+   642→                <div className="rounded-md border border-[var(--j-border)] p-2">
+   643→                  <div className="text-[10px] uppercase text-[var(--j-text-mute)] jarvis-mono">Estimate</div>
+   644→                  <div className="text-xs text-[var(--j-text)] mt-0.5">{pendingSeed.estimate}</div>
+   645→                </div>
+   646→              </div>
+   647→            </div>
+   648→          )}
+   649→          <DialogFooter>
+   650→            <Button variant="outline" size="sm" onClick={() => setPendingSeed(null)}>Cancel</Button>
+   651→            <Button
+   652→              size="sm"
+   653→              className="bg-[var(--j-green)] text-black hover:bg-[var(--j-green)]/90 gap-1.5"
+   654→              onClick={() => pendingSeed && handleSeed(pendingSeed)}
+   655→            >
+   656→              <Wand2 className="h-3.5 w-3.5" /> Confirm Seed
+   657→            </Button>
+   658→          </DialogFooter>
+   659→        </DialogContent>
+   660→      </Dialog>
+   661→
+   662→      {/* ─── Remove confirmation dialog (default scope) ──────────────── */}
+   663→      <Dialog open={pendingRemove !== null && pendingRemove.requireTypedConfirm === undefined} onOpenChange={(o) => !o && setPendingRemove(null)}>
+   664→        <DialogContent>
+   665→          <DialogHeader>
+   666→            <DialogTitle className="flex items-center gap-2">
+   667→              <Trash2 className="h-4 w-4" style={{ color: JARVIS.colors.red }} />
+   668→              {pendingRemove?.label}
+   669→            </DialogTitle>
+   670→            <DialogDescription>
+   671→              This will permanently delete the demo data in scope. This action
+   672→              cannot be undone.
+   673→            </DialogDescription>
+   674→          </DialogHeader>
+   675→          {pendingRemove && (
+   676→            <div className="space-y-3 text-sm">
+   677→              <p className="text-[var(--j-text-dim)]">{pendingRemove.description}</p>
+   678→              <div className="rounded-md border border-[var(--j-red)]/40 bg-[var(--j-red)]/10 p-2">
+   679→                <div className="text-[10px] uppercase text-[var(--j-red)] jarvis-mono">Will delete from</div>
+   680→                <div className="text-xs text-[var(--j-text)] mt-0.5 font-mono">{pendingRemove.deletes}</div>
+   681→              </div>
+   682→              <div className="rounded-md border border-[var(--j-border)] p-2">
+   683→                <div className="text-[10px] uppercase text-[var(--j-text-mute)] jarvis-mono">Current row count</div>
+   684→                <div className="text-xs text-[var(--j-text)] mt-0.5 jarvis-mono tabular-nums">
+   685→                  {(counts[pendingRemove.countKey] ?? 0).toLocaleString()}
+   686→                </div>
+   687→              </div>
+   688→            </div>
+   689→          )}
+   690→          <DialogFooter>
+   691→            <Button variant="outline" size="sm" onClick={() => setPendingRemove(null)}>Cancel</Button>
+   692→            <Button
+   693→              size="sm"
+   694→              className="bg-[var(--j-red)] text-white hover:bg-[var(--j-red)]/90 gap-1.5"
+   695→              onClick={() => pendingRemove && handleRemove(pendingRemove)}
+   696→            >
+   697→              <Trash2 className="h-3.5 w-3.5" /> Confirm Clear
+   698→            </Button>
+   699→          </DialogFooter>
+   700→        </DialogContent>
+   701→      </Dialog>
+   702→
+   703→      {/* ─── Reset ALL — typed confirmation dialog ───────────────────── */}
+   704→      <AlertDialog
+   705→        open={pendingRemove !== null && pendingRemove.requireTypedConfirm !== undefined}
+   706→        onOpenChange={(o) => { if (!o) { setPendingRemove(null); setTypedConfirm(''); } }}
+   707→      >
+   708→        <AlertDialogContent>
+   709→          <AlertDialogHeader>
+   710→            <AlertDialogTitle className="flex items-center gap-2 text-[var(--j-red)]">
+   711→              <AlertTriangle className="h-5 w-5" />
+   712→              {pendingRemove?.label}
+   713→            </AlertDialogTitle>
+   714→            <AlertDialogDescription>
+   715→              This is a DESTRUCTIVE bulk operation that wipes payments, comms,
+   716→              telemetry, notifications, spawned agents, and agent logs older
+   717→              than 1 hour. Reference data (providers, models, rules, earning
+   718→              methods, agents, plugins, skills) is preserved.
+   719→            </AlertDialogDescription>
+   720→          </AlertDialogHeader>
+   721→          {pendingRemove && (
+   722→            <div className="space-y-3 text-sm">
+   723→              <p className="text-[var(--j-text-dim)]">{pendingRemove.description}</p>
+   724→              <div className="rounded-md border border-[var(--j-red)]/40 bg-[var(--j-red)]/10 p-2">
+   725→                <div className="text-[10px] uppercase text-[var(--j-red)] jarvis-mono">Will delete from</div>
+   726→                <div className="text-xs text-[var(--j-text)] mt-0.5 font-mono">{pendingRemove.deletes}</div>
+   727→              </div>
+   728→              <div className="space-y-1.5">
+   729→                <label className="text-xs text-[var(--j-text-dim)] block">
+   730→                  Type <span className="jarvis-mono font-bold text-[var(--j-red)]">{pendingRemove.requireTypedConfirm}</span> to confirm:
+   731→                </label>
+   732→                <Input
+   733→                  value={typedConfirm}
+   734→                  onChange={(e) => setTypedConfirm(e.target.value)}
+   735→                  placeholder={pendingRemove.requireTypedConfirm}
+   736→                  autoComplete="off"
+   737→                  autoFocus
+   738→                  className="font-mono"
+   739→                />
+   740→              </div>
+   741→            </div>
+   742→          )}
+   743→          <AlertDialogFooter>
+   744→            <AlertDialogCancel onClick={() => { setPendingRemove(null); setTypedConfirm(''); }}>Cancel</AlertDialogCancel>
+   745→            <AlertDialogAction
+   746→              className="bg-[var(--j-red)] text-white hover:bg-[var(--j-red)]/90 gap-1.5"
+   747→              disabled={typedConfirm !== (pendingRemove?.requireTypedConfirm ?? '')}
+   748→              onClick={() => pendingRemove && handleRemove(pendingRemove)}
+   749→            >
+   750→              <Trash2 className="h-3.5 w-3.5" /> Reset Everything
+   751→            </AlertDialogAction>
+   752→          </AlertDialogFooter>
+   753→        </AlertDialogContent>
+   754→      </AlertDialog>
+   755→    </div>
+   756→  );
+   757→}
+   758→
+   759→// ─── Stat tile (local helper) ────────────────────────────────────────
+   760→function StatTile({
+   761→  label, value, icon: Icon, accent,
+   762→}: {
+   763→  label: string;
+   764→  value: React.ReactNode;
+   765→  icon: LucideIcon;
+   766→  accent: string;
+   767→}) {
+   768→  return (
+   769→    <div className="jarvis-panel p-3 relative overflow-hidden">
+   770→      <div className="flex items-start justify-between">
+   771→        <div className="min-w-0">
+   772→          <div className="jarvis-mono text-[10px] uppercase text-[var(--j-text-mute)]">{label}</div>
+   773→          <div className="mt-1 text-xl font-semibold tabular-nums" style={{ color: accent }}>
+   774→            {value}
+   775→          </div>
+   776→        </div>
+   777→        <div
+   778→          className="flex h-8 w-8 items-center justify-center rounded-md shrink-0"
+   779→          style={{ background: `${accent}1a`, border: `1px solid ${accent}33`, color: accent }}
+   780→        >
+   781→          <Icon className="h-4 w-4" />
+   782→        </div>
+   783→      </div>
+   784→      <div
+   785→        className="absolute bottom-0 left-0 h-[2px]"
+   786→        style={{ width: '40%', background: `linear-gradient(90deg, ${accent}, transparent)` }}
+   787→      />
+   788→    </div>
+   789→  );
+   790→}
+   791→

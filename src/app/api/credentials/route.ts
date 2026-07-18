@@ -98,7 +98,19 @@ export async function POST(req: NextRequest) {
     status?: string;
   };
 
-  if (!platform || !username || !password) {
+  if (typeof platform !== 'string' || platform.trim().length === 0) {
+    return NextResponse.json({ error: 'platform required' }, { status: 400 });
+  }
+  if (platform.length > 100) {
+    return NextResponse.json({ error: 'platform must be 100 characters or fewer' }, { status: 400 });
+  }
+  if (typeof username !== 'string' || username.trim().length === 0) {
+    return NextResponse.json({ error: 'username required' }, { status: 400 });
+  }
+  if (username.length > 200) {
+    return NextResponse.json({ error: 'username must be 200 characters or fewer' }, { status: 400 });
+  }
+  if (typeof password !== 'string' || password.length === 0) {
     return NextResponse.json(
       { error: 'platform, username, password required' },
       { status: 400 },
