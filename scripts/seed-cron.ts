@@ -125,3 +125,25 @@ if (require.main === module) {
       await db.$disconnect();
     });
 }
+
+// Add multi-agent-discuss cron job
+const discussSeed = {
+  key: 'multi-agent-discuss',
+  name: 'Multi-Agent Discussion',
+  schedule: '0 */4 * * *', // every 4 hours
+  description: 'C-Suite agents discuss tab health, propose actions, reach consensus, create tasks.',
+  enabled: true,
+};
+
+async function addDiscussCron() {
+  const existing = await db.cronJob.findUnique({ where: { key: discussSeed.key } });
+  if (existing) {
+    await db.cronJob.update({ where: { key: discussSeed.key }, data: discussSeed });
+    console.log(`  ~ ${discussSeed.key} (${discussSeed.schedule}) [updated]`);
+  } else {
+    await db.cronJob.create({ data: discussSeed });
+    console.log(`  + ${discussSeed.key} (${discussSeed.schedule}) [new]`);
+  }
+}
+
+addDiscussCron().then(() => console.log('Done.')).catch(console.error);

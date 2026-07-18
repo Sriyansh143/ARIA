@@ -369,6 +369,21 @@ const dispatchers: Record<string, CronDispatcher> = {
       return { ok: false, detail: `ceo-sweep failed: ${err instanceof Error ? err.message : String(err)}` };
     }
   },
+
+  // ── Multi-Agent Discussion: C-Suite agents discuss tab health, reach consensus ──
+  'multi-agent-discuss': async () => {
+    try {
+      const { multiAgentTabSweep } = await import('@/lib/multi-agent-discussion');
+      const result = await multiAgentTabSweep();
+      return {
+        ok: true,
+        detail: `Multi-agent discussion: ${result.discussionsRun} discussions, ${result.tasksCreated} tasks created`,
+        recordsAffected: result.tasksCreated,
+      };
+    } catch (err) {
+      return { ok: false, detail: `multi-agent-discuss failed: ${err instanceof Error ? err.message : String(err)}` };
+    }
+  },
 };
 
 // ─── dispatchCronJob ──────────────────────────────────────────────────

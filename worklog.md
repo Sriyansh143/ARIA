@@ -4420,3 +4420,118 @@ Stage Summary:
 - **124+ API routes** + /api/ceo/sweep + /api/ceo/research-earning + /api/approvals
 - **Rules 15-18** added to RULES.md
 - **0 lint errors, 0 page errors**
+
+---
+Task ID: DOC-UPDATE
+Agent: documentation
+Task: Update APP_DOCUMENTATION.md to reflect all post-§15 changes (CEO agent, execution layer, browser automation, CRM, context-aware prompt, auto-save, chat delete fix, approval system, unified Command Center, Rules 15-18).
+
+Work Log:
+
+**Read context:**
+- Read worklog.md (last ~220 lines, entries from AUTONOMOUS-EXECUTION-LAYER through CEO-AGENT + AUTONOMOUS-PIPELINE + RULES).
+- Read APP_DOCUMENTATION.md first 50 lines (header + TOC + project overview) + last 50 lines (§15 ending).
+
+**Appended §16 "Post-Research Updates (Latest Features)" to APP_DOCUMENTATION.md:**
+
+The appended section is **828 lines** (lines 2,730 → 3,557). Well above the 300+ line requirement.
+
+Section structure:
+- **16.1 Overview** — Closing the Gaps Identified in §15 (pre-research vs post-research stats table + §15 gap → §16 closure matrix)
+- **16.2 CEO Agent System** — analyzeTab, ceoSweep (6 tabs/30min), researchEarningMethod (12-step pipeline), ceoClassify (CTO/CMO/COO/CFO), API routes (/api/ceo/sweep, /api/ceo/research-earning), cron job
+- **16.3 Execution Layer** — os-executor.ts (block-list + approval-list + audit log + sanitized env + timeout + size cap), fs-sandbox.ts (7 path-traversal-safe functions), 6 new API routes (/api/os/exec, /api/file/{read,write,list,edit,delete}), browser automation API (/api/browser/action), 4 new Orion intents (run-command, read-file, write-file, browse), verified examples
+- **16.4 CRM & Business Automation** — 3 Prisma models (Client 7-stage pipeline, Lead 0-100 auto-score, SupportTicket), lead-score.ts (source/completeness/email-domain), 6 API routes, CRMTab (1,176 lines, 3 sub-views with charts), 4 new Orion intents (create-lead, create-client, create-ticket, query-clients), verified examples
+- **16.5 Context-Aware System Prompt** — rewritten JARVIS_SYSTEM_PROMPT with capabilities list + 8 rules + 68-agent fleet, buildContextPrompt() injects live fleet/tasks/memories/skills/rules
+- **16.6 Auto-Save Code Files** — [FILE: path] marker detection, writeSandboxed() auto-save, "✅ Saved to" + "📁 N file(s) auto-saved" reports, full generate→save→execute→report cycle
+- **16.7 Chat Delete Fixed** — DELETE /api/chat endpoint + ChatTab clear() calls it
+- **16.8 Unified Command Center** — ChatTab renamed "Command Center", text+voice+TTS+smart routing+undo in one panel, no separate Orion/Telegram tabs needed
+- **16.9 Approval System** — /api/approvals GET+POST, Telegram-compatible, only human-in-loop checkpoint, actions requiring approval (git push, npm publish, docker rm, kill -9)
+- **16.10 Updated App Stats** — comprehensive tables of all 23 Orion intents, 26 tabs, 124+ API routes, 30 cron jobs, 37 Prisma models
+- **16.11 Rules 15-18** — full text of each rule + rationale
+- **16.12 How the Autonomous Pipeline Works** — end-to-end ASCII flow diagram (8 stages: CEO sweep → earning research → task execution → lead gen → client mgmt → approval checkpoint → context injection → auto-save cycle)
+- **16.13 What the App Can Now DO** — full capability list (13 items)
+- **16.14 Pending Work** — remaining gaps (Action Bus, plan execution with checkpoints, Telegram webhook, embedding-based memory, 89 Prisma models target, 240+ API routes target, 78+ skills target)
+- **16.15 Summary** — high-leverage changes + next highest-leverage work
+
+**File scope:**
+- `/home/z/my-project/APP_DOCUMENTATION.md` — APPENDED §16 only. Existing content (§1-15) untouched.
+- Zero code files modified.
+
+**Verification:**
+- File line count: 2,729 → 3,557 (+828 lines).
+- Section §16 starts at line 2,733 ("## 16. Post-Research Updates (Latest Features)").
+- Section §16 ends at line 3,557 (footer note).
+- All 11 required topics documented (CEO agent, execution layer, browser automation, CRM, context-aware prompt, auto-save, chat delete, approval system, unified Command Center, updated stats, Rules 15-18).
+- Includes bonus content: §15 gap → §16 closure matrix, end-to-end ASCII pipeline diagram, comprehensive intent/route/model tables, pending work list.
+
+Stage Summary:
+- ✅ APP_DOCUMENTATION.md updated with §16 (828 lines appended).
+- ✅ All 11 required topics documented thoroughly.
+- ✅ Existing §1-15 content untouched (append-only).
+- ✅ Zero code files modified (documentation task only).
+- ✅ Worklog entry appended (Task ID: DOC-UPDATE, Agent: documentation).
+
+
+---
+Task ID: DOCUMENTATION + PENDING_LOG + MULTI-AGENT-DISCUSSION
+Agent: main (Z.ai Code)
+Task: Update documentation, create PENDING_TASKS.md, add documentation rules, build multi-agent discussion system.
+
+Work Log:
+
+**DOCUMENTATION UPDATE** (parallel agent — completed):
+- APP_DOCUMENTATION.md: 2,729 → 3,557 lines (+828 lines).
+- New §16 "Post-Research Updates" documents ALL recent features: CEO agent, execution layer, browser automation, CRM, context-aware prompt, auto-save, chat delete, approval system, unified command center, updated stats, rules 15-18.
+- Includes: gap→closure matrix, end-to-end ASCII flow diagram, capability list, pending work.
+
+**PENDING_TASKS.md** (NEW — 117 lines):
+- Living log of ALL pending works — 44 completed items (✅) + 28 pending items (🔴).
+- Organized by category: Execution, Planning, Multi-Agent, Communication, Context, Business, System, Models/Routes/Skills.
+- Rule: MUST be updated every run. Agents read this at session start, update at session end.
+- Includes current app stats (23 intents, 26 tabs, 124+ routes, 30 crons, 37 models, 68 agents).
+
+**RULES 19-20** (RULES.md):
+- Rule 19: Update documentation every run — PENDING_TASKS.md, APP_DOCUMENTATION.md, worklog.md, RULES.md.
+- Rule 20: Multi-agent discussion before implementation — agents discuss, vote, reach consensus, then implement.
+
+**MULTI-AGENT DISCUSSION SYSTEM** (`src/lib/multi-agent-discussion.ts` — NEW):
+- Ported concept from jarvis zip's mnc-orchestrator.ts + hierarchical-orchestrator.ts.
+- `runDiscussion(topic, context)` — Full multi-agent discussion:
+  1. **Round 1**: Each C-Suite agent (ATLAS/CTO, ECHO/CMO, ORION/COO, APEX/CFO) independently analyzes the topic from their domain perspective.
+  2. **Round 2**: Agents see each other's opinions and can adjust their proposals.
+  3. **Consensus**: CEO collects votes, reaches consensus decision.
+  4. **Implementation**: Creates Task records from consensus actions.
+  5. **Logging**: Discussion results saved to Memory (episodic scope) + notification created.
+- `multiAgentTabSweep()` — Runs discussions on 3 tab topics:
+  - Tasks tab health (completion rate, pending count).
+  - CRM & Sales (lead pipeline, conversion rate, client acquisition).
+  - Earning methods (which are ready to offer, what research is needed).
+- API: `/api/ceo/discuss` POST — run single discussion or full sweep.
+- Cron: `multi-agent-discuss` every 4 hours.
+
+**Verification**:
+- Multi-agent discussion tested: "Should we create a new service offering for AI chatbot development?"
+  - 4 agents participated (ATLAS, ECHO, ORION, APEX).
+  - 4 opinions generated with confidence scores (0.8-0.85).
+  - Consensus: "Form a cross-functional task force to develop a comprehensive business case..."
+  - Agreed by: all 4 agents.
+  - 4 tasks created.
+  - Discussion logged to memory.
+- Lint: clean (0 errors, 0 warnings).
+- Dev server: HTTP 200.
+- 31 cron jobs total (added multi-agent-discuss).
+- Footer: visible (top:880, vh:900).
+
+Stage Summary:
+- ✅ APP_DOCUMENTATION.md updated (3,557 lines, §16 added with all recent features).
+- ✅ PENDING_TASKS.md created (117 lines, 44 completed + 28 pending items).
+- ✅ Rules 19-20 added (documentation every run + multi-agent discussion).
+- ✅ Multi-agent discussion system built (4 C-Suite agents, 2-round discussion, CEO consensus, task creation, memory logging).
+- ✅ Cron: multi-agent-discuss every 4 hours.
+- ✅ 0 lint errors, 0 page errors.
+
+## Documentation Status:
+- **APP_DOCUMENTATION.md**: 3,557 lines — UP TO DATE (§16 covers all latest features).
+- **PENDING_TASKS.md**: 117 lines — NEW, tracks all pending works.
+- **worklog.md**: 4,473 lines — UP TO DATE (appended every run).
+- **RULES.md**: 268 lines, 20 rules — UP TO DATE (rules 15-20 added recently).

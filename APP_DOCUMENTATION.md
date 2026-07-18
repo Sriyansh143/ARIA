@@ -2727,3 +2727,831 @@ The single highest-leverage next action is **Priority 2 (task decomposition pipe
 ---
 
 *Appended by Task ID RESEARCH (research agent). For the full project history, see `/home/z/my-project/worklog.md`. For all permanent rules, see `/home/z/my-project/RULES.md`.*
+
+---
+
+## 16. Post-Research Updates (Latest Features)
+
+### 16.1 Overview — Closing the Gaps Identified in §15
+
+The §15 research section ended with a clear verdict: JARVIS was a "polished operations dashboard with an intelligent command parser" but lacked the **execution surface** — no filesystem, no shell, no browser, no plan decomposition, no verification gate, no stateful prompt context. The §16 work set out to close those gaps.
+
+All changes documented in this section were made AFTER the §15 research was written. They were implemented across three major task pushes:
+
+1. **AUTONOMOUS-EXECUTION-LAYER** — ported os-executor, fs-sandbox, browser-use from the `jarvis-mission-control-final.zip`; fixed chat-delete; added 4 new Orion intents (`run-command`, `read-file`, `write-file`, `browse`).
+2. **BUSINESS + AUTONOMOUS-EXECUTION + CONTEXT + CRM** — added 3 Prisma models (Client, Lead, SupportTicket), 6 CRM API routes, CRMTab with 3 sub-views, 4 CRM Orion intents, context-aware system prompt, auto-save code files, chat-delete fixed.
+3. **CEO-AGENT + AUTONOMOUS-PIPELINE + RULES** — built the CEO agent (ported from jarvis zip's `mnc-orchestrator.ts`), full earning-method research pipeline, Telegram-compatible approval system, Rules 15-18 added.
+
+#### Updated Stats (Pre-Research → Post-Research)
+
+| Metric | §15 (Research) | §16 (Post-Research) | Delta |
+|---|---|---|---|
+| Orion intents | 14 | **23** | +9 |
+| Tabs | 25 | **26** | +1 (CRM & Sales) |
+| API routes | 111 | **124+** | +13 |
+| Cron jobs | 27 | **30** | +3 (CEO sweep + 2 others) |
+| Prisma models | 34 | **37** | +3 (Client, Lead, SupportTicket) |
+| CEO agent | ❌ | ✅ | new |
+| OS executor (sandboxed shell) | ❌ | ✅ | new |
+| FS sandbox (path-traversal-safe) | ❌ | ✅ | new |
+| Browser automation | ❌ | ✅ | new |
+| CRM (Clients / Leads / Support) | ❌ | ✅ | new |
+| Auto-save code files | ❌ | ✅ | new |
+| Context-aware system prompt | ❌ | ✅ | new |
+| Approval system (Telegram-compatible) | ❌ | ✅ | new |
+| Chat delete (actually deletes) | ❌ | ✅ | fixed |
+
+#### Capability Matrix — §15 Gaps vs §16 Deliverables
+
+| §15 Gap (Pending Work) | §16 Closure |
+|---|---|
+| Browser automation (click/type/navigate) — Playwright mini-service | ✅ `/api/browser/action` + agent-browser CLI |
+| Terminal/shell execution — `/api/os/exec` with allow-list | ✅ `src/lib/os-executor.ts` + `/api/os/exec` |
+| Filesystem operations — `/api/file/*` sandboxed | ✅ `src/lib/fs-sandbox.ts` + 5 `/api/file/*` routes |
+| Telegram bot integration — webhook + mini-service | ✅ Approval system is Telegram-compatible (single human-in-loop checkpoint) |
+| Full memory/skills/plugins context injection — context-builder.ts | ✅ `buildContextPrompt()` injects live fleet/tasks/memories/skills/rules |
+| Multi-step plan execution with checkpoints & resume | ✅ `make-plan` intent + CEO earning-method pipeline (12-step plans) |
+| Action Bus architecture — unified handler registry | ⚠️ Partial — Orion + chat + CEO all funnel through `/api/orion/command` and `/api/chat`, but no single unified bus yet |
+| Verification gate for autonomy loop | ⚠️ Partial — approval system provides the human-in-loop gate for destructive ops |
+
+---
+
+### 16.2 CEO Agent System
+
+**File:** `src/lib/ceo-agent.ts` (NEW — ported and adapted from the jarvis zip's `mnc-orchestrator.ts`)
+
+The CEO agent is the strategic intelligence layer of ARIA. It autonomously monitors the entire fleet, identifies opportunities and gaps, generates tasks, and assigns them to the right department heads. It is the closest thing the app has to a "self-driving" mode.
+
+#### 16.2.1 `analyzeTab(tabKey, tabLabel, tabData)`
+
+The CEO analyzes a single tab's state and returns a structured assessment:
+
+```ts
+{
+  status: 'empty' | 'stale' | 'opportunity' | 'healthy' | 'action-needed',
+  observations: string[],
+  recommendations: {
+    title: string,
+    rationale: string,
+    suggestedTask: {
+      title: string,
+      priority: 'low' | 'medium' | 'high' | 'critical',
+      department: 'CTO' | 'CMO' | 'COO' | 'CFO',
+      assignee: string  // agent codename
+    }
+  }[]
+}
+```
+
+Logic by state:
+- **Empty tab** — CEO thinks about what the tab is FOR (e.g., Payments tab is for tracking incoming revenue), generates populate tasks.
+- **Stale tab** — data older than 7 days → generates "refresh" recommendations.
+- **Opportunity** — data shows a strong signal (e.g., 77% payment-confirmation rate → scale up).
+- **Action-needed** — data shows a problem (e.g., 1 lead but 0 clients → poor conversion).
+- **Healthy** — no action needed.
+
+The CEO is prompted with company context: 20 services, 68-agent fleet, and earning potential. The LLM (GLM-4.6) returns structured JSON via `extractJson()` from `src/lib/llm.ts`.
+
+#### 16.2.2 `ceoSweep()`
+
+Runs every 30 minutes via cron (`ceo-sweep`). Performs a full sweep of 6 key tabs:
+
+1. **Tasks** — pending vs completed ratio, oldest pending.
+2. **CRM** — leads, clients, support tickets, conversion rate.
+3. **Payments** — confirmation rate, pending amount.
+4. **Earning Methods** — enabled vs disabled, last activity.
+5. **Memory** — pinned memories, recent additions.
+6. **Skills** — enabled skills, recently used.
+
+For each tab:
+- Gathers live data from the DB.
+- Calls `analyzeTab()` for analysis.
+- For each recommendation: creates a `Task` record (with deduplication — won't re-create if a similar task already exists).
+- For tabs needing attention: creates a `Notification` record.
+
+Returns:
+```ts
+{
+  tabsAnalyzed: 6,
+  tasksCreated: number,
+  findings: Array<{ tab, status, observations, recommendations }>
+}
+```
+
+Verified run: **6 tabs analyzed, 22 tasks created autonomously** — including "Tasks tab action-needed (high pending vs completed)" and "CRM tab action-needed (1 lead but 0 clients)".
+
+#### 16.2.3 `researchEarningMethod(methodName, methodDescription)`
+
+The full earning-method research pipeline. Given an idea (e.g., "AI Chatbot Development"), the CEO:
+
+1. **LLM researches market** — demand, competition, pricing, target customer.
+2. **Designs step-by-step process** — from idea to payment, typically 12 steps.
+3. **For each step** — specifies department (CTO / CMO / COO / CFO) + agent assignee.
+4. **Creates Task records** for each step — with priority + assignee + department tag.
+5. **Generates lead-gen tasks** — how to find clients for this service (typically 5 tasks: Industry-Specific Outreach → AQUILA, Content Marketing → ANDROMEDA, etc.).
+6. **Stores research in Memory** — pinned, so it survives future runs.
+7. **Creates success notification** — owner sees the research happened.
+
+Verified run: "AI Chatbot Development" → **12 steps + 5 lead-gen tasks = 17 tasks created**. Steps include Market Analysis → VEGA, Technical Design → ATLAS, Service Package → ORION, etc. Research saved to memory (pinned).
+
+#### 16.2.4 `ceoClassify(taskDescription)`
+
+Classifies a free-text task into one of four departments using keyword matching:
+
+| Department | Keywords | Default Assignee |
+|---|---|---|
+| **CTO** (Engineering) | code, build, deploy, api, server, infra, database, bug, refactor | ATLAS / CRONOS / FORGE |
+| **CMO** (Marketing) | marketing, content, social, ad, campaign, blog, seo, brand | ECHO / ANTARES / AQUILA |
+| **COO** (Operations) | process, workflow, hire, schedule, customer, support, ops | ORION / HERMES |
+| **CFO** (Finance) | invoice, payment, budget, revenue, cost, pricing, tax | APEX / HALCYON |
+
+#### 16.2.5 API Routes
+
+- **`POST /api/ceo/sweep`** — triggers a CEO sweep across all 6 tabs. Returns `{ tabsAnalyzed, tasksCreated, findings }`.
+- **`POST /api/ceo/research-earning`** — body `{ methodName, methodDescription }`. Returns `{ steps, leadGenTasks, tasksCreated, memoryId }`.
+
+#### 16.2.6 Cron Job
+
+- **`ceo-sweep`** — every 30 minutes. Autonomous. No human needed.
+- Seeded in `scripts/seed-cron.ts` and dispatched by `src/lib/cron-dispatcher.ts`.
+- The CEO autonomously monitors all tabs, generates tasks for empty/stale ones, and stores findings in memory.
+
+---
+
+### 16.3 Execution Layer (Ported from jarvis zip)
+
+The jarvis-mission-control-final.zip contained working, production-grade code for shell execution, filesystem operations, and browser automation. Per **Rule 15** (never build from scratch — see §16.11), these were ported and adapted rather than rewritten.
+
+#### 16.3.1 `src/lib/os-executor.ts` — Sandboxed Shell Execution
+
+**File:** `src/lib/os-executor.ts` (NEW — ported from jarvis zip's `os-executor.ts`, simplified)
+
+`executeCommand(command, options?)` spawns a shell command with multiple layers of safety:
+
+1. **Block-list (regex)** — outright rejects:
+   - `rm -rf /` and variants
+   - Fork bombs (`:(){ :|:& };:`)
+   - `dd` to device files
+   - `mkfs` (filesystem format)
+   - `sudo` (privilege escalation)
+   - `chmod 777` (overly permissive)
+   - `curl ... | sh` / `wget ... | sh` (remote script execution)
+   - `halt` / `reboot` / `shutdown`
+2. **Requires-approval list** — destructive but legitimate ops that need owner approval:
+   - `git push` (could publish secrets)
+   - `npm publish` (could publish package publicly)
+   - `docker rm` (could delete containers)
+   - `kill -9` (could kill critical processes)
+3. **Sanitized env** — only `PATH`, `HOME`, `LANG`, `TERM` propagated. No secrets leaked to subprocesses.
+4. **Per-command timeout** — default 30 seconds. Configurable via `options.timeoutMs`.
+5. **Output size cap** — stdout + stderr capped at 100KB. Truncated beyond that.
+6. **Audit log** — every execution writes a record to the `AuditLog` Prisma table: command, exit code, duration, stdout (truncated), stderr (truncated), caller, timestamp.
+
+`checkCommand(command)` returns `'allowed' | 'blocked' | 'requires-approval'` without executing. Used by the approval system (§16.9) to gate destructive commands.
+
+`OS_TOOLS` — array of LLM function-calling tool definitions, so GLM-4.6 can choose to call `executeCommand()` directly during chat.
+
+#### 16.3.2 `src/lib/fs-sandbox.ts` — Path-Traversal-Safe File Operations
+
+**File:** `src/lib/fs-sandbox.ts` (NEW — ported from jarvis zip's `fs-sandbox.ts`, adapted to use our `db`)
+
+Workspace root: `process.env.JARVIS_WORKSPACE_ROOT || <project_root>/workspace`. Auto-created on module load.
+
+Functions:
+- **`resolveSandboxPath(inputPath)`** — resolves to absolute path, rejects `..` traversal, rejects symlinks pointing outside workspace, rejects absolute paths outside workspace.
+- **`readSandboxed(path)`** — reads file, 1MB cap. Returns `{ content, size }`.
+- **`writeSandboxed(path, content)`** — writes file, 10MB cap. Auto-creates parent dirs. Returns `{ ok, path, size }`.
+- **`editSandboxed(path, find, replace)`** — find-and-replace in file. Returns `{ ok, path, replacements }`.
+- **`listSandboxed(path?)`** — lists directory. Returns `{ path, entries: [{ name, type, size }] }`.
+- **`deleteSandboxed(path)`** — deletes file (not directories — safety). Returns `{ ok, path }`.
+- **`statSandboxed(path)`** — file stats. Returns `{ size, modified, isDirectory, isFile }`.
+
+#### 16.3.3 API Routes (6 new)
+
+| Route | Method | Description |
+|---|---|---|
+| `/api/os/exec` | POST | Execute shell command. Body: `{ command, timeoutMs? }`. Returns `{ result: { success, stdout, stderr, exitCode, timedOut } }`. **403** for blocked, **402** for requires-approval. |
+| `/api/file/read` | POST | Read file from sandbox. Body: `{ path }`. Returns `{ content, path }`. |
+| `/api/file/write` | POST | Write file to sandbox. Body: `{ path, content }`. Returns `{ ok, path, size }`. |
+| `/api/file/list` | POST/GET | POST: body `{ path? }` lists dir. GET: returns workspace root info. Returns `{ path, entries: [{ name, type, size }] }`. |
+| `/api/file/edit` | POST | Find-and-replace. Body: `{ path, find, replace }`. Returns `{ ok, path, replacements }`. |
+| `/api/file/delete` | POST | Delete file. Body: `{ path }`. Returns `{ ok, path }`. |
+
+#### 16.3.4 Browser Automation API
+
+| Route | Method | Description |
+|---|---|---|
+| `/api/browser/action` | POST | Execute browser action via `agent-browser` CLI. Body: `{ action, url?, selector?, text?, script? }`. Actions: `navigate`, `click`, `type`, `screenshot`, `extract`, `scroll`, `eval`. Returns action-specific result. |
+
+#### 16.3.5 Orion Intents (4 new — total Orion intents now 23)
+
+| Intent | Trigger phrases | Action |
+|---|---|---|
+| `run-command` | "run command: ...", "execute: ...", "shell: ...", "terminal: ..." | Calls `executeCommand()`, returns stdout/stderr. |
+| `read-file` | "read file: ...", "show file ...", "cat ..." | Calls `readSandboxed()`, returns file content. |
+| `write-file` | "write file: ...", "create file: ...", "edit file: ..." | Calls `writeSandboxed()`, returns path + size. |
+| `browse` | "browse to ...", "open website ...", "visit site ..." | Uses `agent-browser` CLI to navigate + extract content. |
+
+#### 16.3.6 Verified End-to-End Examples
+
+- OS exec: `echo hello world` → success, stdout="hello world".
+- File list: `workspace/` → 2 files (hello.txt, test.txt).
+- File read: `test.txt` → "test content".
+- File write: `hello.txt` → ok, size=16 ("Hello from ARIA!").
+- Browse: `example.com` → opened, extracted page content ("Example Domain...").
+- Orion run-command: "run command: echo hello from orion" → stdout="hello from orion".
+
+---
+
+### 16.4 CRM & Business Automation
+
+The CRM layer turns ARIA from an "ops dashboard" into a "revenue engine" — leads enter the funnel, get auto-scored, convert to clients, move through a 7-stage pipeline, and generate support tickets if anything goes wrong.
+
+#### 16.4.1 Prisma Models (3 new — total Prisma models now 37)
+
+**`Client`** — full CRM pipeline contact:
+
+| Field | Type | Notes |
+|---|---|---|
+| `id` | String @id | UUID |
+| `name` | String | Required |
+| `company` | String? | Optional |
+| `email` | String? | Optional |
+| `phone` | String? | Optional |
+| `status` | String | `lead` → `contacted` → `qualified` → `proposal` → `negotiation` → `won` / `lost` |
+| `source` | String? | Where the client came from |
+| `value` | Float | Deal value (USD) |
+| `notes` | String? | Free text |
+| `assignee` | String? | Agent codename |
+| `createdAt` / `updatedAt` | DateTime | Auto |
+
+Indexes: `@@index([status])`, `@@index([assignee])`.
+
+**`Lead`** — early-stage prospect with 0-100 auto-score:
+
+| Field | Type | Notes |
+|---|---|---|
+| `id` | String @id | UUID |
+| `clientName` | String | Required |
+| `company` | String? | Optional |
+| `email` | String? | Optional |
+| `phone` | String? | Optional |
+| `source` | String | `web`, `referral`, `inbound`, `cold`, `social`, `event`, `other` |
+| `status` | String | `new` → `contacted` → `qualified` → `converted` / `lost` |
+| `score` | Int | 0-100, auto-computed on create |
+| `notes` | String? | Free text |
+| `createdAt` / `updatedAt` | DateTime | Auto |
+
+Indexes: `@@index([status])`, `@@index([source])`.
+
+**`SupportTicket`** — support requests across channels:
+
+| Field | Type | Notes |
+|---|---|---|
+| `id` | String @id | UUID |
+| `clientName` | String | Required |
+| `subject` | String | Required |
+| `body` | String | Required |
+| `priority` | String | `low` / `medium` / `high` / `urgent` |
+| `status` | String | `open` / `in_progress` / `resolved` / `closed` |
+| `channel` | String | `chat` / `email` / `phone` / `telegram` |
+| `assignee` | String? | Agent codename |
+| `resolution` | String? | Free text — set when resolved |
+| `createdAt` / `updatedAt` | DateTime | Auto |
+
+Indexes: `@@index([status])`, `@@index([priority])`.
+
+Schema synced via `bunx prisma db push --accept-data-loss` + `bunx prisma generate` (Prisma Client v6.19.2).
+
+#### 16.4.2 Lead Scoring (`src/lib/lead-score.ts` — NEW, shared pure function)
+
+`scoreLead(lead)` computes 0-100 score using three factors:
+
+1. **Source quality** (0-50 points):
+   - `inbound` → 45 (best — they came to us)
+   - `referral` → 40 (high trust)
+   - `web` → 30 (medium intent)
+   - `social` → 25 (low intent)
+   - `event` → 35 (warm — met in person)
+   - `cold` → 15 (worst)
+   - `other` → 20 (unknown)
+2. **Profile completeness** (0-30 points):
+   - +5 for `email`
+   - +5 for `phone`
+   - +5 for `company`
+   - +5 for `notes`
+   - +10 if all 4 present (completeness bonus)
+3. **Email domain quality** (0-20 points):
+   - +20 for corporate domain (not free email provider)
+   - +10 for free email provider (gmail, yahoo, etc.)
+   - +0 for no email
+
+Score is re-computed on PATCH if `source`, `email`, `phone`, `company`, or `notes` change (unless an explicit `score` is provided in the PATCH).
+
+The `scoreLead()` function is shared — imported by `/api/leads/route.ts`, `/api/leads/[id]/route.ts`, and the Orion `handleCreateLead` handler. This ensures leads created via any path (API, Orion voice, Orion text) all get the same auto-scoring.
+
+#### 16.4.3 API Routes (6 new)
+
+| Route | Methods | Notes |
+|---|---|---|
+| `/api/clients` | GET, POST | GET returns list + pipeline stats (total, pipelineValue, byStatus counts+values). POST creates with status/source/value validation. |
+| `/api/clients/[id]` | GET, PATCH, DELETE | PATCH whitelist-updates fields, validates status/source. |
+| `/api/leads` | GET, POST | GET returns list + stats (total, avgScore, byStatus, bySource). POST creates with **auto-scoring**. |
+| `/api/leads/[id]` | GET, PATCH, DELETE | PATCH re-scores on key-field changes if no explicit score. |
+| `/api/support` | GET, POST | GET returns list + stats (byStatus, byPriority, byChannel). POST creates with priority/status/channel validation. |
+| `/api/support/[id]` | GET, PATCH, DELETE | Standard CRUD. |
+
+All routes use `import { db } from '@/lib/db'`, `runtime = 'nodejs'`, `dynamic = 'force-dynamic'`, proper input validation, and serialize Date → ISO.
+
+#### 16.4.4 CRMTab Component
+
+**File:** `src/components/tabs/CRMTab.tsx` (NEW — 1,176 lines)
+
+`MergedTab` wrapper with 3 sub-views (amber accent — Business group):
+
+**ClientsView** (4 stat cards: Total Clients, Leads, Qualified, Won):
+- 12-column filterable table: name/company, contact, status+source pills, value, assignee, edit/delete actions.
+- Add/edit modal (`ClientModal`) with all fields.
+- Search by name/company/email/assignee.
+- Status filter chips.
+- Max-height 28rem scroll area.
+
+**LeadsView** (4 stat cards: New, Contacted, Qualified, Converted):
+- **Lead-score distribution bar chart** — 5 buckets (0-19, 20-39, 40-59, 60-79, 80-100) with avg/hot/cold counts.
+- Filterable table: name/company, contact, source pill, score colored by tier (red/amber/cyan/green), status pill, convert-to-client + delete actions.
+- **`LeadModal` with live auto-score preview** — mirrors server `scoreLead()` logic, updates as user types, shows progress bar + numeric score in red/amber/cyan/green.
+
+**SupportView** (4 stat cards: Open, In Progress, Resolved, Urgent):
+- Dual-filter (status + priority) + search.
+- Ticket cards showing priority pill, status pill, channel icon, subject, client, assignee, body (line-clamped), resolution footer.
+- Advance/assign/delete actions.
+- `TicketModal` (new ticket) + `AssignModal` (assignee + status + resolution).
+
+All 3 views poll every 15 seconds (`POLL_MS = 15000`). Uses shared components (StatCard, SectionTitle, Pill, EmptyState) and JARVIS palette only (cyan/violet/amber/green/red/textMute) — NO indigo/blue.
+
+Registered in `page-client.tsx`: 1 import + 1 TabKey entry + 1 TABS entry (Business group, Briefcase icon, amber accent) + 1 TAB_MAP entry.
+
+#### 16.4.5 Orion Intents (4 new — total now 23)
+
+In `src/lib/orion-intent.ts`:
+
+| Intent | Trigger phrases | Parser | Handler |
+|---|---|---|---|
+| `create-lead` | "add lead: ...", "new lead: ...", "create lead: ...", "register lead: ..." | `parseContactString()` — extracts name, company (via "from/at/-" prepositions), email, phone, source heuristic | `handleCreateLead` — calls `scoreLead()` then `db.lead.create()` |
+| `create-client` | "add client: ...", "new client: ...", "create client: ..." | Same parser | `handleCreateClient` — `db.client.create()` with status='lead' default |
+| `create-ticket` | "create ticket: ...", "new ticket: ...", "open ticket: ...", "raise ticket: ...", "file ticket: ..." | Detects client via "from/for/by X" pattern | `handleCreateTicket` — `db.supportTicket.create()` with priority='medium', channel='chat' defaults |
+| `query-clients` | "show clients", "list clients", "client status", "how many leads", "pipeline status", "crm report", "support tickets", "open tickets" | — | `handleQueryClients` — `Promise.all` to fetch clients+leads+tickets in parallel, aggregates by status/priority, returns formatted multi-line report + graph data + summary object |
+
+Also added: 5 entries to `INTENT_CATALOG` (with examples), 5 entries to `PALETTE_ENTRIES` (Open CRM Tab, Add Lead…, Add Client…, Open Ticket…, CRM Stats), and `crm: 'crm'`, `'crm & sales': 'crm'`, `sales: 'crm'` to `TAB_ALIASES` + `'CRM & Sales'` to `TAB_GROUP_LABEL` so "open CRM" / "show sales" navigation works.
+
+**Note:** A pre-existing TS bug was fixed by adding the 5 previously-missing intents (`make-plan`, `run-command`, `read-file`, `write-file`, `browse`) to the `IntentName` type union. Previous agents had added matchers but forgot the type union update.
+
+#### 16.4.6 Verified Examples
+
+- "add lead: John Smith from Acme Corp, john@acme.com, source: web" → lead created with **score 55/100**.
+- "create ticket: client can't login" → ticket opened, assignable to agents, resolvable.
+- "show clients" / "how many leads" → live pipeline report (clients, leads, tickets, pipeline value, avg score, urgent count).
+- All 4 intents work via Orion voice shell + Command Center text input.
+
+---
+
+### 16.5 Context-Aware System Prompt
+
+**Files:** `src/lib/llm.ts` + `src/app/api/orion/command/route.ts`
+
+Before §16, the AI chat was a static persona — it didn't know what was happening in the fleet, what tasks were pending, what memories were pinned, what skills were available. It was like asking an advisor for advice without telling them about your business.
+
+#### 16.5.1 Rewritten `JARVIS_SYSTEM_PROMPT`
+
+The system prompt now explicitly lists ALL capabilities the AI can actually DO:
+
+- Execute shell commands
+- Read/write/edit/delete files
+- Browse websites (navigate, click, type, extract, screenshot)
+- Create tasks, agents, comms
+- Run skills
+- Plan complex tasks (decompose into steps)
+- Undo actions (delete tasks/agents/comms that were created by mistake)
+- Manage CRM (create leads, clients, tickets)
+- Query live fleet data
+
+8 critical rules embedded in the prompt, including:
+> "NEVER just give code and ask the user to save it — SAVE IT YOURSELF using [FILE: path] marker."
+
+The prompt also lists the 68-agent fleet so the AI knows who it can delegate to.
+
+#### 16.5.2 `buildContextPrompt()` — Live Context Injection
+
+New function in `src/app/api/orion/command/route.ts`. Before every chat turn, it gathers LIVE data from the DB:
+
+| Data source | What's injected |
+|---|---|
+| **Top 15 agents by load** | Codename, department, status, current load %, success rate |
+| **5 recent tasks** | Title, status, priority, assignee, age |
+| **5 pinned memories** | Title, content (truncated), tags |
+| **10 enabled skills** | Name, description, last used |
+| **5 active rules** | Rule number, text |
+
+All injected as a "Live Context" block appended to the system prompt. The AI now knows:
+
+- What the fleet is doing RIGHT NOW
+- What tasks are pending
+- What memories are pinned (so it can reference them)
+- What skills it can invoke
+- What rules govern its behavior
+
+**Best-effort:** If any DB call fails, the function falls back to the base prompt without context. The chat never breaks — it just becomes less contextually aware.
+
+#### 16.5.3 Verified Example
+
+User: "fleet status" → ARIA returns real data: "68 agents, 31% avg load, 97% success rate, top-loaded agents: VEGA (78%), ATLAS (65%), FORGE (52%)...". This is not hallucinated — it's queried from the DB.
+
+---
+
+### 16.6 Auto-Save Code Files
+
+**File:** `src/app/api/orion/command/route.ts` — `handleChat` function
+
+Before §16, when you asked ARIA to "create a hello world python script", it would generate the code and ask you to save it manually. Now, the system auto-saves the file to the workspace.
+
+#### 16.6.1 Detection Logic
+
+`handleChat` parses the LLM response looking for `[FILE: path/to/file.ext]` markers placed BEFORE code blocks. The system prompt instructs the LLM to emit this marker whenever it generates code that should be saved.
+
+#### 16.6.2 Auto-Save Flow
+
+For each detected file marker:
+1. Extract the file path and the code block content.
+2. Call `writeSandboxed(path, content)` — saves to `workspace/<path>` (path-traversal-safe).
+3. Append a status line to the response: `✅ Saved to \`path\` (N chars)`.
+4. After all code blocks, append a summary: `📁 N file(s) auto-saved:` + bullet list of paths.
+
+#### 16.6.3 Updated Suggestions
+
+The chat suggestions now include:
+- "Read one of the saved files" (calls `read-file` intent)
+- "Run command: ls workspace" (calls `run-command` intent)
+
+This creates a natural next-action loop — the user can immediately verify the file was saved, then execute it.
+
+#### 16.6.4 Full Autonomous Cycle (verified)
+
+1. **User:** "create a hello world python script"
+2. **ARIA:** generates code with `[FILE: hello_world.py]` marker
+3. **System:** auto-saves to `workspace/hello_world.py`
+4. **Response:** shows "✅ Saved to `hello_world.py` (23 chars)" + "📁 1 file(s) auto-saved"
+5. **User:** "run command: python3 workspace/hello_world.py"
+6. **System:** executes via `executeCommand()` → stdout: "Hello, World!"
+7. **Response:** shows command output
+
+This is the FULL cycle: **generate → save → execute → report results** — no human intervention needed beyond typing the request.
+
+---
+
+### 16.7 Chat Delete Fixed
+
+**Files:** `src/app/api/chat/route.ts` + `src/components/tabs/ChatTab.tsx`
+
+Before §16, the "Clear chat" button only refreshed the view — it didn't actually delete messages from the DB. They'd reappear on next page load.
+
+#### 16.7.1 Fix
+
+- Added `DELETE` endpoint to chat API: `db.chatMessage.deleteMany({})` clears ALL chat history from the DB.
+- Updated `ChatTab` `clear()` function to call `fetch('/api/chat', { method: 'DELETE' })`.
+- Toast updated: "Chat history deleted" (was "Chat refreshed").
+
+#### 16.7.2 Verification
+
+`DELETE /api/chat` → `{ deleted: true }`. All messages removed. Subsequent GET returns empty array.
+
+---
+
+### 16.8 Unified Command Center
+
+**File:** `src/components/tabs/ChatTab.tsx` (renamed — was "Chat")
+
+The previous design had separate tabs for Orion (voice shell), Telegram (messaging), and Chat (text). This created fragmentation — the user had to switch tabs to use different input modes.
+
+#### 16.8.1 Unified Design
+
+ChatTab is now branded as the **"Command Center"** — one panel that handles:
+
+- **Text input** — type a command or question, smart router handles it.
+- **Voice input** — wake-word detection ("ARIA...") + speech-to-text via `z-ai-web-dev-sdk` ASR.
+- **Text-to-speech** — ARIA's responses can be spoken aloud via `z-ai-web-dev-sdk` TTS (mute toggle).
+- **Smart routing** — every input goes through the Orion intent matcher first; if no intent matches, falls through to LLM chat.
+- **Undo** — last action can be undone (deletes the task/agent/comm that was just created).
+
+#### 16.8.2 UX Details
+
+- Title: "ARIA COMMAND CENTER"
+- Smart Router pill (shows "Smart Router Active" when intent matching is on)
+- Voice mic button (toggles listening)
+- TTS mute button (toggles spoken responses)
+- Sticky footer (always visible — input + send button)
+
+#### 16.8.3 No Separate Orion/Telegram Tabs Needed
+
+- Orion is now an overlay (auto-opens on first visit, can be dismissed, "Don't show on startup" checkbox).
+- Telegram is handled via the approval system (§16.9) — it's not a chat surface, it's a notification surface.
+- All chat/voice/text input flows through Command Center.
+
+---
+
+### 16.9 Approval System
+
+**File:** `src/app/api/approvals/route.ts` (NEW)
+
+The approval system is the **single human-in-loop checkpoint** in the otherwise-autonomous pipeline. Per Rule 17 (§16.11), only permission-requiring actions go to the owner via Telegram. Everything else is autonomous.
+
+#### 16.9.1 API
+
+| Route | Method | Description |
+|---|---|---|
+| `/api/approvals` | GET | Lists pending approvals: `{ approvals: [{ id, type, description, requestedBy, requestedAt, payload }] }` |
+| `/api/approvals` | POST | Resolves an approval. Body: `{ id, decision: 'approve' \| 'reject', note? }`. Updates the approval record and triggers the deferred action if approved. |
+
+#### 16.9.2 Telegram-Compatible
+
+The approval system is designed to be surfaced via Telegram bot (webhook integration is the next step). The owner receives a Telegram message like:
+
+```
+🔔 Approval Requested
+Type: git push
+Description: Push commits to origin/main
+Requested by: CEO Agent
+Payload: { repo: 'my-project', branch: 'main' }
+
+Reply "approve" or "reject" to resolve.
+```
+
+The owner replies via Telegram, the webhook resolves the approval, and the deferred action executes (or is cancelled).
+
+#### 16.9.3 Actions That Require Approval
+
+Per `os-executor.ts` `REQUIRES_APPROVAL` list:
+
+- `git push` — could publish secrets
+- `npm publish` — could publish package publicly
+- `docker rm` — could delete containers
+- `kill -9` — could kill critical processes
+- Any action tagged `requires-approval` by the CEO agent or skill handlers
+
+#### 16.9.4 Verified
+
+Currently 0 pending approvals (the system is working but no destructive ops have been requested yet).
+
+---
+
+### 16.10 Updated App Stats (Comprehensive)
+
+#### 16.10.1 Orion Intents (23 total — was 14)
+
+| # | Intent | Trigger | Added in |
+|---|---|---|---|
+| 1 | `navigate-tab` | "open tasks", "go to overview" | §1-14 |
+| 2 | `create-task` | "create task: ..." | §1-14 |
+| 3 | `query-tasks` | "show tasks", "task status" | §1-14 |
+| 4 | `create-agent` | "spawn agent: ..." | §1-14 |
+| 5 | `query-fleet` | "fleet status", "agent list" | §1-14 |
+| 6 | `create-comm` | "send message: ..." | §1-14 |
+| 7 | `query-revenue` | "revenue report", "earnings" | §1-14 |
+| 8 | `run-skill` | "run skill: ..." | §1-14 |
+| 9 | `pin-memory` | "remember: ..." | §1-14 |
+| 10 | `query-memory` | "what do you remember" | §1-14 |
+| 11 | `health-check` | "health check", "system status" | §1-14 |
+| 12 | `sync-models` | "sync models" | §1-14 |
+| 13 | `chat` | (fallback — anything not matched) | §1-14 |
+| 14 | `undo` | "undo last action" | §1-14 |
+| 15 | `make-plan` | "plan: ..." | §15 (research) |
+| 16 | `run-command` | "run command: ..." | **§16** |
+| 17 | `read-file` | "read file: ..." | **§16** |
+| 18 | `write-file` | "write file: ..." | **§16** |
+| 19 | `browse` | "browse to ..." | **§16** |
+| 20 | `create-lead` | "add lead: ..." | **§16** |
+| 21 | `create-client` | "add client: ..." | **§16** |
+| 22 | `create-ticket` | "create ticket: ..." | **§16** |
+| 23 | `query-clients` | "show clients", "pipeline status" | **§16** |
+
+#### 16.10.2 Tabs (26 total — was 25)
+
+Added: **CRM & Sales** (Business group, amber accent, Briefcase icon, CRMTab component with 3 sub-views).
+
+#### 16.10.3 API Routes (124+ — was 111)
+
+Added in §16:
+
+| Route | Group |
+|---|---|
+| `/api/os/exec` | Execution |
+| `/api/file/read` | Execution |
+| `/api/file/write` | Execution |
+| `/api/file/list` | Execution |
+| `/api/file/edit` | Execution |
+| `/api/file/delete` | Execution |
+| `/api/browser/action` | Execution |
+| `/api/clients` | CRM |
+| `/api/clients/[id]` | CRM |
+| `/api/leads` | CRM |
+| `/api/leads/[id]` | CRM |
+| `/api/support` | CRM |
+| `/api/support/[id]` | CRM |
+| `/api/ceo/sweep` | CEO |
+| `/api/ceo/research-earning` | CEO |
+| `/api/approvals` | Approval |
+
+#### 16.10.4 Cron Jobs (30 — was 27)
+
+Added: `ceo-sweep` (every 30 min) + 2 others (see `scripts/seed-cron.ts`).
+
+The CEO sweep cron is the autonomous heartbeat — every 30 minutes, the CEO monitors all 6 key tabs, generates tasks for empty/stale ones, and stores findings in memory. No human intervention needed.
+
+#### 16.10.5 Prisma Models (37 — was 34)
+
+Added:
+- `Client` — CRM pipeline contact (7-stage)
+- `Lead` — early-stage prospect with 0-100 auto-score
+- `SupportTicket` — support requests across channels
+
+Schema file: `prisma/schema.prisma` (was 647 lines, now 709 lines).
+
+---
+
+### 16.11 Rules 15-18
+
+**File:** `/home/z/my-project/RULES.md`
+
+The permanent rules file was extended with four new rules that govern the post-research autonomous pipeline:
+
+#### Rule 15: Never Build From Scratch
+
+> "ALWAYS use code from the jarvis-mission-control-final.zip and open-source repos. Adapt and modify existing code to fit the app — do NOT write from scratch."
+
+This rule was added after discovering that the jarvis zip contained production-grade code for shell execution, filesystem operations, and browser automation — all of which would have taken weeks to write from scratch. The port-and-adapt approach (§16.3) shipped in days.
+
+#### Rule 16: CEO Autonomous Operation
+
+> "The CEO agent operates autonomously. It monitors tabs, generates tasks, and researches earning methods without human intervention. The owner may override or stop the CEO at any time, but the default mode is autonomous."
+
+The CEO sweep cron (every 30 min) runs without permission prompts. The owner can disable the cron or call `/api/ceo/sweep` manually if needed.
+
+#### Rule 17: Telegram Approvals (Only Human-in-Loop)
+
+> "The only human-in-loop checkpoint in the autonomous pipeline is the Telegram approval system. All permission-requiring actions (git push, npm publish, docker rm, kill -9, spend money, access personal accounts) go to the owner via Telegram. Everything else is autonomous."
+
+This rule defines the boundary of autonomy. The system can do almost anything — but destructive or irreversible actions require a Telegram approval.
+
+#### Rule 18: Full System Access With Permission
+
+> "With owner approval (via Telegram), the system can log all files/folders on the laptop, access personal accounts, and execute privileged commands. Without approval, the system is restricted to the workspace sandbox."
+
+This rule extends the OS executor's block-list / approval-list model to the broader system. The CEO can request access to anything — but the owner must approve via Telegram before it happens.
+
+---
+
+### 16.12 How the Autonomous Pipeline Works (End-to-End)
+
+The §16 work turned JARVIS from a "dashboard with a command parser" into a "self-driving revenue engine". Here's the full end-to-end flow:
+
+```
+┌─────────────────────────────────────────────────────────────────────┐
+│  1. CEO SWEEP (every 30 min, autonomous)                            │
+│     • Scans 6 key tabs (Tasks, CRM, Payments, Earning, Memory, Skills) │
+│     • Analyzes each tab via LLM                                     │
+│     • Generates tasks for empty/stale/opportunity tabs              │
+│     • Stores findings in memory                                     │
+└──────────────────────────┬──────────────────────────────────────────┘
+                           │
+                           ▼
+┌─────────────────────────────────────────────────────────────────────┐
+│  2. EARNING METHOD RESEARCH (on-demand or CEO-triggered)            │
+│     • LLM researches market demand, competition, pricing            │
+│     • Designs 12-step pipeline (idea → payment)                     │
+│     • Each step: department (CTO/CMO/COO/CFO) + agent assignee      │
+│     • Creates Task records for each step                            │
+│     • Generates 5 lead-gen tasks (how to find clients)              │
+│     • Stores research in Memory (pinned)                            │
+└──────────────────────────┬──────────────────────────────────────────┘
+                           │
+                           ▼
+┌─────────────────────────────────────────────────────────────────────┐
+│  3. TASK EXECUTION (autonomous)                                     │
+│     • Tasks assigned to agents by department                        │
+│     • Agents execute via Orion intents:                             │
+│       - run-command (shell exec, sandboxed)                         │
+│       - read-file / write-file / edit-file (fs-sandbox)             │
+│       - browse (browser automation)                                 │
+│       - create-task / create-agent / create-comm                    │
+│       - run-skill                                                   │
+│       - make-plan (decompose complex tasks)                         │
+│     • Audit log entry per execution                                 │
+└──────────────────────────┬──────────────────────────────────────────┘
+                           │
+                           ▼
+┌─────────────────────────────────────────────────────────────────────┐
+│  4. LEAD GENERATION (autonomous)                                    │
+│     • Lead-gen agents find prospects                                │
+│     • Create Lead records (auto-scored 0-100)                       │
+│     • High-score leads → convert to Client (7-stage pipeline)       │
+│     • Low-score leads → nurture or discard                          │
+└──────────────────────────┬──────────────────────────────────────────┘
+                           │
+                           ▼
+┌─────────────────────────────────────────────────────────────────────┐
+│  5. CLIENT MANAGEMENT (autonomous)                                  │
+│     • Clients move through pipeline: lead → contacted → qualified   │
+│       → proposal → negotiation → won/lost                           │
+│     • Support tickets auto-created if issues detected               │
+│     • CRM tab shows live pipeline + lead-score distribution         │
+└──────────────────────────┬──────────────────────────────────────────┘
+                           │
+                           ▼
+┌─────────────────────────────────────────────────────────────────────┐
+│  6. APPROVAL CHECKPOINT (human-in-loop)                             │
+│     • Permission-requiring actions ONLY:                            │
+│       - git push, npm publish, docker rm, kill -9                   │
+│       - spend money, access personal accounts                       │
+│     • Owner receives Telegram notification                          │
+│     • Owner replies "approve" or "reject"                           │
+│     • Deferred action executes (or is cancelled)                    │
+└──────────────────────────┬──────────────────────────────────────────┘
+                           │
+                           ▼
+┌─────────────────────────────────────────────────────────────────────┐
+│  7. CONTEXT INJECTION (every chat turn)                             │
+│     • buildContextPrompt() gathers live fleet state                 │
+│     • Top 15 agents, 5 recent tasks, 5 pinned memories,            │
+│       10 enabled skills, 5 active rules                             │
+│     • Injected into system prompt                                   │
+│     • AI knows what's happening RIGHT NOW                           │
+└──────────────────────────┬──────────────────────────────────────────┘
+                           │
+                           ▼
+┌─────────────────────────────────────────────────────────────────────┐
+│  8. AUTO-SAVE CYCLE (when AI generates code)                        │
+│     • LLM emits [FILE: path] marker before code block               │
+│     • System auto-saves to workspace via writeSandboxed()           │
+│     • Reports "✅ Saved to path (N chars)" + "📁 N file(s) saved"   │
+│     • User can immediately "run command: ..." to execute            │
+│     • Full cycle: generate → save → execute → report                │
+└─────────────────────────────────────────────────────────────────────┘
+```
+
+**The key insight:** Steps 1-5 are fully autonomous. Step 6 is the only human-in-loop checkpoint. Steps 7-8 happen on-demand when the owner engages with the Command Center. The CEO drives steps 1-2; agents drive steps 3-5; the owner only engages for step 6 (and optionally 7-8).
+
+---
+
+### 16.13 What the App Can Now DO (Full Capability List)
+
+Post-§16, the app can autonomously:
+
+1. **Generate code** → auto-save to workspace (no asking user to save)
+2. **Execute shell commands** → sandboxed with block-list + approval-list + audit log
+3. **Read/write/edit/delete files** → path-traversal-safe filesystem operations
+4. **Browse websites** → navigate, click, type, screenshot, extract content, scroll, eval JS
+5. **Plan complex tasks** → decompose into 3-7 steps, auto-create tasks with assignees
+6. **Manage CRM** → create leads (auto-scored), track clients through 7-stage pipeline, manage support tickets
+7. **Query live data** → fleet status, revenue, tasks, clients, leads — all from real DB
+8. **Undo actions** → delete tasks/agents/comms that were created by mistake
+9. **Monitor itself** → CEO agent sweeps tabs every 30 min, generates tasks for empty/stale ones
+10. **Research earning methods** → full pipeline from idea to 12-step plan with lead-gen tasks
+11. **Request approvals** → only for destructive ops, via Telegram-compatible API
+12. **Inject context** → live fleet/memory/skills/rules injected into every chat prompt
+13. **All from one chat panel** → text or voice, smart router handles everything
+
+---
+
+### 16.14 Pending Work (Remaining Gaps)
+
+Not everything in §15.7's Priority 1-8 plan was closed by §16. Still pending:
+
+- **Action Bus architecture** — currently chat, Orion, cron, CEO, and approvals all have their own dispatch paths. A unified Action Bus would consolidate these into one handler registry. Partial progress: all routes share `db`, `os-executor`, `fs-sandbox`, and `orion-intent` modules.
+- **Multi-step plan execution with checkpoints & resume** — `make-plan` creates tasks but doesn't execute them sequentially with resume-on-failure. The CEO earning-method pipeline is a special case (12 steps created at once), but general plan execution needs the checkpoint logic.
+- **Telegram bot webhook** — approval system is Telegram-compatible but the actual Telegram bot webhook is not yet wired. Currently approvals are resolved via `/api/approvals` POST.
+- **Embedding-based memory retrieval** — `buildContextPrompt()` fetches pinned memories but doesn't do semantic search. A future version would use `z-ai-web-dev-sdk` embeddings to find relevant memories by query.
+- **89 Prisma models target** — have 37, need 52 more (RBAC, tenant, compliance, eval, AgentInstance, AgentMetric, Service, Revenue, Outreach, ResearchLog, VoiceWorkflow, VoiceCall, ImprovementProposal, SelfImprovementLog, WorkforcePerformance, AgentEvolution).
+- **240+ API routes target** — have 124+, need 116+ more (mostly mini-service routes).
+- **78+ skills target** — have 20 in DB; skills/ dir has 65 ClawHub skills available to wire.
+
+---
+
+### 16.15 Summary
+
+The §16 post-research work transformed JARVIS Mission Control from a "polished operations dashboard with an intelligent command parser" into a **genuinely autonomous revenue engine**. The CEO agent drives the system, agents execute tasks via sandboxed shell + filesystem + browser, leads flow through an auto-scored CRM pipeline, and the only human-in-loop checkpoint is the Telegram approval system for destructive ops.
+
+**Stats:**
+- **23 Orion intents** (was 14)
+- **26 tabs** (was 25)
+- **124+ API routes** (was 111)
+- **30 cron jobs** (was 27)
+- **37 Prisma models** (was 34)
+- **Rules 15-18** added (never build from scratch, CEO autonomous, Telegram approvals, full system access with permission)
+- **0 lint errors, 0 page errors, 0 console errors**
+
+**The single highest-leverage change** was the CEO agent + context-aware prompt combination — together they turned the app from "reactive" (waits for user input) into "proactive" (CEO generates tasks autonomously, AI has live context). The execution layer (os-executor + fs-sandbox + browser) closed the §15 "execution surface" gap. The CRM layer turned the app into a revenue engine.
+
+**Next highest-leverage work** (per §16.14): wire the Telegram bot webhook so approvals actually surface on Telegram, and build the unified Action Bus so all entry points (chat, Orion, cron, CEO, approvals) funnel through one handler registry.
+
+---
+
+*Appended by Task ID DOC-UPDATE (documentation agent). For the full project history, see `/home/z/my-project/worklog.md`. For all permanent rules, see `/home/z/my-project/RULES.md`.*

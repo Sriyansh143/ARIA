@@ -251,3 +251,18 @@ These rules are enforced by:
 - This lets agents see what is useful and what is not.
 - Requires explicit owner approval via Telegram before scanning.
 - File access is sandboxed to the workspace by default; system-wide access requires approval.
+
+## Rule 19: Update Documentation Every Run (CRITICAL)
+- **PENDING_TASKS.md** MUST be updated every run — mark completed items ✅, add new pending items.
+- **APP_DOCUMENTATION.md** MUST be updated when new features are added — append a new section.
+- **worklog.md** MUST be appended every run (already Rule 1, reinforced here).
+- **RULES.md** MUST be updated when new permanent rules are added.
+- At the start of each session, agents MUST read PENDING_TASKS.md to know what to work on.
+- At the end of each session, agents MUST update PENDING_TASKS.md with what was completed + what's still pending.
+
+## Rule 20: Multi-Agent Discussion Before Implementation
+- For complex tasks, multiple agents should be deployed to monitor tabs.
+- Agents discuss findings, propose actions, reach consensus, THEN implement.
+- This is more robust than single-agent decision-making.
+- The CEO agent coordinates the discussion, C-Suite agents (CTO/CMO/COO/CFO) provide domain expertise.
+- Discussion results are logged to memory for future reference.
