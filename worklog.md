@@ -5076,3 +5076,65 @@ Stage Summary:
 - 17 agent personas | 3,557 lines documentation | 151 env vars
 - 8 provider API keys stored encrypted
 - 0 lint errors, 0 page errors, HTTP 200
+
+---
+Task ID: ENV-AUTO-KEYS + SETUP-SCRIPT + RULE-32
+Agent: main (Z.ai Code)
+Task: Auto-use env API keys (no manual entry), single-click setup script, FreeSWITCH/Ollama auto-download with user consent.
+
+Work Log:
+
+**AUTO-USE ENV API KEYS** (`src/lib/model-sync.ts`):
+- Updated `readProviderApiKey()` to check TWO sources:
+  1. **DB** (encrypted key stored via UI or seed) — checked first.
+  2. **Environment variable** (fallback) — if DB has no key, reads from process.env.
+- Added `PROVIDER_ENV_KEYS` map: 19 providers mapped to their env var names (zai→ZAI_API_KEY, groq→GROQ_API_KEY, openai→OPENAI_API_KEY, etc.).
+- When an env key is found, it's **auto-stored in the DB** (encrypted) for future use — so subsequent reads are faster.
+- **Result**: Users NEVER need to manually set keys in the UI. Just put them in `.env` and the app uses them automatically.
+- Verified: zai API key read from env → chat completion works ("Say OK" → "OK.").
+
+**SINGLE-CLICK SETUP SCRIPT** (`setup.sh` — 272 lines):
+- 8-step automated setup:
+  1. **Check prerequisites**: Bun, Node.js, Git.
+  2. **Install dependencies**: `bun install`.
+  3. **Setup database**: `prisma db push` + `prisma generate`.
+  4. **Seed all data**: agents, skills, cron, models, rules, earning methods, comms, payments.
+  5. **Store API keys**: auto-reads from .env, encrypts, stores in DB.
+  6. **Ollama** (optional): checks if installed → if not, asks user → downloads (~150MB) → starts service → optionally pulls recommended models (qwen2.5:7b, qwen2.5:3b).
+  7. **FreeSWITCH** (optional): checks if installed → if not, asks user → installs via apt or manual download → starts service.
+  8. **Start all services**: realtime WebSocket (port 3003) + main app (port 3000).
+- Large file downloads (Ollama ~150MB, FreeSWITCH ~500MB) require **explicit user consent** — asks "Download and install? (~XXX MB)".
+- Summary banner at the end showing all running services + stats.
+- Usage: `chmod +x setup.sh && ./setup.sh`
+
+**README.md** (86 lines):
+- Quick start instructions (single-click + manual).
+- Environment variables documentation.
+- Architecture overview.
+- Stats summary.
+- Key rules.
+- Documentation file references.
+
+**RULE 32** (RULES.md):
+- "Auto-Use Environment API Keys" — the app MUST automatically read API keys from .env. Users NEVER need to manually set keys in the UI. readProviderApiKey() checks DB first, then env as fallback, auto-stores in DB.
+
+**Verification**:
+- 24 API endpoints: ALL pass (0 fail) ✅
+- 455 models (none removed) ✅
+- 69 agents (5 monitoring, 62 executing, 2 error-handlers) ✅
+- 33 cron jobs ✅
+- 32 rules ✅
+- Lint: clean (0 errors, 0 warnings) ✅
+- Dev server: HTTP 200 ✅
+- z.ai SDK chat works via env key ✅
+- setup.sh: 272 lines, executable ✅
+- README.md: 86 lines ✅
+
+Stage Summary:
+- ✅ Auto-use env API keys — no manual key entry needed (Rule 32).
+- ✅ Single-click setup script (setup.sh) — installs, seeds, starts everything.
+- ✅ Ollama auto-download with user consent (~150MB).
+- ✅ FreeSWITCH auto-download with user consent (~500MB).
+- ✅ README.md with quick start guide.
+- ✅ 0 lint errors, 0 page errors, all 24 endpoints pass.
+- ✅ 32 rules, 455 models, 69 agents, 33 cron jobs.

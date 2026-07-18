@@ -230,14 +230,55 @@ async function fetchWithTimeout(url: string, opts: RequestInit = {}, timeoutMs =
 }
 
 /** Read a provider's decrypted API key from the DB. Returns null if unset or unreadable. */
+// Map of provider key → env var name. Used as fallback when no key is stored in DB.
+const PROVIDER_ENV_KEYS: Record<string, string> = {
+  'zai': 'ZAI_API_KEY',
+  'groq': 'GROQ_API_KEY',
+  'nvidia-nim': 'NVIDIA_API_KEY',
+  'qwen-playground': 'QWEN_API_KEY',
+  'github-models': 'GITHUB_TOKEN',
+  'huggingface': 'HUGGINGFACE_API_KEY',
+  'siliconflow': 'SILICONFLOW_API_KEY',
+  'higgsfield': 'HIGGSFIELD_API_KEY',
+  'openai': 'OPENAI_API_KEY',
+  'anthropic': 'ANTHROPIC_API_KEY',
+  'together': 'TOGETHER_API_KEY',
+  'fireworks': 'FIREWORKS_API_KEY',
+  'mistral': 'MISTRAL_API_KEY',
+  'cohere': 'COHERE_API_KEY',
+  'deepseek': 'DEEPSEEK_API_KEY',
+  'openrouter': 'OPENROUTER_API_KEY',
+  'bytez': 'BYTEZ_API_KEY',
+  'omniroute': 'OMNIROUTE_API_KEY',
+  'ollama-cloud': 'OLLAMA_CLOUD_API_KEY',
+};
+
 async function readProviderApiKey(providerKey: string): Promise<string | null> {
+  // 1. Try DB first (encrypted key stored via UI or seed).
   const p = await db.provider.findUnique({ where: { key: providerKey } });
-  if (!p || !p.apiKeyEnc || !p.apiKeyIv || !p.apiKeyTag) return null;
-  try {
-    return decryptPassword(p.apiKeyEnc, p.apiKeyIv, p.apiKeyTag);
-  } catch {
-    return null;
+  if (p?.apiKeyEnc && p.apiKeyIv && p.apiKeyTag) {
+    try {
+      const decrypted = decryptPassword(p.apiKeyEnc, p.apiKeyIv, p.apiKeyTag);
+      if (decrypted) return decrypted;
+    } catch { /* fall through to env */ }
   }
+  // 2. Fallback: read from environment variable (Rule: user shouldn't need to set keys manually).
+  const envVar = PROVIDER_ENV_KEYS[providerKey];
+  if (envVar) {
+    const envKey = process.env[envVar];
+    if (envKey && envKey.trim() && !envKey.includes('REDACTED')) {
+      // Auto-store in DB for future use (best-effort).
+      try {
+        const enc = encryptPassword(envKey);
+        await db.provider.update({
+          where: { key: providerKey },
+          data: { apiKeyEnc: enc.encrypted, apiKeyIv: enc.iv, apiKeyTag: enc.tag },
+        });
+      } catch { /* best-effort */ }
+      return envKey;
+    }
+  }
+  return null;
 }
 
 /** Encrypt and persist a provider API key (called from the providers API). */

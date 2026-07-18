@@ -366,3 +366,13 @@ These rules are enforced by:
 - Models with status='unknown' MUST be KEPT — they haven't been tested yet.
 - Only models with status='broken' that return 404/500 can be purged.
 - This rule is PERMANENT and protects the model catalog from accidental data loss.
+
+## Rule 32: Auto-Use Environment API Keys
+- The app MUST automatically read API keys from environment variables (.env file).
+- Users should NEVER need to manually set keys for each provider in the UI.
+- The `readProviderApiKey()` function checks:
+  1. DB (encrypted key stored via UI or seed).
+  2. Environment variable (fallback — auto-stores in DB for future use).
+- Provider env var mapping: zai→ZAI_API_KEY, groq→GROQ_API_KEY, openai→OPENAI_API_KEY, etc.
+- If a key is in .env, it's automatically used — no UI interaction needed.
+- The setup script auto-stores all env keys into the DB on first run.
