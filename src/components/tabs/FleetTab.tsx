@@ -7,7 +7,7 @@ import {
   Activity, Settings, Send, Loader2, ChevronRight, Clock, Cpu,
   Download, Upload, FileJson, Sparkles, Search, Zap, GitCompare, Trophy, Check,
 } from 'lucide-react';
-import { RadarChart, PolarGrid, PolarAngleAxis, PolarRadiusAxis, Radar, ResponsiveContainer, Legend, Tooltip } from 'recharts';
+import { RadarChart, PolarGrid, PolarAngleAxis, PolarRadiusAxis, Radar, ResponsiveContainer, Legend, Tooltip, LineChart, Line, XAxis, YAxis, CartesianGrid } from 'recharts';
 import { useApi, postJson, patchJson } from '@/lib/hooks/use-api';
 import { JARVIS, STATUS_COLORS } from '@/lib/config';
 import { SectionTitle, StatusDot, Pill, EmptyState } from '@/components/jarvis/shared';
@@ -1329,6 +1329,9 @@ function CompareModal({ agents, onClose }: { agents: Agent[]; onClose: () => voi
                     </ResponsiveContainer>
                   </div>
                 </div>
+
+                {/* Activity Timeline — daily activity over 14 days */}
+                <CompareTimeline selectedIds={selectedIds} agents={comparison} />
               </div>
             ) : null}
           </div>
@@ -1380,5 +1383,97 @@ function CompareRow({
         );
       })}
     </tr>
+  );
+}
+
+/**
+ * CompareTimeline — fetches daily activity data for the selected agents and
+ * renders a multi-line chart showing activity (logs + comms + tasks) over 14 days.
+ */
+function CompareTimeline({ selectedIds, agents }: { selectedIds: string[]; agents: CompareAgent[] }) {
+  const [metric, setMetric] = useState<'logs' | 'comms' | 'tasks' | 'errors'>('logs');
+  const { data, loading } = useApi<{
+    timeline: Array<{ id: string; codename: string; series: Array<{ date: string; label: string; logs: number; errors: number; commsTotal: number; tasks: number }> }>;
+    buckets: Array<{ date: string; label: string }>;
+  }>(`/api/agents/compare/timeline?ids=${selectedIds.join(',')}&days=14`, 0);
+
+  if (loading || !data || data.timeline.length === 0) {
+    return (
+      <div className="jarvis-panel p-3">
+        <div className="jarvis-mono text-[9px] uppercase text-[var(--j-text-mute)] mb-2">Activity Timeline (14d)</div>
+        <div className="h-48 flex items-center justify-center">
+          {loading ? <Loader2 className="h-4 w-4 animate-spin text-[var(--j-cyan)]" /> : <span className="text-xs text-[var(--j-text-mute)]">No timeline data</span>}
+        </div>
+      </div>
+    );
+  }
+
+  // Merge all agents' series into a single array for the chart.
+  const merged = data.buckets.map((b) => {
+    const row: Record<string, string | number> = { label: b.label };
+    for (const agent of data.timeline) {
+      const point = agent.series.find((s) => s.date === b.date);
+      if (point) {
+        switch (metric) {
+          case 'logs': row[agent.codename] = point.logs; break;
+          case 'errors': row[agent.codename] = point.errors; break;
+          case 'comms': row[agent.codename] = point.commsTotal; break;
+          case 'tasks': row[agent.codename] = point.tasks; break;
+        }
+      } else {
+        row[agent.codename] = 0;
+      }
+    }
+    return row;
+  });
+
+  const colors = [JARVIS.colors.cyan, JARVIS.colors.green, JARVIS.colors.amber, JARVIS.colors.violet, JARVIS.colors.red];
+
+  return (
+    <div className="jarvis-panel p-3">
+      <div className="flex items-center justify-between mb-2">
+        <div className="jarvis-mono text-[9px] uppercase text-[var(--j-text-mute)] flex items-center gap-1.5">
+          <Activity className="h-3 w-3" /> Activity Timeline (14d)
+        </div>
+        <div className="flex gap-1">
+          {(['logs', 'errors', 'comms', 'tasks'] as const).map((m) => (
+            <button
+              key={m}
+              onClick={() => setMetric(m)}
+              className={`jarvis-mono text-[9px] uppercase px-1.5 py-0.5 rounded border transition-colors ${
+                metric === m ? 'border-[var(--j-cyan)] bg-[var(--j-cyan)]/10 text-[var(--j-cyan)]' : 'border-[var(--j-border)] text-[var(--j-text-mute)] hover:text-[var(--j-text)]'
+              }`}
+            >
+              {m}
+            </button>
+          ))}
+        </div>
+      </div>
+      <div className="h-48">
+        <ResponsiveContainer width="100%" height="100%">
+          <LineChart data={merged} margin={{ top: 4, right: 8, left: -20, bottom: 0 }}>
+            <CartesianGrid strokeDasharray="3 3" stroke="#1B2330" vertical={false} />
+            <XAxis dataKey="label" tick={{ fill: '#64748B', fontSize: 9 }} axisLine={false} tickLine={false} minTickGap={20} />
+            <YAxis tick={{ fill: '#64748B', fontSize: 9 }} axisLine={false} tickLine={false} allowDecimals={false} />
+            <Tooltip contentStyle={{ background: '#0E1218', border: '1px solid #1B2330', borderRadius: 8, fontSize: 11 }} labelStyle={{ color: '#94A3B8' }} />
+            <Legend wrapperStyle={{ fontSize: 9 }} />
+            {data.timeline.map((agent, i) => {
+              const color = colors[i % colors.length];
+              return (
+                <Line
+                  key={agent.id}
+                  type="monotone"
+                  dataKey={agent.codename}
+                  stroke={color}
+                  strokeWidth={1.5}
+                  dot={false}
+                  activeDot={{ r: 3 }}
+                />
+              );
+            })}
+          </LineChart>
+        </ResponsiveContainer>
+      </div>
+    </div>
   );
 }

@@ -2993,3 +2993,72 @@ Stage Summary:
 6. Add agent comparison timeline (performance over time chart).
 7. Add custom sound upload (currently fixed beep).
 8. Add notification grouping (batch multiple into one desktop notification).
+
+---
+Task ID: CRON-WEBDEVREVIEW-11
+Agent: main (Z.ai Code) — webDevReview cron run #11
+Task: Assess project status, perform QA via agent-browser, fix bugs, add features, improve styling.
+
+Work Log:
+- Read worklog tail (CRON-WEBDEVREVIEW-10) — prior session wired sound alerts (Web Audio API) + desktop notifications (Notifications API).
+- **QA Assessment**:
+  - Dev server: HTTP 200, lint clean.
+  - agent-browser sweep: Fast Refresh warnings from stale HMR state (cleared on fresh reload). No actual errors.
+  - App is stable, 0 page errors after fresh reload.
+
+**FEATURE 1: Notification Grouping/Batching** (`src/app/page-client.tsx` — NotificationsBell):
+- Desktop notifications now use a **2-second debounce batching** system:
+  - New notifications are queued in `desktopBatchQueueRef` (ref array).
+  - A debounce timer (`desktopBatchTimerRef`) collects all notifications that arrive within 2s.
+  - After the timer fires, a single grouped notification is shown:
+    - **Single notification**: shown as-is with title + body.
+    - **Multiple notifications**: grouped into one with title "N notifications (M errors)" or "N new notifications", body showing first 4 titles as bullet points + "+N more".
+  - Prevents notification spam when many notifications arrive at once (e.g. cron job creates 5 findings).
+- **Seen-IDs tracking**: `seenNotifIdsRef` (Set) tracks which notification IDs have been seen, so only truly new notifications trigger alerts (not re-renders of existing ones).
+- Sound alert still plays once per batch (using the newest notification's type for frequency).
+
+**FEATURE 2: Agent Comparison Timeline Chart** (`src/app/api/agents/compare/timeline/route.ts` + `src/components/tabs/FleetTab.tsx`):
+- New `/api/agents/compare/timeline?ids=id1,id2,id3&days=14` endpoint:
+  - Returns daily activity timeline for 2-5 agents over N days (default 14, max 90).
+  - Per-agent per-day: tasks (total + completed), logs (total + errors + successes), comms (sent + received + total).
+  - Returns `timeline` array (per agent with `series` + `totals`), `buckets` (date labels), `days`, `agentCount`.
+- New `CompareTimeline` component in CompareModal:
+  - Fetches timeline data for selected agents.
+  - **Multi-line chart** (recharts LineChart) showing daily activity over 14 days.
+  - **4 metric filter chips**: logs, errors, comms, tasks — click to switch the displayed metric.
+  - Each agent gets a colored line (cyan, green, amber, violet, red — cycled).
+  - CartesianGrid, XAxis (date labels), YAxis (counts), Tooltip, Legend.
+  - Loading state with spinner.
+  - Height: 192px (h-48).
+- Verified: selected 3 agents → timeline chart shows 14 days (Jul 5-Jul 18) with 3 colored lines + 4 metric filter chips.
+
+**Verification (agent-browser)**:
+- App loads HTTP 200, 0 page errors (after fresh reload).
+- Compare modal: selected 3 agents → Health Score + Metrics Comparison table + Capability Radar + Activity Timeline (14d) all render. Timeline metric filter chips (logs/errors/comms/tasks) work.
+- API: GET /api/agents/compare/timeline returns 14 buckets × 3 agents with daily activity data.
+- Lint: clean (0 errors, 0 warnings).
+- Sticky footer: visible at viewport bottom (top:880, vh:900).
+
+Stage Summary:
+- ✅ QA: stale HMR warnings cleared. App stable, 0 bugs, lint clean.
+- ✅ FEATURE 1: Notification Grouping — 2s debounce batching, single grouped desktop notification for multiple arrivals, seen-IDs tracking.
+- ✅ FEATURE 2: Agent Comparison Timeline — new API endpoint + multi-line chart with 4 metric filters (logs/errors/comms/tasks), 14-day range.
+- ✅ Dev server stable HTTP 200.
+- ✅ Lint clean. 0 page errors. All features verified via agent-browser.
+
+## Updated App Stats
+- **41 tabs** across 8 intelligent groups
+- **Notifications**: filter chips + timestamps + per-notification mark-read + settings panel (sound/desktop/mute-by-type) + **batching/grouping** (2s debounce)
+- **Agent Comparison**: side-by-side table + health scores + radar chart (6 dimensions) + **timeline chart** (14-day, 4 metrics)
+- **Command Palette**: recent + frequent + pin + hide/unhide
+- **0 lint errors, 0 page errors, 0 console errors**
+
+## Pending Works (for next cron run)
+1. Add WebSocket mini-service for true real-time updates (currently polling 10-30s).
+2. Wire skill execution to actually invoke web-search/web-reader skills.
+3. Add PDF export for reports (currently CSV only).
+4. Add scheduled email reports.
+5. Add drag-and-drop task reordering within Kanban columns.
+6. Add custom sound upload (currently fixed beep).
+7. Add notification click-to-navigate from desktop notifications.
+8. Add agent comparison export (download comparison as JSON/CSV).

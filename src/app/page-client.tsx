@@ -877,48 +877,86 @@ function NotificationsBell({ open, setOpen }: { open: boolean; setOpen: (o: bool
     refresh();
   };
 
-  // Track previous unread count to detect new notifications arriving.
+  // Track previous unread count + seen notification IDs to detect new arrivals.
   const prevUnreadRef = useRef(0);
+  const seenNotifIdsRef = useRef<Set<string>>(new Set());
+  // Debounce timer for batching desktop notifications.
+  const desktopBatchTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const desktopBatchQueueRef = useRef<Array<{ title: string; message: string; type: string; id: string }>>([]);
+
   useEffect(() => {
     const currentUnread = visibleUnread;
     const prevUnread = prevUnreadRef.current;
-    // Only trigger if unread count INCREASED (new notification arrived) and settings allow it.
-    if (currentUnread > prevUnread && prevUnread > 0) {
-      const newCount = currentUnread - prevUnread;
-      // Find the newest unread notification for the alert.
-      const newest = visibleNotifications.find((n) => !n.read);
-      if (newest) {
-        // Sound alert: play a short beep using Web Audio API (no asset needed).
-        if (settings.sound && !settings.mutedTypes.includes(newest.type)) {
+    // Detect new unread notifications by comparing IDs.
+    const currentUnreadNotifs = visibleNotifications.filter((n) => !n.read);
+    const newNotifs = currentUnreadNotifs.filter((n) => !seenNotifIdsRef.current.has(n.id));
+
+    // Update seen set with all current unread IDs.
+    seenNotifIdsRef.current = new Set(currentUnreadNotifs.map((n) => n.id));
+
+    if (newNotifs.length === 0 || prevUnread === 0) {
+      prevUnreadRef.current = currentUnread;
+      return;
+    }
+
+    // Find the newest notification for the sound alert (play once, not per-notification).
+    const newest = newNotifs[0];
+    if (newest) {
+      // Sound alert: play a short beep using Web Audio API (no asset needed).
+      if (settings.sound && !settings.mutedTypes.includes(newest.type)) {
+        try {
+          const ctx = new (window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext)();
+          const osc = ctx.createOscillator();
+          const gain = ctx.createGain();
+          osc.connect(gain);
+          gain.connect(ctx.destination);
+          osc.frequency.value = newest.type === 'error' ? 220 : newest.type === 'warn' ? 440 : 660;
+          osc.type = 'sine';
+          gain.gain.setValueAtTime(0.3, ctx.currentTime);
+          gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.5);
+          osc.start(ctx.currentTime);
+          osc.stop(ctx.currentTime + 0.5);
+        } catch { /* AudioContext not available */ }
+      }
+    }
+
+    // Desktop notification with batching: queue new notifications and show a
+    // single grouped notification after a 2s debounce (instead of one per
+    // notification — prevents notification spam when many arrive at once).
+    if (settings.desktop && 'Notification' in window && Notification.permission === 'granted') {
+      const visibleNew = newNotifs.filter((n) => !settings.mutedTypes.includes(n.type));
+      if (visibleNew.length > 0) {
+        desktopBatchQueueRef.current.push(...visibleNew.map((n) => ({ title: n.title, message: n.message, type: n.type, id: n.id })));
+        // Clear any existing timer and set a new one (debounce).
+        if (desktopBatchTimerRef.current) clearTimeout(desktopBatchTimerRef.current);
+        desktopBatchTimerRef.current = setTimeout(() => {
+          const batch = desktopBatchQueueRef.current;
+          desktopBatchQueueRef.current = [];
+          if (batch.length === 0) return;
           try {
-            const ctx = new (window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext)();
-            const osc = ctx.createOscillator();
-            const gain = ctx.createGain();
-            osc.connect(gain);
-            gain.connect(ctx.destination);
-            osc.frequency.value = newest.type === 'error' ? 220 : newest.type === 'warn' ? 440 : 660;
-            osc.type = 'sine';
-            gain.gain.setValueAtTime(0.3, ctx.currentTime);
-            gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.5);
-            osc.start(ctx.currentTime);
-            osc.stop(ctx.currentTime + 0.5);
-          } catch { /* AudioContext not available */ }
-        }
-        // Desktop notification: use the Notification API if permission granted.
-        if (settings.desktop && !settings.mutedTypes.includes(newest.type) && 'Notification' in window) {
-          try {
-            if (Notification.permission === 'granted') {
-              new Notification(newest.title, {
-                body: newest.message.slice(0, 200),
+            if (batch.length === 1) {
+              // Single notification — show as-is.
+              new Notification(batch[0].title, {
+                body: batch[0].message.slice(0, 200),
                 icon: '/favicon.ico',
-                tag: newest.id,
+                tag: batch[0].id,
+              });
+            } else {
+              // Multiple notifications — group into one.
+              const hasErrors = batch.some((n) => n.type === 'error');
+              const title = hasErrors ? `${batch.length} notifications (${batch.filter((n) => n.type === 'error').length} errors)` : `${batch.length} new notifications`;
+              const body = batch.slice(0, 4).map((n) => `• ${n.title}`).join('\n') + (batch.length > 4 ? `\n• +${batch.length - 4} more` : '');
+              new Notification(title, {
+                body,
+                icon: '/favicon.ico',
+                tag: 'jarvis-batch-' + Date.now(),
               });
             }
           } catch { /* Notification API not available */ }
-        }
+        }, 2000);
       }
-      void newCount;
     }
+
     prevUnreadRef.current = currentUnread;
   }, [visibleUnread, visibleNotifications, settings.sound, settings.desktop, settings.mutedTypes]);
 
