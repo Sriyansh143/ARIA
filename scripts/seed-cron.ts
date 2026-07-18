@@ -55,6 +55,16 @@ export const EXTRA_CRON_ROSTER: Array<{
     description: 'Scan host for installed tools/software, update inventory in memory. Rule 30.',
     enabled: true,
   },
+  {
+    key: 'approval-escalation-check',
+    name: 'Approval Escalation Check',
+    schedule: '*/5 * * * *', // every 5 minutes
+    description:
+      'Sweep pending ApprovalRequests whose nextEscalateAt has elapsed. ' +
+      'Advances through 3 escalation levels (Telegram → Telegram+Email → +Voice call). ' +
+      'Auto-expires rows past their hard timeout.',
+    enabled: true,
+  },
 ];
 
 async function main() {

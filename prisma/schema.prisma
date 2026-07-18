@@ -752,3 +752,220 @@ model PlanStep {
   @@index([planId])
   @@index([status])
 }
+
+// ===== Refund System — every confirmed transaction can be refunded later =====
+// A Refund is always linked to a parent Payment (status='confirmed').
+// Refund lifecycle: requested → under_review → approved → processed | rejected | cancelled
+// Partial refunds supported (amount <= payment.amount - alreadyRefunded).
+model Refund {
+  id              String   @id @default(cuid())
+  paymentId       String   // parent Payment id
+  paymentRefId    String?  // optional Razorprop / gateway reference
+  amount          Float    // refund amount (<= original payment amount)
+  currency        String   @default("INR")
+  reason          String   // customer_request | duplicate | service_not_delivered | fraud | other
+  reasonNote      String?  // free-text detail
+  status          String   @default("requested") // requested | under_review | approved | processed | rejected | cancelled
+  requestedBy     String   @default("operator") // operator | agent:codename | customer
+  reviewedBy      String?
+  reviewNote      String?
+  gatewayRef      String?  // gateway refund reference id (PRF-xxx)
+  processedAt     DateTime?
+  reversedActionLogId String? // link to ActionLog for reversal tracking
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  @@index([paymentId])
+  @@index([status])
+  @@index([createdAt])
+}
+
+// ===== Formal Approval Requests with Escalation =====
+// Replaces the loose notification-based approval flow. Every approval now has:
+//  - a typed category (app-change | payment-refund | earning-deploy | agent-spawn | plan-step | destructive-cmd | other)
+//  - a 30-min escalation timer: if not resolved, the owner is CALLED (voice) +
+//    messaged on Telegram + emailed. Re-escalation every 30 min up to 3 times.
+model ApprovalRequest {
+  id              String   @id @default(cuid())
+  category        String   @default("other") // app-change | payment-refund | earning-deploy | agent-spawn | plan-step | destructive-cmd | other
+  title           String
+  description     String   // markdown — what is being asked
+  requestedBy     String   @default("system") // agent codename | "system" | "operator"
+  payload         String   @default("{}") // JSON: action-specific context
+  status          String   @default("pending") // pending | approved | rejected | expired | superseded
+  decidedBy       String?  // who made the decision
+  decisionNote    String?
+  // Escalation tracking
+  escalationLevel Int      @default(0) // 0=no escalation, 1=first call, 2=second, 3=final
+  lastEscalatedAt DateTime?
+  nextEscalateAt  DateTime? // when the next escalation should fire
+  resolvedAt      DateTime?
+  expiresAt       DateTime? // hard expiry — after this, auto-reject
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  @@index([status])
+  @@index([category])
+  @@index([nextEscalateAt])
+  @@index([createdAt])
+}
+
+// ===== App-Change Approval Gate =====
+// ANY change to the app (or apps built BY the app) that affects how things work
+// must be recorded here and approved before execution. Covers:
+//  - feature add / removal / upgrade
+//  - dependency install / remove
+//  - schema migration
+//  - config/env change
+//  - rule add / modify / remove
+//  - agent-promoted code change
+model ChangeRequest {
+  id              String   @id @default(cuid())
+  changeType      String   // feature-add | feature-remove | upgrade | dependency | schema | config | rule | hotfix | refactor
+  scope           String   @default("app") // app | built-app | mini-service | plugin
+  title           String
+  description     String
+  rationale       String?  // why this change is needed
+  impact          String?  // what could break
+  proposedBy      String   @default("system") // agent codename | operator
+  filePaths       String   @default("[]") // JSON: affected file paths
+  diffSummary     String?  // JSON: { additions, deletions, filesChanged }
+  approvalId      String?  // linked ApprovalRequest
+  status          String   @default("draft") // draft | pending | approved | rejected | deployed | rolled-back
+  deployedAt      DateTime?
+  rolledBackAt    DateTime?
+  actionLogId     String?  // link to the ActionLog that recorded the change (for reversal)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  @@index([status])
+  @@index([changeType])
+  @@index([scope])
+  @@index([createdAt])
+}
+
+// ===== Reversible Action Log =====
+// Every mutating action (create/update/delete on ANY entity, file write, config
+// change, command exec, etc.) is logged here with enough state to REVERSE it.
+// Distinct from AuditLog (which is fire-and-forget telemetry) — ActionLog
+// captures before/after state and exposes a reverse() method.
+model ActionLog {
+  id              String   @id @default(cuid())
+  actor           String   @default("system") // operator | agent:codename | system
+  action          String   // e.g. "payment.create", "agent.delete", "file.write", "config.update"
+  category        String   @default("mutation") // mutation | destructive | config | file | exec
+  target          String?  // e.g. "payment:abc123" or "file:/src/app/page.tsx"
+  beforeState     String?  // JSON snapshot of entity before mutation (null for creates)
+  afterState      String?  // JSON snapshot of entity after mutation (null for deletes)
+  reversible      Boolean  @default(true)
+  reversed        Boolean  @default(false)
+  reversedAt      DateTime?
+  reversedBy      String?
+  reverseResult   String?  // JSON: outcome of the reversal
+  approvalId      String?  // if this action needed approval
+  meta            String   @default("{}") // JSON: extra context
+  createdAt       DateTime @default(now())
+  @@index([createdAt])
+  @@index([actor])
+  @@index([action])
+  @@index([category])
+  @@index([reversed])
+}
+
+// ===== No-Assumption Verification Records =====
+// Rule: "without proof never accept anything — even research and analysis
+// and plans can be questioned and improvised." Every claim, research result,
+// or plan produced by an agent is logged here with its evidence so it can be
+// audited, questioned, and improvised upon.
+model VerificationRecord {
+  id              String   @id @default(cuid())
+  claimType       String   // research | analysis | plan | fact | forecast | recommendation
+  claimText       String   // the statement being verified
+  claimSource     String?  // agent codename or "operator"
+  evidence        String   @default("[]") // JSON: array of { type, url, quote, capturedAt }
+  verificationStatus String @default("unverified") // unverified | verified | disputed | partial | false
+  verifierMethod  String?  // web-search | cross-check | source-read | expert-review | automated-test
+  verifierNote    String?
+  confidenceScore Int      @default(0) // 0-100
+  questioned      Boolean  @default(false) // has this been challenged?
+  questionNote    String?
+  improvedVersion String?  // revised claim after questioning
+  linkedTaskId    String?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  @@index([claimType])
+  @@index([verificationStatus])
+  @@index([questioned])
+  @@index([createdAt])
+}
+
+// ===== JARVIS IDE — Projects, Files, Sessions =====
+// A lightweight in-DB IDE that lets agents (and the operator) edit the
+// workspace with 30+ features: syntax highlighting, multi-file tabs, search/
+// replace, git diff, snippets, themes, minimap, terminal dock, file tree,
+// command palette, problems panel, outline, etc.
+model IdeProject {
+  id              String   @id @default(cuid())
+  name            String
+  rootPath        String   // absolute path on disk
+  description     String?
+  language        String   @default("typescript") // primary language
+  framework       String?  // nextjs | react | node | bun | python | etc
+  gitBranch       String?
+  gitRemote       String?
+  openFiles       String   @default("[]") // JSON: array of file ids currently open
+  activeFileId    String?
+  theme           String   @default("jarvis-dark")
+  fontSize        Int      @default(13)
+  wordWrap        Boolean  @default(false)
+  minimap         Boolean  @default(true)
+  autoSave        Boolean  @default(true)
+  formatOnSave    Boolean  @default(true)
+  linting         Boolean  @default(true)
+  tabSize         Int      @default(2)
+  status          String   @default("active") // active | archived
+  lastOpenedAt    DateTime?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  files           IdeFile[]
+  sessions        IdeSession[]
+  @@index([status])
+}
+
+model IdeFile {
+  id              String   @id @default(cuid())
+  projectId       String
+  project         IdeProject @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  path            String   // relative to project root
+  name            String   // basename
+  extension       String   @default("ts") // ts | tsx | js | jsx | json | md | css | py | go | rs | txt
+  language        String   @default("typescript")
+  content         String   @default("")
+  size            Int      @default(0)
+  lineCount       Int      @default(0)
+  isDirty         Boolean  @default(false) // unsaved changes
+  lastSavedAt     DateTime?
+  lastSavedBy     String?
+  gitStatus       String   @default("unchanged") // unchanged | modified | added | deleted | untracked
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  @@index([projectId])
+  @@index([path])
+  @@index([gitStatus])
+}
+
+model IdeSession {
+  id              String   @id @default(cuid())
+  projectId       String
+  project         IdeProject @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  agentCodename   String?  // which agent opened this session (null = operator)
+  openTabs        String   @default("[]") // JSON: array of file ids
+  activeTabId     String?
+  cursor          String   @default("{}") // JSON: { fileId, line, col }
+  selection       String?  // JSON: { start, end }
+  scrollPosition  Int      @default(0)
+  terminalHistory String  @default("[]") // JSON: array of terminal commands run in this session
+  searchHistory   String   @default("[]") // JSON: array of search queries
+  lastActiveAt    DateTime @default(now())
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  @@index([projectId])
+  @@index([agentCodename])
+}

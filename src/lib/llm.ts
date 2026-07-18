@@ -2,6 +2,7 @@
 // SERVER-SIDE ONLY. Never import this from a client component.
 
 import ZAI from 'z-ai-web-dev-sdk';
+import { withProScaffold, type ProTaskType } from '@/lib/pro-scaffold';
 
 let _zai: Awaited<ReturnType<typeof ZAI.create>> | null = null;
 
@@ -47,12 +48,17 @@ export async function chat(
   userMessage: string,
   history: ChatTurn[] = [],
   systemPrompt: string = JARVIS_SYSTEM_PROMPT,
+  taskType: ProTaskType = 'chat',
 ): Promise<{ content: string; latencyMs: number }> {
   const start = Date.now();
   try {
     const zai = await getClient();
+    // MANDATORY: apply pro-level scaffold to every system prompt.
+    // User rule: "all prompts... are enhanced with pro level prompt before
+    // executing this is rule for app"
+    const enhancedSystem = withProScaffold(systemPrompt, taskType);
     const messages = [
-      { role: 'assistant' as const, content: systemPrompt },
+      { role: 'assistant' as const, content: enhancedSystem },
       ...history.slice(-10).map((h) => ({ role: h.role, content: h.content })),
       { role: 'user' as const, content: userMessage },
     ];

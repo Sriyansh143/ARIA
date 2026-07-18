@@ -14,6 +14,11 @@ import {
   RotateCcw,
   CheckCircle2,
   Sparkles,
+  User,
+  Mail,
+  Phone,
+  Send,
+  Clock,
   type LucideIcon,
 } from 'lucide-react';
 import { useApi, postJson, deleteJson } from '@/lib/hooks/use-api';
@@ -35,6 +40,11 @@ type BrandingConfig = {
   poweredBy: string;
   company: string;
   owner: string;
+  ownerEmail: string;
+  ownerPhone: string;
+  ownerTelegram: string;
+  ownerTimezone: string;
+  ownerEscalationMinutes: number;
   website: string;
   accentColor: string;
   logoUrl: string;
@@ -50,7 +60,7 @@ type FieldGroup = {
   label: string;
   icon: LucideIcon;
   accent: string;
-  fields: { key: keyof BrandingConfig; label: string; placeholder: string; multiline?: boolean }[];
+  fields: { key: keyof BrandingConfig; label: string; placeholder: string; multiline?: boolean; numeric?: boolean }[];
 };
 
 const GROUPS: FieldGroup[] = [
@@ -84,8 +94,21 @@ const GROUPS: FieldGroup[] = [
     accent: JARVIS.colors.green,
     fields: [
       { key: 'company', label: 'Company', placeholder: 'Liafon Software Private Limited' },
-      { key: 'owner', label: 'Owner', placeholder: 'Raviteja Voruganti' },
+      { key: 'owner', label: 'Owner Name', placeholder: 'Raviteja Voruganti' },
       { key: 'website', label: 'Website', placeholder: 'https://liafon.com' },
+    ],
+  },
+  {
+    id: 'owner-contact',
+    label: 'Owner Contact',
+    icon: User,
+    accent: JARVIS.colors.red,
+    fields: [
+      { key: 'ownerEmail', label: 'Owner Email', placeholder: 'raviteja@liafon.com' },
+      { key: 'ownerPhone', label: 'Owner Phone', placeholder: '+919999999999' },
+      { key: 'ownerTelegram', label: 'Owner Telegram', placeholder: '@raviteja' },
+      { key: 'ownerTimezone', label: 'Owner Timezone', placeholder: 'Asia/Calcutta' },
+      { key: 'ownerEscalationMinutes', label: 'Escalation Timeout (minutes)', placeholder: '30', numeric: true },
     ],
   },
   {
@@ -140,6 +163,11 @@ export default function BrandingTab() {
       poweredBy: 'Powered by Liafon Software Private Limited',
       company: 'Liafon Software Private Limited',
       owner: 'Raviteja Voruganti',
+      ownerEmail: 'raviteja@liafon.com',
+      ownerPhone: '+919999999999',
+      ownerTelegram: '@raviteja',
+      ownerTimezone: 'Asia/Calcutta',
+      ownerEscalationMinutes: 30,
       website: 'https://liafon.com',
       accentColor: '#7DD3FC',
       logoUrl: 'https://z-cdn.chatglm.cn/z-ai/static/logo.svg',
@@ -154,20 +182,28 @@ export default function BrandingTab() {
     const srv = data?.config;
     if (srv) {
       for (const k of ALL_KEYS) {
-        const v = srv[k];
-        if (typeof v === 'string' && v.length > 0) (base as Record<string, unknown>)[k] = v;
+        const v = (srv as Record<string, unknown>)[k];
+        if (k === 'ownerEscalationMinutes') {
+          if (typeof v === 'number' && v > 0) (base as Record<string, unknown>)[k] = v;
+        } else if (typeof v === 'string' && v.length > 0) {
+          (base as Record<string, unknown>)[k] = v;
+        }
       }
     }
     for (const k of ALL_KEYS) {
       const v = edits[k];
-      if (typeof v === 'string') (base as Record<string, unknown>)[k] = v;
+      if (k === 'ownerEscalationMinutes') {
+        if (typeof v === 'number' && v > 0) (base as Record<string, unknown>)[k] = v;
+      } else if (typeof v === 'string') {
+        (base as Record<string, unknown>)[k] = v;
+      }
     }
     return base;
   }, [data, edits]);
 
   const dirty = Object.keys(edits).length > 0;
 
-  const setField = (key: keyof BrandingConfig, value: string) => {
+  const setField = (key: keyof BrandingConfig, value: string | number) => {
     setEdits((prev) => ({ ...prev, [key]: value }));
   };
 
@@ -299,6 +335,30 @@ export default function BrandingTab() {
               <div className="jarvis-mono text-[9px] uppercase text-[var(--j-text-mute)] mb-1">Meta Title</div>
               <div className="text-[11px] text-[var(--j-text-dim)] line-clamp-2">{merged.metaTitle}</div>
             </div>
+            {/* Owner contact summary — shows the escalation-relevant details */}
+            <div className="pt-2 border-t border-[var(--j-border-soft)] space-y-1.5">
+              <div className="jarvis-mono text-[9px] uppercase text-[var(--j-text-mute)]">Owner Contact</div>
+              <div className="flex items-center gap-1.5 text-[11px] text-[var(--j-text-dim)]">
+                <User className="h-3 w-3 text-[var(--j-text-mute)]" />
+                <span className="truncate">{merged.owner}</span>
+              </div>
+              <div className="flex items-center gap-1.5 text-[11px] text-[var(--j-text-dim)]">
+                <Mail className="h-3 w-3 text-[var(--j-text-mute)]" />
+                <span className="truncate">{merged.ownerEmail}</span>
+              </div>
+              <div className="flex items-center gap-1.5 text-[11px] text-[var(--j-text-dim)]">
+                <Phone className="h-3 w-3 text-[var(--j-text-mute)]" />
+                <span className="truncate">{merged.ownerPhone}</span>
+              </div>
+              <div className="flex items-center gap-1.5 text-[11px] text-[var(--j-text-dim)]">
+                <Send className="h-3 w-3 text-[var(--j-text-mute)]" />
+                <span className="truncate">{merged.ownerTelegram}</span>
+              </div>
+              <div className="flex items-center gap-1.5 text-[11px] text-[var(--j-text-dim)]">
+                <Clock className="h-3 w-3 text-[var(--j-text-mute)]" />
+                <span>Escalates after {merged.ownerEscalationMinutes} min</span>
+              </div>
+            </div>
           </div>
         </Card>
 
@@ -332,15 +392,24 @@ export default function BrandingTab() {
                         {f.multiline ? (
                           <Textarea
                             id={`branding-${f.key}`}
-                            value={merged[f.key]}
+                            value={String(merged[f.key] ?? '')}
                             onChange={(e) => setField(f.key, e.target.value)}
                             placeholder={f.placeholder}
                             className="bg-[var(--j-panel-soft)] border-[var(--j-border)] text-[var(--j-text)] min-h-[64px] text-xs"
                           />
+                        ) : f.numeric ? (
+                          <Input
+                            id={`branding-${f.key}`}
+                            type="number"
+                            value={String(merged[f.key] ?? '')}
+                            onChange={(e) => setField(f.key, parseInt(e.target.value, 10) || 0)}
+                            placeholder={f.placeholder}
+                            className="bg-[var(--j-panel-soft)] border-[var(--j-border)] text-[var(--j-text)] text-xs h-9"
+                          />
                         ) : (
                           <Input
                             id={`branding-${f.key}`}
-                            value={merged[f.key]}
+                            value={String(merged[f.key] ?? '')}
                             onChange={(e) => setField(f.key, e.target.value)}
                             placeholder={f.placeholder}
                             className="bg-[var(--j-panel-soft)] border-[var(--j-border)] text-[var(--j-text)] text-xs h-9"

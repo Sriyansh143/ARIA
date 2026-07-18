@@ -1,0 +1,972 @@
+     1→// JARVIS Mission Control — Prisma schema
+     2→// Autonomous agent orchestration dashboard. SQLite-backed.
+     3→
+     4→generator client {
+     5→  provider = "prisma-client-js"
+     6→}
+     7→
+     8→datasource db {
+     9→  provider = "sqlite"
+    10→  url      = env("DATABASE_URL")
+    11→}
+    12→
+    13→model User {
+    14→  id        String   @id @default(cuid())
+    15→  email     String   @unique
+    16→  name      String?
+    17→  role      String   @default("operator")
+    18→  avatar    String?
+    19→  createdAt DateTime @default(now())
+    20→  updatedAt DateTime @updatedAt
+    21→}
+    22→
+    23→model Agent {
+    24→  id          String   @id @default(cuid())
+    25→  name        String
+    26→  codename    String   @unique
+    27→  role        String
+    28→  agentType   String   @default("exec") // monitor | exec | error-handler
+    29→  department  String?  // engineering | marketing | operations | finance | testing | security
+    30→  status      String   @default("idle") // idle | thinking | working | error | offline
+    31→  skills      String   @default("[]") // JSON array of skill ids
+    32→  model       String   @default("glm-4.6")
+    33→  taskCount   Int      @default(0)
+    34→  logCount    Int      @default(0)
+    35→  successRate Float    @default(100.0)
+    36→  load        Float    @default(0.0) // 0-100 current load
+    37→  lastActive  DateTime @default(now())
+    38→  createdAt   DateTime @default(now())
+    39→  updatedAt   DateTime @updatedAt
+    40→  logs        AgentLog[]
+    41→  heartbeats  AgentHeartbeat[]
+    42→  tasks       Task[]   @relation("TaskAssignee")
+    43→}
+    44→
+    45→model AgentLog {
+    46→  id        String   @id @default(cuid())
+    47→  agentId   String
+    48→  agent     Agent    @relation(fields: [agentId], references: [id], onDelete: Cascade)
+    49→  level     String   @default("info") // info | warn | error | debug | success
+    50→  message   String
+    51→  meta      String?  // JSON string
+    52→  createdAt DateTime @default(now())
+    53→
+    54→  @@index([agentId])
+    55→  @@index([createdAt])
+    56→}
+    57→
+    58→model AgentHeartbeat {
+    59→  id        String   @id @default(cuid())
+    60→  agentId   String
+    61→  agent     Agent    @relation(fields: [agentId], references: [id], onDelete: Cascade)
+    62→  cpu       Float    @default(0)
+    63→  mem       Float    @default(0)
+    64→  latency   Int      @default(0)
+    65→  createdAt DateTime @default(now())
+    66→
+    67→  @@index([agentId])
+    68→}
+    69→
+    70→model Skill {
+    71→  id          String   @id @default(cuid())
+    72→  key         String   @unique
+    73→  name        String
+    74→  description String
+    75→  category    String   @default("general") // general | research | code | comms | data | security | media
+    76→  icon        String   @default("Sparkles")
+    77→  enabled     Boolean  @default(true)
+    78→  config      String   @default("{}") // JSON config
+    79→  runs        Int      @default(0)
+    80→  createdAt   DateTime @default(now())
+    81→  updatedAt   DateTime @updatedAt
+    82→}
+    83→
+    84→model Task {
+    85→  id          String   @id @default(cuid())
+    86→  title       String
+    87→  description String?
+    88→  status      String   @default("pending") // pending | in_progress | completed | failed | cancelled
+    89→  priority    String   @default("medium") // low | medium | high | critical
+    90→  assigneeId  String?
+    91→  assignee    Agent?   @relation("TaskAssignee", fields: [assigneeId], references: [id], onDelete: SetNull)
+    92→  progress    Int      @default(0) // 0-100
+    93→  tags        String   @default("[]") // JSON array
+    94→  // Task ID 3 (PARALLEL-C) — drag-and-drop reordering within a Kanban column.
+    95→  // Lower value = higher up in the column. Default 0; falls back to createdAt
+    96→  // desc when multiple tasks share the same sortOrder (e.g. pre-existing rows).
+    97→  sortOrder    Int      @default(0)
+    98→  createdAt   DateTime @default(now())
+    99→  updatedAt   DateTime @updatedAt
+   100→
+   101→  @@index([status])
+   102→  @@index([assigneeId])
+   103→}
+   104→
+   105→model MemoryItem {
+   106→  id        String   @id @default(cuid())
+   107→  scope     String   @default("semantic") // semantic | episodic | working | conversation
+   108→  key       String
+   109→  value     String
+   110→  tags      String   @default("[]") // JSON array
+   111→  pinned    Boolean  @default(false)
+   112→  createdAt DateTime @default(now())
+   113→  updatedAt DateTime @updatedAt
+   114→
+   115→  @@unique([key, scope])
+   116→  @@index([scope])
+   117→}
+   118→
+   119→model Telemetry {
+   120→  id        String   @id @default(cuid())
+   121→  cpu       Float    @default(0)
+   122→  mem       Float    @default(0)
+   123→  disk      Float    @default(0)
+   124→  net       Float    @default(0)
+   125→  latency   Int      @default(0)
+   126→  tokens    Int      @default(0)
+   127→  createdAt DateTime @default(now())
+   128→}
+   129→
+   130→model CronJob {
+   131→  id         String   @id @default(cuid())
+   132→  key        String   @unique
+   133→  name       String
+   134→  schedule   String   // cron expression
+   135→  description String?
+   136→  enabled    Boolean  @default(true)
+   137→  lastRun    DateTime?
+   138→  runCount   Int      @default(0)
+   139→  createdAt  DateTime @default(now())
+   140→  updatedAt  DateTime @updatedAt
+   141→}
+   142→
+   143→model Payment {
+   144→  id        String   @id @default(cuid())
+   145→  method    String   // upi | card | netbanking | qr | wallet
+   146→  amount    Float
+   147→  currency  String   @default("INR")
+   148→  status    String   @default("pending") // pending | confirmed | failed | refunded
+   149→  payer     String?
+   150→  note      String?
+   151→  createdAt DateTime @default(now())
+   152→  updatedAt DateTime @updatedAt
+   153→
+   154→  @@index([status])
+   155→}
+   156→
+   157→model Artifact {
+   158→  id        String   @id @default(cuid())
+   159→  name      String
+   160→  type      String   @default("file") // file | report | image | code | dataset
+   161→  size      Int      @default(0)
+   162→  meta      String   @default("{}") // JSON
+   163→  createdAt DateTime @default(now())
+   164→}
+   165→
+   166→model ChatMessage {
+   167→  id        String   @id @default(cuid())
+   168→  role      String   // user | assistant
+   169→  content   String
+   170→  latency   Int      @default(0) // ms
+   171→  model     String   @default("glm-4.6")
+   172→  createdAt DateTime @default(now())
+   173→}
+   174→
+   175→model Provider {
+   176→  id         String   @id @default(cuid())
+   177→  key        String   @unique
+   178→  name       String
+   179→  model      String
+   180→  enabled    Boolean  @default(true)
+   181→  latency    Int      @default(0)
+   182→  tokens     Int      @default(0)
+   183→  // AES-256-GCM encrypted API key (via credential-vault). NEVER returned in
+   184→  // any GET response — callers expose only a boolean `hasKey`.
+   185→  apiKeyEnc  String?
+   186→  apiKeyIv   String?
+   187→  apiKeyTag  String?
+   188→  createdAt  DateTime @default(now())
+   189→  updatedAt  DateTime @updatedAt
+   190→}
+   191→
+   192→model Notification {
+   193→  id        String   @id @default(cuid())
+   194→  type      String   @default("info") // info | success | warn | error
+   195→  title     String
+   196→  message   String
+   197→  read      Boolean  @default(false)
+   198→  createdAt DateTime @default(now())
+   199→}
+   200→
+   201→model FallbackEvent {
+   202→  id        String   @id @default(cuid())
+   203→  provider  String
+   204→  reason    String
+   205→  recovered Boolean  @default(false)
+   206→  createdAt DateTime @default(now())
+   207→}
+   208→
+   209→// Agent-to-agent comms bus.
+   210→model AgentMessage {
+   211→  id        String   @id @default(cuid())
+   212→  fromAgent String   // codename of sender
+   213→  toAgent   String   // codename of recipient, or "BROADCAST"
+   214→  subject   String
+   215→  body      String
+   216→  priority  String   @default("normal") // normal | high | urgent
+   217→  read      Boolean  @default(false)
+   218→  thread    String   @default("general") // conversation thread id
+   219→  createdAt DateTime @default(now())
+   220→
+   221→  @@index([toAgent])
+   222→  @@index([thread])
+   223→  @@index([createdAt])
+   224→}
+   225→
+   226→// Skill execution history (web-search, web-reader, LLM skills).
+   227→model SkillRun {
+   228→  id        String   @id @default(cuid())
+   229→  skillKey  String
+   230→  input     String   // the query / url / prompt
+   231→  output    String   // serialized result (JSON or text)
+   232→  status    String   @default("success") // success | error
+   233→  latencyMs Int      @default(0)
+   234→  tokens    Int      @default(0)
+   235→  createdAt DateTime @default(now())
+   236→
+   237→  @@index([skillKey])
+   238→  @@index([createdAt])
+   239→}
+   240→
+   241→// Task dependency edges (blocks → blocked). taskId depends on dependsOnId.
+   242→model TaskLink {
+   243→  id          String @id @default(cuid())
+   244→  taskId      String
+   245→  dependsOnId String
+   246→  createdAt   DateTime @default(now())
+   247→
+   248→  @@unique([taskId, dependsOnId])
+   249→  @@index([taskId])
+   250→  @@index([dependsOnId])
+   251→}
+   252→
+   253→// Saved skill pipeline templates (reusable chains of skills).
+   254→model Pipeline {
+   255→  id          String   @id @default(cuid())
+   256→  name        String
+   257→  description String?
+   258→  steps       String   // JSON array of { skillKey, label, input? }
+   259→  owner       String   @default("ORION") // agent codename that owns it
+   260→  shared      Boolean  @default(false) // shared to the community feed
+   261→  sharedWith  String   @default("[]") // JSON array of agent codenames it's shared with
+   262→  runs        Int      @default(0)
+   263→  createdAt   DateTime @default(now())
+   264→  updatedAt   DateTime @updatedAt
+   265→
+   266→  @@index([owner])
+   267→  @@index([shared])
+   268→}
+   269→
+   270→// Scheduled autonomy loops — an agent runs a research loop on a topic at a fixed interval.
+   271→model ScheduledAutonomy {
+   272→  id        String    @id @default(cuid())
+   273→  agentCodename String
+   274→  topic     String
+   275→  intervalMin Int    @default(60) // minutes between runs
+   276→  enabled   Boolean   @default(true)
+   277→  lastRun   DateTime?
+   278→  runCount  Int      @default(0)
+   279→  lastResult String? // brief status of last run
+   280→  createdAt DateTime  @default(now())
+   281→  updatedAt DateTime  @updatedAt
+   282→
+   283→  @@index([agentCodename])
+   284→  @@index([enabled])
+   285→}
+   286→
+   287→// History of autonomy loop runs (manual + scheduled).
+   288→model AutonomyRun {
+   289→  id           String   @id @default(cuid())
+   290→  agentCodename String
+   291→  topic        String
+   292→  source       String   @default("manual") // manual | scheduled
+   293→  status       String   @default("success") // success | error
+   294→  traceJson    String   @default("[]") // JSON array of { step, status, detail, latencyMs }
+   295→  tasksCreated Int      @default(0)
+   296→  taskTitles   String   @default("[]") // JSON array of created task titles
+   297→  latencyMs    Int      @default(0)
+   298→  createdAt    DateTime @default(now())
+   299→
+   300→  @@index([agentCodename])
+   301→  @@index([createdAt])
+   302→  @@index([source])
+   303→}
+   304→
+   305→// Saved autonomy loop templates (reusable agent+topic+interval configs).
+   306→model AutonomyTemplate {
+   307→  id        String   @id @default(cuid())
+   308→  name      String
+   309→  agentCodename String
+   310→  topic     String
+   311→  intervalMin Int   @default(60)
+   312→  tags      String  @default("[]") // JSON array
+   313→  createdAt DateTime @default(now())
+   314→  updatedAt DateTime @updatedAt
+   315→
+   316→  @@index([agentCodename])
+   317→}
+   318→
+   319→// History of generated report diffs (for re-viewing).
+   320→model ReportDiff {
+   321→  id        String   @id @default(cuid())
+   322→  reportAKey String
+   323→  reportBKey String
+   324→  diff      String   // the GLM-4.6-generated markdown diff
+   325→  createdAt DateTime @default(now())
+   326→
+   327→  @@index([createdAt])
+   328→}
+   329→
+   330→// ─────────────────────────────────────────────────────────────────────
+   331→// R-3 additions — Workforce org chart, Rules, Plugins, Models, Learning.
+   332→// NOTE: R-2 already defined Department, WorkforceAgent, Rule, Plugin,
+   333→// Model, SkillLearning, ModelKnowledge lower in this file with their own
+   334→// field names. R-3 reuses R-2's definitions — no new models added here.
+   335→// ─────────────────────────────────────────────────────────────────────
+   336→
+   337→
+   338→// ===== Task R-2: Agent Spawning (30-day retention, respawn from log) =====
+   339→model SpawnedAgent {
+   340→  id            String   @id @default(cuid())
+   341→  agentId       String   @unique
+   342→  codename      String   @unique
+   343→  name          String
+   344→  parentId      String
+   345→  parentAgentId String?
+   346→  role          String
+   347→  skills        String   @default("[]")
+   348→  model         String   @default("glm-4.6")
+   349→  status        String   @default("active")
+   350→  taskCount     Int      @default(0)
+   351→  earnings      Float    @default(0)
+   352→  spawnedReason String?
+   353→  lastUsed      DateTime @default(now())
+   354→  expiresAt     DateTime?
+   355→  createdAt     DateTime @default(now())
+   356→  updatedAt     DateTime @updatedAt
+   357→  @@index([parentId])
+   358→  @@index([status])
+   359→  @@index([lastUsed])
+   360→}
+   361→
+   362→model SpawnedAgentLog {
+   363→  id             String   @id @default(cuid())
+   364→  logId          String   @unique
+   365→  codename       String
+   366→  name           String
+   367→  parentId       String
+   368→  role           String
+   369→  skills         String   @default("[]")
+   370→  model          String   @default("glm-4.6")
+   371→  totalEarnings  Float    @default(0)
+   372→  totalTasks     Int      @default(0)
+   373→  spawnCount     Int      @default(1)
+   374→  firstSpawnedAt DateTime @default(now())
+   375→  lastActiveAt   DateTime @default(now())
+   376→  createdAt      DateTime @default(now())
+   377→  updatedAt      DateTime @updatedAt
+   378→  @@index([parentId])
+   379→  @@index([codename])
+   380→}
+   381→
+   382→// ===== Task R-2: Credential Vault + Earning Methods =====
+   383→model PlatformCredential {
+   384→  id            String   @id @default(cuid())
+   385→  platform      String
+   386→  platformUrl   String?
+   387→  username      String
+   388→  passwordEnc   String
+   389→  passwordIv    String
+   390→  passwordTag   String
+   391→  notes         String?
+   392→  methodKey     String?
+   393→  status        String   @default("active")
+   394→  registeredAt  DateTime @default(now())
+   395→  lastUsedAt    DateTime?
+   396→  createdAt     DateTime @default(now())
+   397→  updatedAt     DateTime @updatedAt
+   398→  @@index([platform])
+   399→  @@index([methodKey])
+   400→  @@index([status])
+   401→}
+   402→
+   403→model EarningMethod {
+   404→  id               String   @id @default(cuid())
+   405→  key              String   @unique
+   406→  name             String
+   407→  description      String
+   408→  category         String
+   409→  earningPotential String   @default("medium")
+   410→  riskLevel        String   @default("none")
+   411→  skillsRequired   String   @default("[]")
+   412→  method           String   @default("")
+   413→  approved         Boolean  @default(false)
+   414→  enabled          Boolean  @default(false)
+   415→  autoExecute      Boolean  @default(false)
+   416→  estimatedMonthly Int      @default(0)
+   417→  lastResearched   DateTime?
+   418→  lastExecuted     DateTime?
+   419→  executionCount   Int      @default(0)
+   420→  totalEarnings    Float    @default(0)
+   421→  feedback         String   @default("[]")
+   422→  tags             String   @default("[]")
+   423→  // Approval flow fields
+   424→  simulationResults String?  // JSON: results of simulation/testing
+   425→  workflowSteps     String?  // JSON: step-by-step process ready for deployment
+   426→  approvalQuestions String?  // JSON: Q&A between owner and CEO before approval
+   427→  ownerNotes        String?  // owner's notes during review
+   428→  approvalStatus    String   @default("draft") // draft | researching | simulating | ready | pending_approval | approved | rejected | deployed
+   429→  deployedAt        DateTime?
+   430→  createdAt         DateTime @default(now())
+   431→  updatedAt         DateTime @updatedAt
+   432→  @@index([category])
+   433→  @@index([enabled])
+   434→  @@index([approved])
+   435→  @@index([approvalStatus])
+   436→}
+   437→
+   438→model SkillLearning {
+   439→  id            String   @id @default(cuid())
+   440→  agentCodename String
+   441→  skillKey      String
+   442→  proficiency   Int      @default(0)
+   443→  learnedFrom   String?
+   444→  earnings      Float    @default(0)
+   445→  lastUsed      DateTime?
+   446→  createdAt     DateTime @default(now())
+   447→  updatedAt     DateTime @updatedAt
+   448→  @@unique([agentCodename, skillKey])
+   449→  @@index([agentCodename])
+   450→  @@index([skillKey])
+   451→}
+   452→
+   453→model Plugin {
+   454→  id          String   @id @default(cuid())
+   455→  key         String   @unique
+   456→  name        String
+   457→  description String
+   458→  category    String   @default("general")
+   459→  version     String   @default("1.0.0")
+   460→  enabled     Boolean  @default(true)
+   461→  config      String   @default("{}")
+   462→  createdAt   DateTime @default(now())
+   463→  updatedAt   DateTime @updatedAt
+   464→}
+   465→
+   466→model Rule {
+   467→  id          String   @id @default(cuid())
+   468→  key         String   @unique
+   469→  title       String
+   470→  description String
+   471→  category    String   @default("operational")
+   472→  priority    String   @default("medium")
+   473→  enabled     Boolean  @default(true)
+   474→  createdAt   DateTime @default(now())
+   475→  updatedAt   DateTime @updatedAt
+   476→}
+   477→
+   478→model Department {
+   479→  id        String   @id @default(cuid())
+   480→  key       String   @unique
+   481→  name      String
+   482→  mission   String
+   483→  headAgent String?
+   484→  accent    String   @default("#7DD3FC")
+   485→  createdAt DateTime @default(now())
+   486→  updatedAt DateTime @updatedAt
+   487→}
+   488→
+   489→model WorkforceAgent {
+   490→  id            String   @id @default(cuid())
+   491→  codename      String   @unique
+   492→  name          String
+   493→  title         String
+   494→  departmentKey String
+   495→  seniority     String   @default("specialist")
+   496→  modelTier     String   @default("strong")
+   497→  skills        String   @default("[]")
+   498→  personality   String   @default("{}")
+   499→  status        String   @default("active")
+   500→  reportsTo     String?
+   501→  createdAt     DateTime @default(now())
+   502→  updatedAt     DateTime @updatedAt
+   503→  @@index([departmentKey])
+   504→  @@index([seniority])
+   505→}
+   506→
+   507→model Model {
+   508→  id            String    @id @default(cuid())
+   509→  providerKey   String
+   510→  modelId       String
+   511→  contextWindow Int       @default(128000)
+   512→  capabilities  String    @default("[]")
+   513→  tier          String    @default("strong")
+   514→  enabled       Boolean   @default(true)
+   515→  // Task ID 12 (PARALLEL-D) — Model Provider Sync system.
+   516→  // source: 'seed' (initial roster) | 'provider' (discovered via API) | 'local' (Ollama).
+   517→  // status: 'active' | 'broken' | 'rate-limited' | 'unknown'.
+   518→  source        String    @default("seed")
+   519→  status        String    @default("active")
+   520→  lastChecked   DateTime?
+   521→  pricingPer1k  Float?
+   522→  latencyMs     Int?
+   523→  createdAt     DateTime  @default(now())
+   524→  updatedAt     DateTime  @default(now()) @updatedAt
+   525→  @@index([providerKey])
+   526→  @@index([tier])
+   527→  @@index([status])
+   528→  @@index([source])
+   529→}
+   530→
+   531→model ModelKnowledge {
+   532→  id               String   @id @default(cuid())
+   533→  modelId          String   @unique
+   534→  displayName      String
+   535→  provider         String
+   536→  patterns         String   @default("{}")
+   537→  behaviorNotes    String   @default("")
+   538→  thinkingStyle    String   @default("")
+   539→  capabilities     String   @default("[]")
+   540→  contextWindow    Int      @default(128000)
+   541→  tier             String   @default("strong")
+   542→  lastObserved     DateTime?
+   543→  observationCount Int      @default(0)
+   544→  createdAt        DateTime @default(now())
+   545→  updatedAt        DateTime @updatedAt
+   546→  @@index([provider])
+   547→  @@index([tier])
+   548→}
+   549→
+   550→// ===== Task ID 6 (PARALLEL-B): Owner Payment Methods =====
+   551→// Stores the OWNER's payout instruments (UPI VPA, bank accounts, cards,
+   552→// wallets, PayPal, crypto) that agents can use to receive earnings.
+   553→// Method-specific details are AES-256-GCM encrypted via credential-vault
+   554→// and NEVER exposed in API responses — only the `masked` preview is.
+   555→model OwnerPaymentMethod {
+   556→  id            String   @id @default(cuid())
+   557→  label         String   // e.g. "Primary UPI", "HDFC Business"
+   558→  method        String   // upi | bank | card | wallet | paypal | crypto
+   559→  // Method-specific details stored as encrypted JSON (AES-256-GCM via credential-vault)
+   560→  detailsEnc    String   // encrypted JSON: { vpa } | { accountNo, ifsc, name } | { cardLast4, token } | { walletId } | { email } | { address }
+   561→  detailsIv     String
+   562→  detailsTag    String
+   563→  masked        String   // human-readable masked preview e.g. "user@oksbi•••" / "•••• 4242" / "HDFC•••1234"
+   564→  currency      String   @default("INR")
+   565→  isDefault     Boolean  @default(false)
+   566→  enabled       Boolean  @default(true)
+   567→  verified      Boolean  @default(false)
+   568→  lastUsedAt    DateTime?
+   569→  usageCount    Int      @default(0)
+   570→  createdAt     DateTime @default(now())
+   571→  updatedAt     DateTime @updatedAt
+   572→  @@index([method])
+   573→  @@index([enabled])
+   574→}
+   575→
+   576→// ===== Task ID 10 (PARALLEL-E): User Action Tracking + Agent Monitoring =====
+   577→// Captures OPERATOR (human) clicks/navigations/submits/errors so monitor agents
+   578→// can analyse behaviour, surface UX friction, and auto-create Tasks for fixes.
+   579→// Distinct from the agent-behaviour Blackbox (src/lib/blackbox.ts) — this is
+   580→// purely user-side telemetry.
+   581→model UserAction {
+   582→  id          String   @id @default(cuid())
+   583→  sessionId   String   @default("default")
+   584→  actor       String   @default("operator")
+   585→  type        String   // navigate | click | submit | toggle | create | delete | error | search | command
+   586→  tab         String?
+   587→  target      String?  // element identifier (e.g. "stat-card:fleet", "button:spawn-agent")
+   588→  label       String?  // human-readable label
+   589→  meta        String   @default("{}")  // JSON
+   590→  severity    String   @default("info")  // info | warn | error | critical
+   591→  duration    Int?     // ms taken (for submits)
+   592→  createdAt   DateTime @default(now())
+   593→  @@index([createdAt])
+   594→  @@index([tab])
+   595→  @@index([type])
+   596→  @@index([severity])
+   597→}
+   598→
+   599→// Findings raised by server-side monitor agents (fleet-watchdog, api-sentinel,
+   600→// health-monitor, task-watcher, comm-watcher, cron-monitor, payment-monitor,
+   601→// model-watchdog). Each finding can suggest a navigation action and/or a Task
+   602→// to be created. Findings dedupe by monitorKey+title within 24h if still open.
+   603→model AgentMonitorFinding {
+   604→  id              String   @id @default(cuid())
+   605→  monitorKey      String   // which monitor agent raised this (e.g. "fleet-watchdog", "api-sentinel")
+   606→  tab             String   // which tab is affected
+   607→  severity        String   // info | warn | error | critical
+   608→  category        String   // bug | performance | ux | security | opportunity | error-rate
+   609→  title           String
+   610→  detail          String
+   611→  evidence        String   @default("{}")  // JSON with metrics/screenshots/etc
+   612→  suggestedAction String?  // e.g. "navigate:tasks", "create-task:fix-broken-button"
+   613→  actionTab       String?  // tab to navigate to
+   614→  actionMeta      String   @default("{}")  // JSON context for the navigation
+   615→  status          String   @default("open")  // open | acknowledged | resolved | dismissed
+   616→  linkedTaskId    String?  // if a Task was created from this finding
+   617→  createdAt       DateTime @default(now())
+   618→  updatedAt       DateTime @updatedAt
+   619→  @@index([monitorKey])
+   620→  @@index([tab])
+   621→  @@index([severity])
+   622→  @@index([status])
+   623→}
+   624→
+   625→// ===== Task ID 4 (PARALLEL-C — zip import): Audit Log + Cron History =====
+   626→// AuditLog — structured audit trail for all admin/operator actions.
+   627→// cron-history.ts writes CronHistory rows for every cron execution.
+   628→// Both are best-effort (write helpers swallow errors so they never
+   629→// break the main request flow).
+   630→
+   631→model AuditLog {
+   632→  id        String   @id @default(cuid())
+   633→  actor     String   @default("operator") // who performed the action (userId / codename / "operator")
+   634→  action    String   // e.g. "agent.create", "settings.update"
+   635→  target    String?  // resource identifier e.g. "agent:abc" or "rule:rls-1"
+   636→  meta      String   @default("{}") // JSON: contextual details
+   637→  ipAddress String?
+   638→  userAgent String?
+   639→  createdAt DateTime @default(now())
+   640→
+   641→  @@index([createdAt])
+   642→  @@index([actor])
+   643→  @@index([action])
+   644→}
+   645→
+   646→model CronHistory {
+   647→  id          String   @id @default(cuid())
+   648→  cronKey     String   // CronJob.key
+   649→  status      String   @default("success") // success | error | timeout | skipped
+   650→  durationMs  Int      @default(0)
+   651→  detail      String   @default("") // message or error string (cap 500)
+   652→  createdAt   DateTime @default(now())
+   653→
+   654→  @@index([cronKey])
+   655→  @@index([createdAt])
+   656→  @@index([status])
+   657→}
+   658→
+   659→// ===== Task ID BUSINESS: CRM / Sales / Support automation =====
+   660→// Client — a full CRM contact moving through the sales pipeline
+   661→// (lead → contacted → qualified → proposal → negotiation → won | lost).
+   662→// Lead — an early-stage prospect with a 0-100 score (auto-computed from
+   663→// source + profile completeness by /api/leads). Leads can be promoted
+   664→// to Clients via the CRM tab's "convert" action.
+   665→// SupportTicket — customer support requests across chat/email/phone/telegram,
+   666→// routed to the agent best suited for the channel + priority.
+   667→//
+   668→// These three tables back the CRM & Sales tab (`crm` TabKey) and the
+   669→// create-lead / create-client / create-ticket / query-clients Orion intents.
+   670→
+   671→model Client {
+   672→  id        String   @id @default(cuid())
+   673→  name      String
+   674→  company   String?
+   675→  email     String?
+   676→  phone     String?
+   677→  status    String   @default("lead") // lead | contacted | qualified | proposal | negotiation | won | lost
+   678→  source    String?  // web | referral | cold-outreach | inbound
+   679→  value     Float    @default(0)
+   680→  notes     String?
+   681→  assignee  String?
+   682→  createdAt DateTime @default(now())
+   683→  updatedAt DateTime @updatedAt
+   684→  @@index([status])
+   685→  @@index([assignee])
+   686→}
+   687→
+   688→model Lead {
+   689→  id         String   @id @default(cuid())
+   690→  clientName String
+   691→  company    String?
+   692→  email      String?
+   693→  phone      String?
+   694→  source     String   @default("web")
+   695→  status     String   @default("new") // new | contacted | qualified | converted | lost
+   696→  score      Int      @default(50) // 0-100 lead score
+   697→  notes      String?
+   698→  createdAt  DateTime @default(now())
+   699→  updatedAt  DateTime @updatedAt
+   700→  @@index([status])
+   701→  @@index([source])
+   702→}
+   703→
+   704→model SupportTicket {
+   705→  id         String   @id @default(cuid())
+   706→  clientName String
+   707→  subject    String
+   708→  body       String
+   709→  priority   String   @default("medium") // low | medium | high | urgent
+   710→  status     String   @default("open") // open | in_progress | resolved | closed
+   711→  channel    String   @default("chat") // chat | email | phone | telegram
+   712→  assignee   String?
+   713→  resolution String?
+   714→  createdAt  DateTime @default(now())
+   715→  updatedAt  DateTime @updatedAt
+   716→  @@index([status])
+   717→  @@index([priority])
+   718→}
+   719→
+   720→
+   721→// ===== Plan + PlanStep (Formal task decomposition) =====
+   722→model Plan {
+   723→  id          String   @id @default(cuid())
+   724→  title       String
+   725→  description String?
+   726→  goal        String
+   727→  status      String   @default("draft") // draft | executing | completed | failed | paused
+   728→  checkpoint  String?  // JSON: { completedSteps: [], currentStep: N, context: {} }
+   729→  steps       PlanStep[]
+   730→  createdAt   DateTime @default(now())
+   731→  updatedAt   DateTime @updatedAt
+   732→  @@index([status])
+   733→}
+   734→
+   735→model PlanStep {
+   736→  id          String   @id @default(cuid())
+   737→  planId      String
+   738→  plan        Plan     @relation(fields: [planId], references: [id], onDelete: Cascade)
+   739→  stepNumber  Int
+   740→  title       String
+   741→  description String?
+   742→  action      String   // create-task | run-command | run-skill | send-comms | browse | read-file | write-file
+   743→  params      String   @default("{}") // JSON
+   744→  status      String   @default("pending") // pending | in_progress | completed | failed | skipped
+   745→  result      String?  // JSON output
+   746→  dependsOn   String   @default("[]") // JSON array of step IDs
+   747→  assignee    String?  // agent codename
+   748→  requiresApproval Boolean @default(false)
+   749→  verifiedAt  DateTime?
+   750→  createdAt   DateTime @default(now())
+   751→  updatedAt   DateTime @updatedAt
+   752→  @@index([planId])
+   753→  @@index([status])
+   754→}
+   755→
+   756→// ===== Refund System — every confirmed transaction can be refunded later =====
+   757→// A Refund is always linked to a parent Payment (status='confirmed').
+   758→// Refund lifecycle: requested → under_review → approved → processed | rejected | cancelled
+   759→// Partial refunds supported (amount <= payment.amount - alreadyRefunded).
+   760→model Refund {
+   761→  id              String   @id @default(cuid())
+   762→  paymentId       String   // parent Payment id
+   763→  paymentRefId    String?  // optional Razorprop / gateway reference
+   764→  amount          Float    // refund amount (<= original payment amount)
+   765→  currency        String   @default("INR")
+   766→  reason          String   // customer_request | duplicate | service_not_delivered | fraud | other
+   767→  reasonNote      String?  // free-text detail
+   768→  status          String   @default("requested") // requested | under_review | approved | processed | rejected | cancelled
+   769→  requestedBy     String   @default("operator") // operator | agent:codename | customer
+   770→  reviewedBy      String?
+   771→  reviewNote      String?
+   772→  gatewayRef      String?  // gateway refund reference id (PRF-xxx)
+   773→  processedAt     DateTime?
+   774→  reversedActionLogId String? // link to ActionLog for reversal tracking
+   775→  createdAt       DateTime @default(now())
+   776→  updatedAt       DateTime @updatedAt
+   777→  @@index([paymentId])
+   778→  @@index([status])
+   779→  @@index([createdAt])
+   780→}
+   781→
+   782→// ===== Formal Approval Requests with Escalation =====
+   783→// Replaces the loose notification-based approval flow. Every approval now has:
+   784→//  - a typed category (app-change | payment-refund | earning-deploy | agent-spawn | plan-step | destructive-cmd | other)
+   785→//  - a 30-min escalation timer: if not resolved, the owner is CALLED (voice) +
+   786→//    messaged on Telegram + emailed. Re-escalation every 30 min up to 3 times.
+   787→model ApprovalRequest {
+   788→  id              String   @id @default(cuid())
+   789→  category        String   @default("other") // app-change | payment-refund | earning-deploy | agent-spawn | plan-step | destructive-cmd | other
+   790→  title           String
+   791→  description     String   // markdown — what is being asked
+   792→  requestedBy     String   @default("system") // agent codename | "system" | "operator"
+   793→  payload         String   @default("{}") // JSON: action-specific context
+   794→  status          String   @default("pending") // pending | approved | rejected | expired | superseded
+   795→  decidedBy       String?  // who made the decision
+   796→  decisionNote    String?
+   797→  // Escalation tracking
+   798→  escalationLevel Int      @default(0) // 0=no escalation, 1=first call, 2=second, 3=final
+   799→  lastEscalatedAt DateTime?
+   800→  nextEscalateAt  DateTime? // when the next escalation should fire
+   801→  resolvedAt      DateTime?
+   802→  expiresAt       DateTime? // hard expiry — after this, auto-reject
+   803→  createdAt       DateTime @default(now())
+   804→  updatedAt       DateTime @updatedAt
+   805→  @@index([status])
+   806→  @@index([category])
+   807→  @@index([nextEscalateAt])
+   808→  @@index([createdAt])
+   809→}
+   810→
+   811→// ===== App-Change Approval Gate =====
+   812→// ANY change to the app (or apps built BY the app) that affects how things work
+   813→// must be recorded here and approved before execution. Covers:
+   814→//  - feature add / removal / upgrade
+   815→//  - dependency install / remove
+   816→//  - schema migration
+   817→//  - config/env change
+   818→//  - rule add / modify / remove
+   819→//  - agent-promoted code change
+   820→model ChangeRequest {
+   821→  id              String   @id @default(cuid())
+   822→  changeType      String   // feature-add | feature-remove | upgrade | dependency | schema | config | rule | hotfix | refactor
+   823→  scope           String   @default("app") // app | built-app | mini-service | plugin
+   824→  title           String
+   825→  description     String
+   826→  rationale       String?  // why this change is needed
+   827→  impact          String?  // what could break
+   828→  proposedBy      String   @default("system") // agent codename | operator
+   829→  filePaths       String   @default("[]") // JSON: affected file paths
+   830→  diffSummary     String?  // JSON: { additions, deletions, filesChanged }
+   831→  approvalId      String?  // linked ApprovalRequest
+   832→  status          String   @default("draft") // draft | pending | approved | rejected | deployed | rolled-back
+   833→  deployedAt      DateTime?
+   834→  rolledBackAt    DateTime?
+   835→  actionLogId     String?  // link to the ActionLog that recorded the change (for reversal)
+   836→  createdAt       DateTime @default(now())
+   837→  updatedAt       DateTime @updatedAt
+   838→  @@index([status])
+   839→  @@index([changeType])
+   840→  @@index([scope])
+   841→  @@index([createdAt])
+   842→}
+   843→
+   844→// ===== Reversible Action Log =====
+   845→// Every mutating action (create/update/delete on ANY entity, file write, config
+   846→// change, command exec, etc.) is logged here with enough state to REVERSE it.
+   847→// Distinct from AuditLog (which is fire-and-forget telemetry) — ActionLog
+   848→// captures before/after state and exposes a reverse() method.
+   849→model ActionLog {
+   850→  id              String   @id @default(cuid())
+   851→  actor           String   @default("system") // operator | agent:codename | system
+   852→  action          String   // e.g. "payment.create", "agent.delete", "file.write", "config.update"
+   853→  category        String   @default("mutation") // mutation | destructive | config | file | exec
+   854→  target          String?  // e.g. "payment:abc123" or "file:/src/app/page.tsx"
+   855→  beforeState     String?  // JSON snapshot of entity before mutation (null for creates)
+   856→  afterState      String?  // JSON snapshot of entity after mutation (null for deletes)
+   857→  reversible      Boolean  @default(true)
+   858→  reversed        Boolean  @default(false)
+   859→  reversedAt      DateTime?
+   860→  reversedBy      String?
+   861→  reverseResult   String?  // JSON: outcome of the reversal
+   862→  approvalId      String?  // if this action needed approval
+   863→  meta            String   @default("{}") // JSON: extra context
+   864→  createdAt       DateTime @default(now())
+   865→  @@index([createdAt])
+   866→  @@index([actor])
+   867→  @@index([action])
+   868→  @@index([category])
+   869→  @@index([reversed])
+   870→}
+   871→
+   872→// ===== No-Assumption Verification Records =====
+   873→// Rule: "without proof never accept anything — even research and analysis
+   874→// and plans can be questioned and improvised." Every claim, research result,
+   875→// or plan produced by an agent is logged here with its evidence so it can be
+   876→// audited, questioned, and improvised upon.
+   877→model VerificationRecord {
+   878→  id              String   @id @default(cuid())
+   879→  claimType       String   // research | analysis | plan | fact | forecast | recommendation
+   880→  claimText       String   // the statement being verified
+   881→  claimSource     String?  // agent codename or "operator"
+   882→  evidence        String   @default("[]") // JSON: array of { type, url, quote, capturedAt }
+   883→  verificationStatus String @default("unverified") // unverified | verified | disputed | partial | false
+   884→  verifierMethod  String?  // web-search | cross-check | source-read | expert-review | automated-test
+   885→  verifierNote    String?
+   886→  confidenceScore Int      @default(0) // 0-100
+   887→  questioned      Boolean  @default(false) // has this been challenged?
+   888→  questionNote    String?
+   889→  improvedVersion String?  // revised claim after questioning
+   890→  linkedTaskId    String?
+   891→  createdAt       DateTime @default(now())
+   892→  updatedAt       DateTime @updatedAt
+   893→  @@index([claimType])
+   894→  @@index([verificationStatus])
+   895→  @@index([questioned])
+   896→  @@index([createdAt])
+   897→}
+   898→
+   899→// ===== JARVIS IDE — Projects, Files, Sessions =====
+   900→// A lightweight in-DB IDE that lets agents (and the operator) edit the
+   901→// workspace with 30+ features: syntax highlighting, multi-file tabs, search/
+   902→// replace, git diff, snippets, themes, minimap, terminal dock, file tree,
+   903→// command palette, problems panel, outline, etc.
+   904→model IdeProject {
+   905→  id              String   @id @default(cuid())
+   906→  name            String
+   907→  rootPath        String   // absolute path on disk
+   908→  description     String?
+   909→  language        String   @default("typescript") // primary language
+   910→  framework       String?  // nextjs | react | node | bun | python | etc
+   911→  gitBranch       String?
+   912→  gitRemote       String?
+   913→  openFiles       String   @default("[]") // JSON: array of file ids currently open
+   914→  activeFileId    String?
+   915→  theme           String   @default("jarvis-dark")
+   916→  fontSize        Int      @default(13)
+   917→  wordWrap        Boolean  @default(false)
+   918→  minimap         Boolean  @default(true)
+   919→  autoSave        Boolean  @default(true)
+   920→  formatOnSave    Boolean  @default(true)
+   921→  linting         Boolean  @default(true)
+   922→  tabSize         Int      @default(2)
+   923→  status          String   @default("active") // active | archived
+   924→  lastOpenedAt    DateTime?
+   925→  createdAt       DateTime @default(now())
+   926→  updatedAt       DateTime @updatedAt
+   927→  files           IdeFile[]
+   928→  sessions        IdeSession[]
+   929→  @@index([status])
+   930→}
+   931→
+   932→model IdeFile {
+   933→  id              String   @id @default(cuid())
+   934→  projectId       String
+   935→  project         IdeProject @relation(fields: [projectId], references: [id], onDelete: Cascade)
+   936→  path            String   // relative to project root
+   937→  name            String   // basename
+   938→  extension       String   @default("ts") // ts | tsx | js | jsx | json | md | css | py | go | rs | txt
+   939→  language        String   @default("typescript")
+   940→  content         String   @default("")
+   941→  size            Int      @default(0)
+   942→  lineCount       Int      @default(0)
+   943→  isDirty         Boolean  @default(false) // unsaved changes
+   944→  lastSavedAt     DateTime?
+   945→  lastSavedBy     String?
+   946→  gitStatus       String   @default("unchanged") // unchanged | modified | added | deleted | untracked
+   947→  createdAt       DateTime @default(now())
+   948→  updatedAt       DateTime @updatedAt
+   949→  @@index([projectId])
+   950→  @@index([path])
+   951→  @@index([gitStatus])
+   952→}
+   953→
+   954→model IdeSession {
+   955→  id              String   @id @default(cuid())
+   956→  projectId       String
+   957→  project         IdeProject @relation(fields: [projectId], references: [id], onDelete: Cascade)
+   958→  agentCodename   String?  // which agent opened this session (null = operator)
+   959→  openTabs        String   @default("[]") // JSON: array of file ids
+   960→  activeTabId     String?
+   961→  cursor          String   @default("{}") // JSON: { fileId, line, col }
+   962→  selection       String?  // JSON: { start, end }
+   963→  scrollPosition  Int      @default(0)
+   964→  terminalHistory String  @default("[]") // JSON: array of terminal commands run in this session
+   965→  searchHistory   String   @default("[]") // JSON: array of search queries
+   966→  lastActiveAt    DateTime @default(now())
+   967→  createdAt       DateTime @default(now())
+   968→  updatedAt       DateTime @updatedAt
+   969→  @@index([projectId])
+   970→  @@index([agentCodename])
+   971→}
+   972→

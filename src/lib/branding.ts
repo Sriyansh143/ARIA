@@ -14,6 +14,11 @@ export interface BrandingConfig {
   poweredBy: string;
   company: string;
   owner: string;
+  ownerEmail: string;
+  ownerPhone: string;
+  ownerTelegram: string;
+  ownerTimezone: string;
+  ownerEscalationMinutes: number;
   website: string;
   accentColor: string;
   logoUrl: string;
@@ -33,6 +38,11 @@ export const DEFAULT_BRANDING: BrandingConfig = {
   poweredBy: 'Powered by Liafon Software Private Limited',
   company: 'Liafon Software Private Limited',
   owner: 'Raviteja Voruganti',
+  ownerEmail: 'raviteja@liafon.com',
+  ownerPhone: '+919999999999',
+  ownerTelegram: '@raviteja',
+  ownerTimezone: 'Asia/Calcutta',
+  ownerEscalationMinutes: 30,
   website: 'https://liafon.com',
   accentColor: '#7DD3FC',
   logoUrl: 'https://z-cdn.chatglm.cn/z-ai/static/logo.svg',
@@ -64,6 +74,10 @@ function mergeWithDefaults(partial: Partial<BrandingConfig> | null): BrandingCon
   const out: BrandingConfig = { ...DEFAULT_BRANDING };
   (Object.keys(DEFAULT_BRANDING) as (keyof BrandingConfig)[]).forEach((k) => {
     const v = partial[k];
+    if (k === 'ownerEscalationMinutes') {
+      if (typeof v === 'number' && v > 0) (out as Record<string, unknown>)[k] = v;
+      return;
+    }
     if (typeof v === 'string' && v.length > 0) (out as Record<string, unknown>)[k] = v;
   });
   return out;
@@ -97,6 +111,11 @@ const ALLOWED_KEYS: ReadonlyArray<keyof BrandingConfig> = [
   'poweredBy',
   'company',
   'owner',
+  'ownerEmail',
+  'ownerPhone',
+  'ownerTelegram',
+  'ownerTimezone',
+  'ownerEscalationMinutes',
   'website',
   'accentColor',
   'logoUrl',
@@ -114,6 +133,10 @@ export async function updateBrandingConfig(
   const patch: Partial<BrandingConfig> = {};
   for (const k of ALLOWED_KEYS) {
     const v = opts[k];
+    if (k === 'ownerEscalationMinutes') {
+      if (typeof v === 'number' && v > 0) (patch as Record<string, unknown>)[k] = v;
+      continue;
+    }
     if (typeof v === 'string' && v.length > 0) (patch as Record<string, unknown>)[k] = v;
   }
   const current = await getBrandingConfig();

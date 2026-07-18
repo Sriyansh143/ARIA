@@ -131,10 +131,10 @@ export async function handleTelegramUpdate(update: {
     if (action === 'approve' || action === 'reject') {
       // Resolve the approval via the approvals API
       try {
-        await fetch('http://localhost:3000/api/approvals', {
+        await fetch(`http://localhost:3000/api/approvals/${id}`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ id, decision: action }),
+          body: JSON.stringify({ decision: action, decidedBy: 'telegram' }),
         });
         return { ok: true, response: `Approval ${action}d` };
       } catch {

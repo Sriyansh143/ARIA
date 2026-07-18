@@ -414,6 +414,46 @@ const dispatchers: Record<string, CronDispatcher> = {
       return { ok: false, detail: `tool-scan failed: ${err instanceof Error ? err.message : String(err)}` };
     }
   },
+
+  // ── Approval Escalation Check: every 5 min, escalate pending approvals ──
+  // Task ID 3-ESCALATION. Looks for ApprovalRequests with status='pending'
+  // AND nextEscalateAt <= now. Each escalation advances through 3 levels
+  // (Telegram → Telegram+Email → Telegram+Email+Voice call). After Level 3
+  // if expiresAt has passed, the row is auto-expired.
+  'approval-escalation-check': async () => {
+    try {
+      const { escalatePendingApprovals } = await import('@/lib/approval-escalation');
+      const result = await escalatePendingApprovals();
+      if (result.escalated > 0) {
+        await db.notification.create({
+          data: {
+            type: result.expired > 0 ? 'error' : 'warn',
+            title: 'Approval Escalation Sweep',
+            message:
+              `Escalated ${result.escalated} pending approval(s)` +
+              (result.expired ? `, auto-expired ${result.expired}` : '') +
+              ` — channels fired: ${result.details
+                .flatMap((d) => d.channels)
+                .filter((c, i, arr) => arr.indexOf(c) === i)
+                .join(', ') || 'none configured'}.`,
+            read: false,
+          },
+        }).catch(() => {});
+      }
+      return {
+        ok: result.ok,
+        detail:
+          `Escalation sweep: ${result.escalated} escalated, ${result.expired} expired` +
+          (result.error ? ` — ${result.error}` : ''),
+        recordsAffected: result.escalated,
+      };
+    } catch (err) {
+      return {
+        ok: false,
+        detail: `approval-escalation-check failed: ${err instanceof Error ? err.message : String(err)}`,
+      };
+    }
+  },
 };
 
 // ─── Global Autonomy Kill Switch ──────────────────────────────────────

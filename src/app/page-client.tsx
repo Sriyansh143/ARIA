@@ -7,10 +7,10 @@ import {
   CalendarClock, Wallet, HeartPulse, ScrollText, ListTodo, History, FolderArchive,
   Network, Lightbulb, Bell, Search, Command, Menu, X, Cpu, MemoryStick, Zap,
   Radio, ChevronRight, ShieldCheck, CircleDot, LayoutGrid, MessagesSquare,
-  Terminal, Sun, Moon, Share2, Workflow, Sliders, Eye, EyeOff, ChevronUp, ChevronDown, Pin, GitBranch, Rocket, BarChart3, Loader2, Star, FileText,
+  Terminal, Sun, Moon, Share2, Workflow, Sliders, Eye, EyeOff, ChevronUp, ChevronDown, Pin, GitBranch, Rocket, BarChart3, Loader2, Star, FileText, GitPullRequest,
   Copy, DollarSign, Palette, GraduationCap,
   Building2, Gavel, Puzzle, Briefcase, Target,
-  CreditCard, AlertCircle, AlertTriangle, CheckCircle, Keyboard,
+  CreditCard, AlertCircle, AlertTriangle, CheckCircle, Keyboard, Code2, Scale,
 } from 'lucide-react';
 import { JARVIS, fmtTime } from '@/lib/config';
 import { useApi } from '@/lib/hooks/use-api';
@@ -63,9 +63,14 @@ import GoalsTab from '@/components/tabs/GoalsTab';
 import DataManagementTab from '@/components/tabs/DataManagementTab';
 import AgentMonitorTab from '@/components/tabs/AgentMonitorTab';
 import AuditLogTab from '@/components/tabs/AuditLogTab';
+import ActionLogTab from '@/components/tabs/ActionLogTab';
+import ChangeRequestsTab from '@/components/tabs/ChangeRequestsTab';
 import TerminalTab from '@/components/tabs/TerminalTab';
 import FilesTab from '@/components/tabs/FilesTab';
+import IdeTab from '@/components/tabs/IdeTab';
 import CRMTab from '@/components/tabs/CRMTab';
+import ApprovalsTab from '@/components/tabs/ApprovalsTab';
+import VerificationTab from '@/components/tabs/VerificationTab';
 
 // ─── Merged tab components (combine related tabs with sub-view toggles) ───
 
@@ -227,7 +232,12 @@ export type TabKey =
   | 'payments' | 'earnings' | 'analytics' | 'services'
   | 'data-mgmt' | 'branding' | 'apptree'
   | 'crm'
-  | 'agent-network';
+  | 'agent-network'
+  | 'approvals'
+  | 'change-requests'
+  | 'action-log'
+  | 'ide'
+  | 'verification';
 
 interface TabDef {
   key: TabKey;
@@ -264,10 +274,11 @@ const TABS: TabDef[] = [
   { key: 'rules-plugins', label: 'Rules & Plugins', icon: Gavel, group: 'Knowledge', accent: JARVIS.colors.amber },
   { key: 'artifacts', label: 'Artifacts', icon: FolderArchive, group: 'Knowledge', accent: JARVIS.colors.amber },
 
-  // ─── Monitoring & Ops (3) — merged 6→3 ───
+  // ─── Monitoring & Ops (4) — merged 6→4 ───
   { key: 'health', label: 'Fleet Health', icon: HeartPulse, group: 'Monitoring', accent: JARVIS.colors.green },
   { key: 'monitoring', label: 'Monitoring', icon: ShieldCheck, group: 'Monitoring', accent: JARVIS.colors.red },
   { key: 'scheduler', label: 'Scheduler', icon: CalendarClock, group: 'Monitoring', accent: JARVIS.colors.violet },
+  { key: 'approvals', label: 'Approvals', icon: ShieldCheck, group: 'Monitoring', accent: JARVIS.colors.red },
 
   // ─── Business & Revenue (5) — merged 6→5 ───
   { key: 'payments', label: 'Payments', icon: Wallet, group: 'Business', accent: JARVIS.colors.green },
@@ -282,6 +293,10 @@ const TABS: TabDef[] = [
   { key: 'files', label: 'File Explorer', icon: FolderArchive, group: 'System', accent: JARVIS.colors.amber },
   { key: 'branding', label: 'Branding', icon: Palette, group: 'System', accent: JARVIS.colors.violet },
   { key: 'apptree', label: 'App Tree', icon: FolderArchive, group: 'System', accent: JARVIS.colors.cyan },
+  { key: 'change-requests', label: 'Change Requests', icon: GitPullRequest, group: 'System', accent: JARVIS.colors.amber },
+  { key: 'action-log', label: 'Action Log', icon: History, group: 'System', accent: JARVIS.colors.green },
+  { key: 'ide', label: 'JARVIS IDE', icon: Code2, group: 'System', accent: JARVIS.colors.cyan },
+  { key: 'verification', label: 'Verification', icon: Scale, group: 'Monitoring', accent: JARVIS.colors.cyan },
 ];
 
 /**
@@ -326,6 +341,7 @@ const TAB_MAP: Record<TabKey, () => JSX.Element> = {
   health: HealthMergedTab,
   monitoring: MonitoringMergedTab,
   scheduler: SchedulerTab,
+  approvals: ApprovalsTab,
   // Business (merged)
   payments: PaymentsMergedTab,
   earnings: EarningMethodsTab,
@@ -338,6 +354,10 @@ const TAB_MAP: Record<TabKey, () => JSX.Element> = {
   files: FilesTab,
   branding: BrandingTab,
   apptree: AppTreeTab,
+  'change-requests': ChangeRequestsTab,
+  'action-log': ActionLogTab,
+  ide: IdeTab,
+  verification: VerificationTab,
 };
 
 interface MetricsData {
