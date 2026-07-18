@@ -134,14 +134,13 @@ function MemoryMergedTab() {
   );
 }
 
-// Learning: Learn & Earn + Teach
+// Learning: Learn & Earn (already includes TeachSourceCard embedded inside)
 function LearningMergedTab() {
   return (
     <MergedTab
       accent={JARVIS.colors.cyan}
       views={[
         { key: 'learn', label: 'Learn & Earn', component: <LearningTab /> },
-        { key: 'teach', label: 'Teach', component: <TeachSourceCard /> },
       ]}
     />
   );

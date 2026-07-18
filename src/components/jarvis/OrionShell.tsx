@@ -7,7 +7,7 @@ import {
   Maximize2, Brain, Cpu, MemoryStick, Gauge, Loader2, Sparkles,
   Compass, ListTodo, Bot, Wallet, HeartPulse, RefreshCw, HelpCircle,
   MessagesSquare, Moon, Sun, Search, Terminal, CheckCircle2, AlertCircle,
-  History, ChevronUp, ChevronDown, CornerDownLeft, Lightbulb,
+  History, ChevronUp, ChevronDown, CornerDownLeft, Lightbulb, Undo2,
 } from 'lucide-react';
 import {
   ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Cell, Tooltip,
@@ -175,7 +175,7 @@ export default function OrionShell({ onClose }: { onClose: () => void }) {
 
   /* ---------- core state ---------- */
   const [supported, setSupported] = useState<boolean | null>(null);
-  const [continuous, setContinuous] = useState(false);
+  const [continuous, setContinuous] = useState(true); // auto-start listening on open
   const [wakeRequired, setWakeRequired] = useState(true);
   const [state, setState] = useState<ShellState>('idle');
   const [interim, setInterim] = useState('');
@@ -187,6 +187,7 @@ export default function OrionShell({ onClose }: { onClose: () => void }) {
   const [suggestions, setSuggestions] = useState<string[]>([]);
   const [history, setHistory] = useState<VoiceTurn[]>([]);
   const [log, setLog] = useState<LogEntry[]>([]);
+  const [undoInfo, setUndoInfo] = useState<{ intent: string; resourceId?: string; resourceType?: string; description: string } | null>(null);
   const [metrics, setMetrics] = useState<MetricsSnapshot | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [awake, setAwake] = useState(false);
@@ -478,6 +479,20 @@ export default function OrionShell({ onClose }: { onClose: () => void }) {
         at: Date.now(),
       });
 
+      // Set undo info for reversible actions (create-task, create-agent, send-comms).
+      if (json.intent === 'create-task' && json.task) {
+        const t = json.task as { id?: string; title?: string };
+        setUndoInfo({ intent: 'create-task', resourceId: t.id, resourceType: 'task', description: `Delete task "${t.title || 'Untitled'}"` });
+      } else if (json.intent === 'create-agent' && json.agent) {
+        const a = json.agent as { id?: string; codename?: string };
+        setUndoInfo({ intent: 'create-agent', resourceId: a.id, resourceType: 'agent', description: `Remove agent ${a.codename || 'sub-agent'}` });
+      } else if (json.intent === 'send-comms' && json.message) {
+        const m = json.message as { id?: string; subject?: string };
+        setUndoInfo({ intent: 'send-comms', resourceId: m.id, resourceType: 'comms', description: `Delete message "${m.subject || ''}"` });
+      } else {
+        setUndoInfo(null);
+      }
+
       flashOrb(actionOk ? 'success' : 'error');
       if (content && actionOk) speak(content);
       else if (!actionOk) {
@@ -499,6 +514,29 @@ export default function OrionShell({ onClose }: { onClose: () => void }) {
       setState(shouldListenRef.current ? 'listening' : 'idle');
     }
   }, [applyTheme, flashOrb, history, log, navigate, speak]);
+
+  /* ---------- undo last command ---------- */
+  const undoLastCommand = useCallback(async () => {
+    if (!undoInfo || !undoInfo.resourceId) return;
+    const { resourceId, resourceType, description } = undoInfo;
+    try {
+      const endpoint =
+        resourceType === 'task' ? `/api/tasks/${resourceId}` :
+        resourceType === 'agent' ? `/api/agents/${resourceId}` :
+        resourceType === 'comms' ? `/api/comms/${resourceId}` :
+        null;
+      if (!endpoint) return;
+      const res = await fetch(endpoint, { method: 'DELETE' });
+      if (!res.ok) throw new Error(`undo failed: ${res.status}`);
+      setUndoInfo(null);
+      setResponse(`Undone: ${description}`);
+      speak(`Undone. ${description}`);
+      flashOrb('success');
+    } catch (e) {
+      setError(`Undo failed: ${e instanceof Error ? e.message : 'unknown'}`);
+      flashOrb('error');
+    }
+  }, [undoInfo, speak, flashOrb]);
 
   /* ---------- speech recognition lifecycle ---------- */
   const stopRecognition = useCallback(() => {
@@ -619,6 +657,22 @@ export default function OrionShell({ onClose }: { onClose: () => void }) {
       startRecognition();
     }
   }, [continuous, startRecognition, stopRecognition]);
+
+  /* ---------- auto-start listening on mount (hands-free) ---------- */
+  // When Orion mode opens, automatically start listening for the wake word.
+  // No button press required — the user just says "Orion, ..." to give a command.
+  const autoStartRef = useRef(false);
+  useEffect(() => {
+    if (autoStartRef.current) return; // only once
+    if (supported === true && continuous) {
+      autoStartRef.current = true;
+      const timer = setTimeout(() => {
+        shouldListenRef.current = true;
+        startRecognition();
+      }, 500);
+      return () => clearTimeout(timer);
+    }
+  }, [supported, continuous, startRecognition]);
 
   /* ---------- single-shot push-to-talk ---------- */
   const pushToTalk = useCallback(() => {
@@ -1016,6 +1070,16 @@ export default function OrionShell({ onClose }: { onClose: () => void }) {
                         {JSON.stringify(actionResult.payload, null, 2)}
                       </pre>
                     </details>
+                  )}
+                  {/* Undo button — shown for reversible actions (create-task, create-agent, send-comms) */}
+                  {undoInfo && actionResult.ok && (
+                    <button
+                      onClick={undoLastCommand}
+                      className="mt-2 flex items-center gap-1.5 px-2.5 py-1 rounded-md text-[10px] jarvis-mono uppercase border border-[var(--j-amber)]/40 text-[var(--j-amber)] hover:bg-[var(--j-amber)]/10 transition-colors"
+                      title={undoInfo.description}
+                    >
+                      <Undo2 className="h-3 w-3" /> Undo {undoInfo.resourceType}
+                    </button>
                   )}
                 </div>
                 <button

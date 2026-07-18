@@ -1,0 +1,2002 @@
+     1→'use client';
+     2→
+     3→import { useCallback, useEffect, useMemo, useState, useRef } from 'react';
+     4→import { motion, AnimatePresence } from 'framer-motion';
+     5→import {
+     6→  Activity, LayoutDashboard, Bot, MessageSquare, Sparkles, Database, Gauge,
+     7→  CalendarClock, Wallet, HeartPulse, ScrollText, ListTodo, History, FolderArchive,
+     8→  Network, Lightbulb, Bell, Search, Command, Menu, X, Cpu, MemoryStick, Zap,
+     9→  Radio, ChevronRight, ShieldCheck, CircleDot, LayoutGrid, MessagesSquare,
+    10→  Terminal, Sun, Moon, Share2, Workflow, Sliders, Eye, EyeOff, ChevronUp, ChevronDown, Pin, GitBranch, Rocket, BarChart3, Loader2, Star, FileText,
+    11→  Copy, DollarSign, Palette, GraduationCap,
+    12→  Building2, Gavel, Puzzle, Briefcase, Target,
+    13→  CreditCard, AlertCircle, AlertTriangle, CheckCircle, Keyboard,
+    14→} from 'lucide-react';
+    15→import { JARVIS, fmtTime } from '@/lib/config';
+    16→import { useApi } from '@/lib/hooks/use-api';
+    17→import { cn } from '@/lib/utils';
+    18→import { useToast } from '@/hooks/use-toast';
+    19→import { useNavStore } from '@/lib/nav-store';
+    20→import { MergedTab } from '@/components/jarvis/MergedTab';
+    21→
+    22→import OrionShell from '@/components/jarvis/OrionShell';
+    23→import OverviewTab from '@/components/tabs/OverviewTab';
+    24→import FleetTab from '@/components/tabs/FleetTab';
+    25→import ChatTab from '@/components/tabs/ChatTab';
+    26→import SkillsTab from '@/components/tabs/SkillsTab';
+    27→import MemoryTab from '@/components/tabs/MemoryTab';
+    28→import TelemetryTab from '@/components/tabs/TelemetryTab';
+    29→import SchedulerTab from '@/components/tabs/SchedulerTab';
+    30→import PaymentsTab from '@/components/tabs/PaymentsTab';
+    31→import HealthTab from '@/components/tabs/HealthTab';
+    32→import LogsTab from '@/components/tabs/LogsTab';
+    33→import TasksTab from '@/components/tabs/TasksTab';
+    34→import ActivityTab from '@/components/tabs/ActivityTab';
+    35→import ArtifactsTab from '@/components/tabs/ArtifactsTab';
+    36→import ProvidersTab from '@/components/tabs/ProvidersTab';
+    37→import InsightsTab from '@/components/tabs/InsightsTab';
+    38→import KanbanTab from '@/components/tabs/KanbanTab';
+    39→import CommsTab from '@/components/tabs/CommsTab';
+    40→import SkillRunnerTab from '@/components/tabs/SkillRunnerTab';
+    41→import MemoryGraphTab from '@/components/tabs/MemoryGraphTab';
+    42→import FleetTopologyTab from '@/components/tabs/FleetTopologyTab';
+    43→import SkillChainTab from '@/components/tabs/SkillChainTab';
+    44→import TaskDagTab from '@/components/tabs/TaskDagTab';
+    45→import AutonomyTab from '@/components/tabs/AutonomyTab';
+    46→import AnalyticsTab from '@/components/tabs/AnalyticsTab';
+    47→import ReportsTab from '@/components/tabs/ReportsTab';
+    48→import SpawnedAgentsTab from '@/components/tabs/SpawnedAgentsTab';
+    49→import EarningMethodsTab from '@/components/tabs/EarningMethodsTab';
+    50→import BrandingTab from '@/components/tabs/BrandingTab';
+    51→import PaymentMethodsTab from '@/components/tabs/PaymentMethodsTab';
+    52→import TeachSourceCard from '@/components/tabs/TeachSourceCard';
+    53→import WorkforceTab from '@/components/tabs/WorkforceTab';
+    54→import LearningTab from '@/components/tabs/LearningTab';
+    55→import RulesTab from '@/components/tabs/RulesTab';
+    56→import PluginsTab from '@/components/tabs/PluginsTab';
+    57→import ModelsTab from '@/components/tabs/ModelsTab';
+    58→import BlackboxTab from '@/components/tabs/BlackboxTab';
+    59→import ServicesHubTab from '@/components/tabs/ServicesHubTab';
+    60→import AppTreeTab from '@/components/tabs/AppTreeTab';
+    61→import GoalsTab from '@/components/tabs/GoalsTab';
+    62→import DataManagementTab from '@/components/tabs/DataManagementTab';
+    63→import AgentMonitorTab from '@/components/tabs/AgentMonitorTab';
+    64→import AuditLogTab from '@/components/tabs/AuditLogTab';
+    65→
+    66→// ─── Merged tab components (combine related tabs with sub-view toggles) ───
+    67→
+    68→// Agent Fleet: Cards + Topology + Spawned + Workforce
+    69→function FleetMergedTab() {
+    70→  return (
+    71→    <MergedTab
+    72→      accent={JARVIS.colors.cyan}
+    73→      views={[
+    74→        { key: 'roster', label: 'Roster', component: <FleetTab /> },
+    75→        { key: 'topology', label: 'Topology', component: <FleetTopologyTab /> },
+    76→        { key: 'spawned', label: 'Spawned', component: <SpawnedAgentsTab /> },
+    77→        { key: 'workforce', label: 'Workforce', component: <WorkforceTab /> },
+    78→      ]}
+    79→    />
+    80→  );
+    81→}
+    82→
+    83→// Tasks: List + Kanban + DAG
+    84→function TasksMergedTab() {
+    85→  return (
+    86→    <MergedTab
+    87→      accent={JARVIS.colors.amber}
+    88→      views={[
+    89→        { key: 'list', label: 'List', component: <TasksTab /> },
+    90→        { key: 'kanban', label: 'Kanban', component: <KanbanTab /> },
+    91→        { key: 'dag', label: 'DAG', component: <TaskDagTab /> },
+    92→      ]}
+    93→    />
+    94→  );
+    95→}
+    96→
+    97→// Skills: Catalog + Runner + Pipeline
+    98→function SkillsMergedTab() {
+    99→  return (
+   100→    <MergedTab
+   101→      accent={JARVIS.colors.cyan}
+   102→      views={[
+   103→        { key: 'catalog', label: 'Catalog', component: <SkillsTab /> },
+   104→        { key: 'runner', label: 'Runner', component: <SkillRunnerTab /> },
+   105→        { key: 'pipeline', label: 'Pipeline', component: <SkillChainTab /> },
+   106→      ]}
+   107→    />
+   108→  );
+   109→}
+   110→
+   111→// AI Models: Models + Providers
+   112→function ModelsMergedTab() {
+   113→  return (
+   114→    <MergedTab
+   115→      accent={JARVIS.colors.cyan}
+   116→      views={[
+   117→        { key: 'models', label: 'Models', component: <ModelsTab /> },
+   118→        { key: 'providers', label: 'Providers', component: <ProvidersTab /> },
+   119→      ]}
+   120→    />
+   121→  );
+   122→}
+   123→
+   124→// Memory: Store + Graph
+   125→function MemoryMergedTab() {
+   126→  return (
+   127→    <MergedTab
+   128→      accent={JARVIS.colors.violet}
+   129→      views={[
+   130→        { key: 'store', label: 'Store', component: <MemoryTab /> },
+   131→        { key: 'graph', label: 'Graph', component: <MemoryGraphTab /> },
+   132→      ]}
+   133→    />
+   134→  );
+   135→}
+   136→
+   137→// Learning: Learn & Earn (already includes TeachSourceCard embedded inside)
+   138→function LearningMergedTab() {
+   139→  return (
+   140→    <MergedTab
+   141→      accent={JARVIS.colors.cyan}
+   142→      views={[
+   143→        { key: 'learn', label: 'Learn & Earn', component: <LearningTab /> },
+   144→      ]}
+   145→    />
+   146→  );
+   147→}
+   148→
+   149→// Rules & Plugins
+   150→function RulesPluginsMergedTab() {
+   151→  return (
+   152→    <MergedTab
+   153→      accent={JARVIS.colors.amber}
+   154→      views={[
+   155→        { key: 'rules', label: 'Rules', component: <RulesTab /> },
+   156→        { key: 'plugins', label: 'Plugins', component: <PluginsTab /> },
+   157→      ]}
+   158→    />
+   159→  );
+   160→}
+   161→
+   162→// Fleet Health: Health + Telemetry
+   163→function HealthMergedTab() {
+   164→  return (
+   165→    <MergedTab
+   166→      accent={JARVIS.colors.green}
+   167→      views={[
+   168→        { key: 'health', label: 'Health', component: <HealthTab /> },
+   169→        { key: 'telemetry', label: 'Telemetry', component: <TelemetryTab /> },
+   170→      ]}
+   171→    />
+   172→  );
+   173→}
+   174→
+   175→// Monitoring: Logs + Black Box + Agent Monitor + Audit
+   176→function MonitoringMergedTab() {
+   177→  return (
+   178→    <MergedTab
+   179→      accent={JARVIS.colors.red}
+   180→      views={[
+   181→        { key: 'agent-monitor', label: 'Monitors', component: <AgentMonitorTab /> },
+   182→        { key: 'logs', label: 'Logs', component: <LogsTab /> },
+   183→        { key: 'blackbox', label: 'Black Box', component: <BlackboxTab /> },
+   184→        { key: 'audit', label: 'Audit Log', component: <AuditLogTab /> },
+   185→      ]}
+   186→    />
+   187→  );
+   188→}
+   189→
+   190→// Analytics & Reports
+   191→function AnalyticsReportsMergedTab() {
+   192→  return (
+   193→    <MergedTab
+   194→      accent={JARVIS.colors.cyan}
+   195→      views={[
+   196→        { key: 'analytics', label: 'Analytics', component: <AnalyticsTab /> },
+   197→        { key: 'reports', label: 'Reports', component: <ReportsTab /> },
+   198→      ]}
+   199→    />
+   200→  );
+   201→}
+   202→
+   203→// Payments: Transactions + Payout Methods
+   204→function PaymentsMergedTab() {
+   205→  return (
+   206→    <MergedTab
+   207→      accent={JARVIS.colors.green}
+   208→      views={[
+   209→        { key: 'transactions', label: 'Transactions', component: <PaymentsTab /> },
+   210→        { key: 'methods', label: 'Payout Methods', component: <PaymentMethodsTab /> },
+   211→      ]}
+   212→    />
+   213→  );
+   214→}
+   215→
+   216→export type TabKey =
+   217→  | 'overview' | 'chat' | 'activity' | 'insights'
+   218→  | 'fleet' | 'comms'
+   219→  | 'tasks' | 'goals'
+   220→  | 'skills' | 'autonomy' | 'models'
+   221→  | 'memory' | 'learning' | 'rules-plugins' | 'artifacts'
+   222→  | 'health' | 'monitoring' | 'scheduler'
+   223→  | 'payments' | 'earnings' | 'analytics' | 'services'
+   224→  | 'data-mgmt' | 'branding' | 'apptree';
+   225→
+   226→interface TabDef {
+   227→  key: TabKey;
+   228→  label: string;
+   229→  icon: typeof Activity;
+   230→  group: string;
+   231→  accent: string;
+   232→}
+   233→
+   234→const TABS: TabDef[] = [
+   235→  // ─── Command Center (4) ───
+   236→  { key: 'overview', label: 'Overview', icon: LayoutDashboard, group: 'Command', accent: JARVIS.colors.cyan },
+   237→  { key: 'chat', label: 'ARIA Chat', icon: MessageSquare, group: 'Command', accent: JARVIS.colors.violet },
+   238→  { key: 'activity', label: 'Activity Feed', icon: History, group: 'Command', accent: JARVIS.colors.green },
+   239→  { key: 'insights', label: 'AI Insights', icon: Lightbulb, group: 'Command', accent: JARVIS.colors.cyan },
+   240→
+   241→  // ─── Agent Fleet (2) — merged 5→2 ───
+   242→  { key: 'fleet', label: 'Agent Fleet', icon: Bot, group: 'Fleet', accent: JARVIS.colors.cyan },
+   243→  { key: 'comms', label: 'Agent Comms', icon: MessagesSquare, group: 'Fleet', accent: JARVIS.colors.violet },
+   244→
+   245→  // ─── Work & Tasks (2) — merged 4→2 ───
+   246→  { key: 'tasks', label: 'Tasks', icon: ListTodo, group: 'Work', accent: JARVIS.colors.amber },
+   247→  { key: 'goals', label: 'Goals', icon: Target, group: 'Work', accent: JARVIS.colors.cyan },
+   248→
+   249→  // ─── Intelligence (3) — merged 6→3 ───
+   250→  { key: 'skills', label: 'Skills', icon: Sparkles, group: 'Intelligence', accent: JARVIS.colors.cyan },
+   251→  { key: 'autonomy', label: 'Autonomy Loop', icon: Rocket, group: 'Intelligence', accent: JARVIS.colors.cyan },
+   252→  { key: 'models', label: 'AI Models', icon: Cpu, group: 'Intelligence', accent: JARVIS.colors.cyan },
+   253→
+   254→  // ─── Knowledge Base (4) — merged 7→4 ───
+   255→  { key: 'memory', label: 'Memory', icon: Database, group: 'Knowledge', accent: JARVIS.colors.violet },
+   256→  { key: 'learning', label: 'Learning', icon: GraduationCap, group: 'Knowledge', accent: JARVIS.colors.cyan },
+   257→  { key: 'rules-plugins', label: 'Rules & Plugins', icon: Gavel, group: 'Knowledge', accent: JARVIS.colors.amber },
+   258→  { key: 'artifacts', label: 'Artifacts', icon: FolderArchive, group: 'Knowledge', accent: JARVIS.colors.amber },
+   259→
+   260→  // ─── Monitoring & Ops (3) — merged 6→3 ───
+   261→  { key: 'health', label: 'Fleet Health', icon: HeartPulse, group: 'Monitoring', accent: JARVIS.colors.green },
+   262→  { key: 'monitoring', label: 'Monitoring', icon: ShieldCheck, group: 'Monitoring', accent: JARVIS.colors.red },
+   263→  { key: 'scheduler', label: 'Scheduler', icon: CalendarClock, group: 'Monitoring', accent: JARVIS.colors.violet },
+   264→
+   265→  // ─── Business & Revenue (4) — merged 6→4 ───
+   266→  { key: 'payments', label: 'Payments', icon: Wallet, group: 'Business', accent: JARVIS.colors.green },
+   267→  { key: 'earnings', label: 'Earning Methods', icon: DollarSign, group: 'Business', accent: JARVIS.colors.green },
+   268→  { key: 'analytics', label: 'Analytics & Reports', icon: BarChart3, group: 'Business', accent: JARVIS.colors.cyan },
+   269→  { key: 'services', label: 'Services Hub', icon: Briefcase, group: 'Business', accent: JARVIS.colors.amber },
+   270→
+   271→  // ─── System & Admin (3) ───
+   272→  { key: 'data-mgmt', label: 'Data Management', icon: Database, group: 'System', accent: JARVIS.colors.amber },
+   273→  { key: 'branding', label: 'Branding', icon: Palette, group: 'System', accent: JARVIS.colors.violet },
+   274→  { key: 'apptree', label: 'App Tree', icon: FolderArchive, group: 'System', accent: JARVIS.colors.cyan },
+   275→];
+   276→
+   277→/**
+   278→ * Explicit sidebar group order + accent color per group.
+   279→ * Information architecture: Command → Fleet → Work → Intelligence
+   280→ * → Knowledge → Monitoring → Business → System.
+   281→ */
+   282→const SIDEBAR_GROUPS: { key: string; label: string; accent: string }[] = [
+   283→  { key: 'Command', label: 'Command Center', accent: JARVIS.colors.cyan },
+   284→  { key: 'Fleet', label: 'Agent Fleet', accent: JARVIS.colors.cyan },
+   285→  { key: 'Work', label: 'Work & Tasks', accent: JARVIS.colors.amber },
+   286→  { key: 'Intelligence', label: 'Intelligence', accent: JARVIS.colors.violet },
+   287→  { key: 'Knowledge', label: 'Knowledge Base', accent: JARVIS.colors.violet },
+   288→  { key: 'Monitoring', label: 'Monitoring & Ops', accent: JARVIS.colors.red },
+   289→  { key: 'Business', label: 'Business & Revenue', accent: JARVIS.colors.green },
+   290→  { key: 'System', label: 'System & Admin', accent: JARVIS.colors.amber },
+   291→];
+   292→
+   293→const TAB_MAP: Record<TabKey, () => JSX.Element> = {
+   294→  // Command
+   295→  overview: OverviewTab,
+   296→  chat: ChatTab,
+   297→  activity: ActivityTab,
+   298→  insights: InsightsTab,
+   299→  // Fleet (merged)
+   300→  fleet: FleetMergedTab,
+   301→  comms: CommsTab,
+   302→  // Work (merged)
+   303→  tasks: TasksMergedTab,
+   304→  goals: GoalsTab,
+   305→  // Intelligence (merged)
+   306→  skills: SkillsMergedTab,
+   307→  autonomy: AutonomyTab,
+   308→  models: ModelsMergedTab,
+   309→  // Knowledge (merged)
+   310→  memory: MemoryMergedTab,
+   311→  learning: LearningMergedTab,
+   312→  'rules-plugins': RulesPluginsMergedTab,
+   313→  artifacts: ArtifactsTab,
+   314→  // Monitoring (merged)
+   315→  health: HealthMergedTab,
+   316→  monitoring: MonitoringMergedTab,
+   317→  scheduler: SchedulerTab,
+   318→  // Business (merged)
+   319→  payments: PaymentsMergedTab,
+   320→  earnings: EarningMethodsTab,
+   321→  analytics: AnalyticsReportsMergedTab,
+   322→  services: ServicesHubTab,
+   323→  // System
+   324→  'data-mgmt': DataManagementTab,
+   325→  branding: BrandingTab,
+   326→  apptree: AppTreeTab,
+   327→};
+   328→
+   329→interface MetricsData {
+   330→  current: { cpu: number; mem: number; disk: number; latency: number; tokens: number; uptime: number };
+   331→}
+   332→
+   333→export default function MissionControlDashboard() {
+   334→  // Single source of truth for the active tab is the global nav store,
+   335→  // so any component (StatCard, Orion voice command, agent alerts, …) can
+   336→  // navigate without prop-drilling. The shell subscribes here.
+   337→  const tab = useNavStore((s) => s.tab as TabKey);
+   338→  const navigateStore = useNavStore((s) => s.navigate);
+   339→  const [sidebarOpen, setSidebarOpen] = useState(false);
+   340→  const [paletteOpen, setPaletteOpen] = useState(false);
+   341→  const [paletteKey, setPaletteKey] = useState(0);
+   342→  const [globalSearchOpen, setGlobalSearchOpen] = useState(false);
+   343→  const [notifOpen, setNotifOpen] = useState(false);
+   344→  const [now, setNow] = useState<Date | null>(null);
+   345→  const [theme, setTheme] = useState<'dark' | 'light'>('dark');
+   346→  const [manageOpen, setManageOpen] = useState(false);
+   347→  // Keyboard shortcuts overlay (press `?`).
+   348→  const [shortcutsOpen, setShortcutsOpen] = useState(false);
+   349→  // Tab personalization: hidden tabs + pinned tabs + custom order.
+   350→  const [tabPrefs, setTabPrefs] = useState<{ hidden: TabKey[]; pinned: TabKey[]; order: TabKey[] }>({ hidden: [], pinned: [], order: [] });
+   351→  // Orion voice-shell overlay mode (persisted). When true, a full-screen
+   352→  // voice-first interface replaces the dashboard.
+   353→  const [orionMode, setOrionMode] = useState(false);
+   354→
+   355→  const { data: metrics } = useApi<MetricsData>('/api/metrics', 8000);
+   356→  const { data: commsData } = useApi<{ unread: number }>('/api/comms', 15000);
+   357→  const commsUnread = commsData?.unread ?? 0;
+   358→
+   359→  // Branding — fetch once on mount (-1 = no polling). Drives the header
+   360→  // app-name, version, footer powered-by, and chat-tab label.
+   361→  const { data: brandingData } = useApi<{
+   362→    config: {
+   363→      appName: string;
+   364→      version: string;
+   365→      poweredBy?: string;
+   366→      chatTabLabel?: string;
+   367→      footerNote?: string;
+   368→    };
+   369→    defaults: { appName: string; version: string };
+   370→  }>('/api/branding', -1);
+   371→  const branding = brandingData?.config;
+   372→  const appName = branding?.appName || 'JARVIS';
+   373→  const appVersion = branding?.version || brandingData?.defaults.version || JARVIS.version;
+   374→  const appPoweredBy = branding?.poweredBy || '';
+   375→  const appCompany = branding?.company || 'Liafon Software Private Limited';
+   376→  const chatTabLabel = branding?.chatTabLabel || 'JARVIS Chat';
+   377→  const footerNote = branding?.footerNote || '';
+   378→
+   379→  // Resolve a tab's display label — chat label is driven by branding config.
+   380→  const tabLabelOf = useCallback((t: TabDef) => (t.key === 'chat' ? chatTabLabel : t.label), [chatTabLabel]);
+   381→
+   382→  // Theme: load persisted preference on mount, default dark.
+   383→  useEffect(() => {
+   384→    const saved = (typeof window !== 'undefined' && localStorage.getItem('jarvis-theme')) as 'dark' | 'light' | null;
+   385→    if (saved === 'light' || saved === 'dark') {
+   386→      setTheme(saved);
+   387→      document.documentElement.classList.toggle('light', saved === 'light');
+   388→      document.documentElement.classList.toggle('dark', saved === 'dark');
+   389→    }
+   390→  }, []);
+   391→
+   392→  // Tab prefs: load persisted personalization on mount.
+   393→  useEffect(() => {
+   394→    try {
+   395→      const raw = localStorage.getItem('jarvis-tab-prefs');
+   396→      if (raw) {
+   397→        const p = JSON.parse(raw);
+   398→        setTabPrefs({ hidden: p.hidden ?? [], pinned: p.pinned ?? [], order: p.order ?? [] });
+   399→      }
+   400→    } catch { /* ignore */ }
+   401→  }, []);
+   402→
+   403→  const updateTabPrefs = useCallback((updater: (prev: { hidden: TabKey[]; pinned: TabKey[]; order: TabKey[] }) => { hidden: TabKey[]; pinned: TabKey[]; order: TabKey[] }) => {
+   404→    setTabPrefs((prev) => {
+   405→      const next = updater(prev);
+   406→      try { localStorage.setItem('jarvis-tab-prefs', JSON.stringify(next)); } catch { /* ignore */ }
+   407→      return next;
+   408→    });
+   409→  }, []);
+   410→
+   411→  const toggleTheme = useCallback(() => {
+   412→    setTheme((t) => {
+   413→      const next = t === 'dark' ? 'light' : 'dark';
+   414→      document.documentElement.classList.toggle('light', next === 'light');
+   415→      document.documentElement.classList.toggle('dark', next === 'dark');
+   416→      try { localStorage.setItem('jarvis-theme', next); } catch { /* ignore */ }
+   417→      return next;
+   418→    });
+   419→  }, []);
+   420→
+   421→  // Live clock — only after mount to avoid hydration mismatch.
+   422→  useEffect(() => {
+   423→    setNow(new Date());
+   424→    const id = setInterval(() => setNow(new Date()), 1000);
+   425→    return () => clearInterval(id);
+   426→  }, []);
+   427→
+   428→  const openPalette = useCallback(() => {
+   429→    setPaletteKey((k) => k + 1);
+   430→    setPaletteOpen(true);
+   431→  }, []);
+   432→
+   433→  // Command palette shortcut (Cmd/Ctrl+K).
+   434→  useEffect(() => {
+   435→    const onKey = (e: KeyboardEvent) => {
+   436→      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'k') {
+   437→        e.preventDefault();
+   438→        setPaletteOpen((o) => {
+   439→          if (!o) setPaletteKey((k) => k + 1);
+   440→          return !o;
+   441→        });
+   442→      }
+   443→      if ((e.metaKey || e.ctrlKey) && e.shiftKey && e.key.toLowerCase() === 'f') {
+   444→        e.preventDefault();
+   445→        setGlobalSearchOpen((o) => !o);
+   446→      }
+   447→      // `?` (Shift+/) toggles the shortcuts overlay — but only when not typing in an input.
+   448→      if (e.key === '?' && !isTypingTarget(e.target)) {
+   449→        e.preventDefault();
+   450→        setShortcutsOpen((o) => !o);
+   451→      }
+   452→      // `T` toggles theme (only when not typing + no modifiers).
+   453→      if (e.key.toLowerCase() === 't' && !e.metaKey && !e.ctrlKey && !e.altKey && !isTypingTarget(e.target)) {
+   454→        e.preventDefault();
+   455→        toggleTheme();
+   456→      }
+   457→      if (e.key === 'Escape') {
+   458→        setPaletteOpen(false);
+   459→        setGlobalSearchOpen(false);
+   460→        setNotifOpen(false);
+   461→        setShortcutsOpen(false);
+   462→      }
+   463→    };
+   464→    window.addEventListener('keydown', onKey);
+   465→    return () => window.removeEventListener('keydown', onKey);
+   466→  }, [toggleTheme]);
+   467→
+   468→  // Orion mode: load persisted preference on mount, then persist on change.
+   469→  useEffect(() => {
+   470→    try {
+   471→      const raw = localStorage.getItem('jarvis-orion-mode');
+   472→      if (raw === '1') setOrionMode(true);
+   473→    } catch { /* ignore */ }
+   474→  }, []);
+   475→  useEffect(() => {
+   476→    try { localStorage.setItem('jarvis-orion-mode', orionMode ? '1' : '0'); } catch { /* ignore */ }
+   477→  }, [orionMode]);
+   478→
+   479→  // Orion mode shortcut (Cmd/Ctrl+Shift+O).
+   480→  useEffect(() => {
+   481→    const onKey = (e: KeyboardEvent) => {
+   482→      if ((e.metaKey || e.ctrlKey) && e.shiftKey && e.key.toLowerCase() === 'o') {
+   483→        e.preventDefault();
+   484→        setOrionMode((o) => !o);
+   485→      }
+   486→    };
+   487→    window.addEventListener('keydown', onKey);
+   488→    return () => window.removeEventListener('keydown', onKey);
+   489→  }, []);
+   490→
+   491→  const navigate = useCallback((t: TabKey) => {
+   492→    navigateStore(t);
+   493→    setSidebarOpen(false);
+   494→    setPaletteOpen(false);
+   495→  }, [navigateStore]);
+   496→
+   497→  const ActiveTab = TAB_MAP[tab];
+   498→
+   499→  // Ordered sidebar groups: Pinned (dynamic) first, then SIDEBAR_GROUPS in the
+   500→  // declared order. Tabs whose group isn't in SIDEBAR_GROUPS fall back to a
+   501→  // catch-all "Other" bucket at the end (defensive — shouldn't happen).
+   502→  const grouped = useMemo(() => {
+   503→    const visibleTabs = TABS.filter((t) => !tabPrefs.hidden.includes(t.key));
+   504→    const pinnedTabs = visibleTabs.filter((t) => tabPrefs.pinned.includes(t.key));
+   505→    const unpinnedTabs = visibleTabs.filter((t) => !tabPrefs.pinned.includes(t.key));
+   506→    const g: Record<string, TabDef[]> = {};
+   507→    if (pinnedTabs.length) g['Pinned'] = pinnedTabs;
+   508→    for (const t of unpinnedTabs) (g[t.group] ??= []).push(t);
+   509→    return g;
+   510→  }, [tabPrefs.hidden, tabPrefs.pinned]);
+   511→
+   512→  // Ordered list of [groupKey, tabs[]] for rendering, respecting SIDEBAR_GROUPS.
+   513→  const orderedGroups = useMemo(() => {
+   514→    const out: { key: string; label: string; accent: string; tabs: TabDef[] }[] = [];
+   515→    if (grouped['Pinned']?.length) {
+   516→      out.push({ key: 'Pinned', label: 'Pinned', accent: JARVIS.colors.amber, tabs: grouped['Pinned'] });
+   517→    }
+   518→    for (const sg of SIDEBAR_GROUPS) {
+   519→      const tabs = grouped[sg.key];
+   520→      if (tabs?.length) out.push({ key: sg.key, label: sg.label, accent: sg.accent, tabs });
+   521→    }
+   522→    // Catch-all for any tab whose group isn't in SIDEBAR_GROUPS (defensive).
+   523→    const known = new Set(['Pinned', ...SIDEBAR_GROUPS.map((s) => s.key)]);
+   524→    for (const [k, tabs] of Object.entries(grouped)) {
+   525→      if (!known.has(k) && tabs.length) out.push({ key: k, label: k, accent: JARVIS.colors.cyan, tabs });
+   526→    }
+   527→    return out;
+   528→  }, [grouped]);
+   529→
+   530→  const cur = TABS.find((t) => t.key === tab)!;
+   531→
+   532→  return (
+   533→    <div className="min-h-screen flex flex-col relative">
+   534→      <div className="jarvis-bg" />
+   535→
+   536→      {/* Header */}
+   537→      <header className="sticky top-0 z-40 border-b border-[var(--j-border)] bg-[rgba(7,8,10,0.82)] backdrop-blur-xl">
+   538→        <div className="flex items-center gap-3 px-4 h-14">
+   539→          <button
+   540→            className="lg:hidden flex h-8 w-8 items-center justify-center rounded-md border border-[var(--j-border)] text-[var(--j-text-dim)] hover:text-[var(--j-cyan)]"
+   541→            onClick={() => setSidebarOpen((o) => !o)}
+   542→            aria-label="Toggle sidebar"
+   543→          >
+   544→            {sidebarOpen ? <X className="h-4 w-4" /> : <Menu className="h-4 w-4" />}
+   545→          </button>
+   546→
+   547→          <div className="flex items-center gap-2.5">
+   548→            <div className="relative">
+   549→              <div className="flex h-8 w-8 items-center justify-center rounded-md jarvis-btn-accent">
+   550→                <ShieldCheck className="h-4 w-4" />
+   551→              </div>
+   552→              <CircleDot className="absolute -top-1 -right-1 h-2.5 w-2.5 text-[var(--j-green)] jarvis-blink" />
+   553→            </div>
+   554→            <div className="leading-none">
+   555→              <div className="text-sm font-bold tracking-tight jarvis-text-gradient">{appName}</div>
+   556→              <div className="jarvis-mono text-[9px] uppercase text-[var(--j-text-mute)]">Mission Control v{appVersion}</div>
+   557→            </div>
+   558→          </div>
+   559→
+   560→          {/* Mini metrics */}
+   561→          <div className="hidden md:flex items-center gap-3 ml-4">
+   562→            <MiniMetric icon={Cpu} label="CPU" value={metrics ? `${Math.round(metrics.current.cpu)}%` : '—'} color={JARVIS.colors.cyan} />
+   563→            <MiniMetric icon={MemoryStick} label="MEM" value={metrics ? `${Math.round(metrics.current.mem)}%` : '—'} color={JARVIS.colors.violet} />
+   564→            <MiniMetric icon={Zap} label="LAT" value={metrics ? `${metrics.current.latency}ms` : '—'} color={JARVIS.colors.amber} />
+   565→            <MiniMetric icon={Radio} label="TOK" value={metrics ? metrics.current.tokens.toLocaleString() : '—'} color={JARVIS.colors.green} />
+   566→          </div>
+   567→
+   568→          <div className="flex-1" />
+   569→
+   570→          {/* Live clock */}
+   571→          <div className="hidden sm:flex flex-col items-end leading-none mr-1">
+   572→            <div className="jarvis-mono text-sm text-[var(--j-cyan)] tabular-nums">{now ? fmtTime(now) : '--:--:--'}</div>
+   573→            <div className="jarvis-mono text-[9px] uppercase text-[var(--j-text-mute)]">local · IST</div>
+   574→          </div>
+   575→
+   576→          <button
+   577→            onClick={openPalette}
+   578→            className="flex items-center gap-2 h-8 px-2.5 rounded-md border border-[var(--j-border)] bg-[var(--j-panel-soft)] text-[var(--j-text-dim)] hover:border-[var(--j-cyan)] hover:text-[var(--j-cyan)] transition-colors"
+   579→          >
+   580→            <Search className="h-3.5 w-3.5" />
+   581→            <span className="jarvis-mono text-[10px] uppercase hidden sm:inline">Search</span>
+   582→            <kbd className="jarvis-mono text-[9px] px-1 py-0.5 rounded border border-[var(--j-border)] bg-[var(--j-bg)] hidden sm:inline">⌘K</kbd>
+   583→          </button>
+   584→
+   585→          <button
+   586→            onClick={toggleTheme}
+   587→            className="flex h-8 w-8 items-center justify-center rounded-md border border-[var(--j-border)] bg-[var(--j-panel-soft)] text-[var(--j-text-dim)] hover:border-[var(--j-cyan)] hover:text-[var(--j-cyan)] transition-colors"
+   588→            aria-label="Toggle theme"
+   589→            title={theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'}
+   590→          >
+   591→            {theme === 'dark' ? <Sun className="h-3.5 w-3.5" /> : <Moon className="h-3.5 w-3.5" />}
+   592→          </button>
+   593→
+   594→          <button
+   595→            onClick={() => setShortcutsOpen((o) => !o)}
+   596→            className="hidden sm:flex h-8 w-8 items-center justify-center rounded-md border border-[var(--j-border)] bg-[var(--j-panel-soft)] text-[var(--j-text-dim)] hover:border-[var(--j-cyan)] hover:text-[var(--j-cyan)] transition-colors"
+   597→            aria-label="Keyboard shortcuts"
+   598→            title="Keyboard shortcuts (?)"
+   599→          >
+   600→            <Keyboard className="h-3.5 w-3.5" />
+   601→          </button>
+   602→
+   603→          <NotificationsBell open={notifOpen} setOpen={setNotifOpen} />
+   604→        </div>
+   605→        <div className="h-px jarvis-hr" />
+   606→        {/* Live activity ticker — scrolling marquee of recent events */}
+   607→        <ActivityTicker />
+   608→      </header>
+   609→
+   610→      <div className="flex flex-1 relative z-10">
+   611→        {/* Sidebar */}
+   612→        <AnimatePresence>
+   613→          {sidebarOpen && (
+   614→            <motion.div
+   615→              className="fixed inset-0 bg-black/60 z-30 lg:hidden"
+   616→              initial={{ opacity: 0 }}
+   617→              animate={{ opacity: 1 }}
+   618→              exit={{ opacity: 0 }}
+   619→              onClick={() => setSidebarOpen(false)}
+   620→            />
+   621→          )}
+   622→        </AnimatePresence>
+   623→
+   624→        <aside
+   625→          className={cn(
+   626→            'fixed lg:sticky top-14 z-30 lg:z-auto h-[calc(100vh-3.5rem)] w-60 shrink-0 border-r border-[var(--j-border)] bg-[rgba(10,13,18,0.92)] backdrop-blur-xl overflow-y-auto jarvis-scroll transition-transform',
+   627→            sidebarOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0',
+   628→          )}
+   629→        >
+   630→          <nav className="p-3 space-y-5">
+   631→            {orderedGroups.map((grp) => (
+   632→              <div key={grp.key}>
+   633→                <div
+   634→                  className="jarvis-mono text-[9px] uppercase px-2 mb-1.5 tracking-widest flex items-center gap-1.5"
+   635→                  style={{ color: grp.accent }}
+   636→                >
+   637→                  <span className="h-1 w-1 rounded-full" style={{ background: grp.accent }} />
+   638→                  {grp.label}
+   639→                </div>
+   640→                <div className="space-y-0.5">
+   641→                  {grp.tabs.map((t) => {
+   642→                    const active = tab === t.key;
+   643→                    const Icon = t.icon;
+   644→                    return (
+   645→                      <button
+   646→                        key={t.key}
+   647→                        onClick={() => navigate(t.key)}
+   648→                        className={cn(
+   649→                          'w-full flex items-center gap-2.5 px-2.5 py-2 rounded-md text-sm transition-all group relative',
+   650→                          active ? 'bg-[var(--j-panel-soft)] text-[var(--j-text)]' : 'text-[var(--j-text-dim)] hover:text-[var(--j-text)] hover:bg-[var(--j-panel-soft)]/60',
+   651→                        )}
+   652→                      >
+   653→                        {active && (
+   654→                          <motion.div
+   655→                            layoutId="tab-active"
+   656→                            className="absolute left-0 top-1/2 -translate-y-1/2 h-5 w-[2px] rounded-full"
+   657→                            style={{ background: t.accent, boxShadow: `0 0 8px ${t.accent}` }}
+   658→                          />
+   659→                        )}
+   660→                        <Icon className="h-4 w-4 shrink-0" style={{ color: active ? t.accent : undefined }} />
+   661→                        <span className="flex-1 text-left">{tabLabelOf(t)}</span>
+   662→                        {t.key === 'comms' && commsUnread > 0 && (
+   663→                          <span className="h-4 min-w-4 px-1 rounded-full bg-[var(--j-violet)] text-[9px] font-bold text-white flex items-center justify-center jarvis-mono">{commsUnread}</span>
+   664→                        )}
+   665→                        {active && <ChevronRight className="h-3.5 w-3.5" style={{ color: t.accent }} />}
+   666→                      </button>
+   667→                    );
+   668→                  })}
+   669→                </div>
+   670→              </div>
+   671→            ))}
+   672→          </nav>
+   673→
+   674→          <div className="p-3 mt-auto">
+   675→            <button
+   676→              onClick={() => setManageOpen(true)}
+   677→              className="w-full flex items-center justify-center gap-2 h-8 mb-2 rounded-md border border-[var(--j-border)] bg-[var(--j-panel-soft)] text-[var(--j-text-dim)] hover:text-[var(--j-cyan)] hover:border-[var(--j-cyan)] transition-colors"
+   678→            >
+   679→              <Sliders className="h-3.5 w-3.5" />
+   680→              <span className="jarvis-mono text-[10px] uppercase">Manage Tabs</span>
+   681→            </button>
+   682→            <div className="jarvis-panel p-3 text-center">
+   683→              <div className="flex items-center justify-center gap-1.5 mb-1">
+   684→                <span className="h-1.5 w-1.5 rounded-full bg-[var(--j-green)] jarvis-pulse-dot" style={{ color: JARVIS.colors.green }} />
+   685→                <span className="jarvis-mono text-[9px] uppercase text-[var(--j-green)]">All Systems Operational</span>
+   686→              </div>
+   687→              <div className="jarvis-mono text-[9px] text-[var(--j-text-mute)]">{appPoweredBy}</div>
+   688→            </div>
+   689→          </div>
+   690→        </aside>
+   691→
+   692→        {/* Main content */}
+   693→        <main className="flex-1 min-w-0 relative">
+   694→          {/* Tab header strip */}
+   695→          <div className="sticky top-14 z-20 border-b border-[var(--j-border)] bg-[rgba(7,8,10,0.7)] backdrop-blur-md px-4 lg:px-6 h-10 flex items-center justify-between">
+   696→            <div className="flex items-center gap-2">
+   697→              <cur.icon className="h-3.5 w-3.5" style={{ color: cur.accent }} />
+   698→              <span className="jarvis-mono text-[11px] uppercase tracking-widest jarvis-tab-glow" style={{ color: cur.accent }}>{tabLabelOf(cur)}</span>
+   699→            </div>
+   700→            <div className="jarvis-mono text-[9px] uppercase text-[var(--j-text-mute)] hidden sm:flex items-center gap-1.5">
+   701→              <Command className="h-3 w-3" /> press <kbd className="px-1 py-0.5 rounded border border-[var(--j-border)] bg-[var(--j-bg)]">⌘K</kbd> for palette
+   702→            </div>
+   703→          </div>
+   704→
+   705→          <div className="p-4 lg:p-6">
+   706→            <AnimatePresence mode="wait">
+   707→              <motion.div
+   708→                key={tab}
+   709→                initial={{ opacity: 0, y: 8 }}
+   710→                animate={{ opacity: 1, y: 0 }}
+   711→                exit={{ opacity: 0, y: -8 }}
+   712→                transition={{ duration: 0.25 }}
+   713→              >
+   714→                <ActiveTab />
+   715→              </motion.div>
+   716→            </AnimatePresence>
+   717→          </div>
+   718→        </main>
+   719→      </div>
+   720→
+   721→      {/* Footer */}
+   722→      <footer className="mt-auto border-t border-[var(--j-border)] bg-[rgba(7,8,10,0.82)] backdrop-blur-xl relative z-10">
+   723→        <div className="px-4 lg:px-6 h-9 flex items-center justify-between jarvis-mono text-[10px] uppercase text-[var(--j-text-mute)]">
+   724→          <div className="flex items-center gap-3">
+   725→            <span className="flex items-center gap-1.5">
+   726→              <span className="h-1.5 w-1.5 rounded-full bg-[var(--j-green)] jarvis-blink" />
+   727→              <span className="text-[var(--j-green)]">ONLINE</span>
+   728→            </span>
+   729→            <span className="hidden sm:inline">8 agents · 20 skills · 25 modules</span>
+   730→          </div>
+   731→          <div className="flex items-center gap-3">
+   732→            <span className="hidden md:inline">uptime {metrics ? formatUptime(metrics.current.uptime) : '—'}</span>
+   733→            <span>{appName} v{appVersion} · {appCompany}</span>
+   734→            {appPoweredBy && <span className="hidden lg:inline text-[var(--j-text-mute)]">· {appPoweredBy}</span>}
+   735→          </div>
+   736→        </div>
+   737→      </footer>
+   738→
+   739→      {/* Command palette — keyed so it remounts fresh (reset query) each time it opens */}
+   740→      <CommandPalette
+   741→        key={paletteKey}
+   742→        open={paletteOpen}
+   743→        onClose={() => setPaletteOpen(false)}
+   744→        onNavigate={navigate}
+   745→        pinned={tabPrefs.pinned}
+   746→        onTogglePin={(key) => updateTabPrefs((prev) => ({
+   747→          ...prev,
+   748→          pinned: prev.pinned.includes(key)
+   749→            ? prev.pinned.filter((k) => k !== key)
+   750→            : [...prev.pinned, key],
+   751→        }))}
+   752→        hidden={tabPrefs.hidden}
+   753→        onToggleHide={(key) => updateTabPrefs((prev) => ({
+   754→          ...prev,
+   755→          hidden: prev.hidden.includes(key)
+   756→            ? prev.hidden.filter((k) => k !== key)
+   757→            : [...prev.hidden, key],
+   758→        }))}
+   759→      />
+   760→
+   761→      {/* Global search overlay (Cmd+Shift+F) */}
+   762→      <GlobalSearch open={globalSearchOpen} onClose={() => setGlobalSearchOpen(false)} onNavigate={navigate} />
+   763→
+   764→      {/* Manage tabs modal */}
+   765→      <AnimatePresence>
+   766→        {manageOpen && (
+   767→          <ManageTabsModal
+   768→            onClose={() => setManageOpen(false)}
+   769→            tabPrefs={tabPrefs}
+   770→            updateTabPrefs={updateTabPrefs}
+   771→            onNavigate={(t) => { navigate(t); setManageOpen(false); }}
+   772→          />
+   773→        )}
+   774→      </AnimatePresence>
+   775→
+   776→      {/* Keyboard shortcuts overlay (press `?`) */}
+   777→      <AnimatePresence>
+   778→        {shortcutsOpen && (
+   779→          <ShortcutsOverlay onClose={() => setShortcutsOpen(false)} onNavigate={(t) => { navigate(t); setShortcutsOpen(false); }} />
+   780→        )}
+   781→      </AnimatePresence>
+   782→
+   783→      {/* Floating Orion mode toggle (bottom-right) */}
+   784→      <motion.button
+   785→        onClick={() => setOrionMode((o) => !o)}
+   786→        initial={false}
+   787→        whileHover={{ scale: 1.06 }}
+   788→        whileTap={{ scale: 0.94 }}
+   789→        className="fixed bottom-5 right-5 z-50 flex items-center gap-2 h-11 pl-3 pr-4 rounded-full border shadow-lg transition-colors group"
+   790→        style={{
+   791→          background: orionMode ? `${JARVIS.colors.green}1a` : 'rgba(10,13,18,0.85)',
+   792→          borderColor: orionMode ? JARVIS.colors.green : JARVIS.colors.cyan,
+   793→          boxShadow: `0 0 20px ${orionMode ? JARVIS.colors.green : JARVIS.colors.cyan}40`,
+   794→          backdropFilter: 'blur(8px)',
+   795→        }}
+   796→        aria-label={orionMode ? 'Exit Orion mode' : 'Enter Orion voice mode'}
+   797→        title={orionMode ? 'Exit Orion mode (Ctrl+Shift+O)' : 'Orion voice mode (Ctrl+Shift+O)'}
+   798→      >
+   799→        <motion.span
+   800→          animate={{ scale: orionMode ? [1, 1.25, 1] : 1 }}
+   801→          transition={{ duration: 1.2, repeat: orionMode ? Infinity : 0, ease: 'easeInOut' }}
+   802→          className="flex h-7 w-7 items-center justify-center rounded-full"
+   803→          style={{
+   804→            background: orionMode ? `${JARVIS.colors.green}33` : `${JARVIS.colors.cyan}33`,
+   805→            border: `1px solid ${orionMode ? JARVIS.colors.green : JARVIS.colors.cyan}`,
+   806→            color: orionMode ? JARVIS.colors.green : JARVIS.colors.cyan,
+   807→          }}
+   808→        >
+   809→          <Radio className="h-3.5 w-3.5" />
+   810→        </motion.span>
+   811→        <span
+   812→          className="jarvis-mono text-[10px] uppercase tracking-wider"
+   813→          style={{ color: orionMode ? JARVIS.colors.green : JARVIS.colors.cyan }}
+   814→        >
+   815→          {orionMode ? 'Full UI' : 'Orion'}
+   816→        </span>
+   817→      </motion.button>
+   818→
+   819→      {/* Orion Shell — full-screen voice-first overlay */}
+   820→      <AnimatePresence>
+   821→        {orionMode && <OrionShell onClose={() => setOrionMode(false)} />}
+   822→      </AnimatePresence>
+   823→    </div>
+   824→  );
+   825→}
+   826→
+   827→function formatUptime(s: number): string {
+   828→  const h = Math.floor(s / 3600);
+   829→  const m = Math.floor((s % 3600) / 60);
+   830→  return `${h}h ${m}m`;
+   831→}
+   832→
+   833→function MiniMetric({ icon: Icon, label, value, color }: { icon: typeof Cpu; label: string; value: string; color: string }) {
+   834→  return (
+   835→    <div className="flex items-center gap-1.5">
+   836→      <Icon className="h-3 w-3" style={{ color }} />
+   837→      <span className="jarvis-mono text-[9px] uppercase text-[var(--j-text-mute)]">{label}</span>
+   838→      <span className="jarvis-mono text-[11px] tabular-nums" style={{ color }}>{value}</span>
+   839→    </div>
+   840→  );
+   841→}
+   842→
+   843→/**
+   844→ * Live activity ticker — a thin scrolling marquee below the header that shows
+   845→ * the most recent fleet events (agent status changes, task completions, comms,
+   846→ * errors). Polls /api/activity every 10s. Clicking an item navigates to the
+   847→ * relevant tab.
+   848→ */
+   849→function ActivityTicker() {
+   850→  const { data } = useApi<{ events: Array<{ id: string; type: string; level: string; title: string; detail?: string; time: string }> }>(
+   851→    '/api/activity?limit=15',
+   852→    10000,
+   853→  );
+   854→  const navigate = useNavStore((s) => s.navigate);
+   855→  const events = data?.events ?? [];
+   856→
+   857→  if (events.length === 0) return null;
+   858→
+   859→  // Duplicate the events for seamless infinite scroll
+   860→  const items = [...events, ...events];
+   861→
+   862→  return (
+   863→    <div className="h-7 border-b border-[var(--j-border)] bg-[var(--j-panel-soft)]/40 overflow-hidden relative">
+   864→      <div className="absolute left-0 top-0 bottom-0 z-10 flex items-center px-2 bg-[var(--j-panel-soft)] border-r border-[var(--j-border)]">
+   865→        <span className="h-1.5 w-1.5 rounded-full bg-[var(--j-green)] jarvis-blink mr-1.5" />
+   866→        <span className="jarvis-mono text-[9px] uppercase text-[var(--j-green)] tracking-widest">LIVE</span>
+   867→      </div>
+   868→      <div className="flex items-center h-full pl-20 overflow-hidden">
+   869→        <motion.div
+   870→          className="flex items-center gap-6 shrink-0 whitespace-nowrap"
+   871→          animate={{ x: ['0%', '-50%'] }}
+   872→          transition={{ duration: Math.max(20, events.length * 3), repeat: Infinity, ease: 'linear' }}
+   873→        >
+   874→          {items.map((item, i) => {
+   875→            const color = activityColor(item.level || item.type);
+   876→            const Icon = activityIcon(item.type);
+   877→            return (
+   878→              <button
+   879→                key={`${item.id}-${i}`}
+   880→                onClick={() => navigate(activityTab(item.type))}
+   881→                className="flex items-center gap-1.5 text-[10px] text-[var(--j-text-dim)] hover:text-[var(--j-cyan)] transition-colors group"
+   882→              >
+   883→                <Icon className="h-3 w-3 shrink-0" style={{ color }} />
+   884→                <span className="jarvis-mono text-[9px] uppercase shrink-0" style={{ color }}>{item.type}</span>
+   885→                <span className="truncate max-w-[200px] group-hover:text-[var(--j-text)]">{item.title}</span>
+   886→                {item.time && <span className="jarvis-mono text-[9px] text-[var(--j-text-mute)]">· {item.time}</span>}
+   887→              </button>
+   888→            );
+   889→          })}
+   890→        </motion.div>
+   891→      </div>
+   892→    </div>
+   893→  );
+   894→}
+   895→
+   896→function activityColor(typeOrLevel: string): string {
+   897→  switch (typeOrLevel) {
+   898→    case 'error': return JARVIS.colors.red;
+   899→    case 'success': return JARVIS.colors.green;
+   900→    case 'warn': return JARVIS.colors.amber;
+   901→    case 'warning': return JARVIS.colors.amber;
+   902→    case 'comms': return JARVIS.colors.violet;
+   903→    case 'task': return JARVIS.colors.amber;
+   904→    case 'agent': return JARVIS.colors.cyan;
+   905→    case 'spawn': return JARVIS.colors.green;
+   906→    case 'skill': return JARVIS.colors.cyan;
+   907→    case 'notification': return JARVIS.colors.cyan;
+   908→    case 'info': return JARVIS.colors.cyan;
+   909→    default: return JARVIS.colors.cyan;
+   910→  }
+   911→}
+   912→
+   913→function activityIcon(type: string): typeof Activity {
+   914→  switch (type) {
+   915→    case 'error': return AlertCircle;
+   916→    case 'success': return CheckCircle;
+   917→    case 'warn': return AlertTriangle;
+   918→    case 'warning': return AlertTriangle;
+   919→    case 'comms': return MessageSquare;
+   920→    case 'task': return ListTodo;
+   921→    case 'agent': return Bot;
+   922→    case 'spawn': return Copy;
+   923→    case 'skill': return Sparkles;
+   924→    case 'notification': return Bell;
+   925→    case 'info': return Activity;
+   926→    default: return Activity;
+   927→  }
+   928→}
+   929→
+   930→function activityTab(type: string): string {
+   931→  switch (type) {
+   932→    case 'error': return 'monitoring';
+   933→    case 'comms': return 'comms';
+   934→    case 'task': return 'tasks';
+   935→    case 'agent': return 'fleet';
+   936→    case 'spawn': return 'fleet';
+   937→    case 'skill': return 'skills';
+   938→    case 'notification': return 'activity';
+   939→    case 'info': return 'activity';
+   940→    default: return 'activity';
+   941→  }
+   942→}
+   943→
+   944→function NotificationsBell({ open, setOpen }: { open: boolean; setOpen: (o: boolean) => void }) {
+   945→  const { data, refresh } = useApi<{ notifications: Array<{ id: string; type: string; title: string; message: string; read: boolean; createdAt: string }>; unread: number }>('/api/notifications?limit=30', 10000);
+   946→  const { data: findingsData } = useApi<{ findings: Array<{ id: string; severity: string; monitorKey: string; tab: string; title: string; detail: string; actionTab?: string; actionMeta?: string; status: string; createdAt: string }> }>(
+   947→    '/api/agent-monitors/findings?severity=critical&status=open&limit=5',
+   948→    15000,
+   949→  );
+   950→  const { toast } = useToast();
+   951→  const navigate = useNavStore((s) => s.navigate);
+   952→  const [filter, setFilter] = useState<string>('all');
+   953→  const unread = data?.unread ?? 0;
+   954→  const criticalFindings = findingsData?.findings ?? [];
+   955→
+   956→  const allNotifications = data?.notifications ?? [];
+   957→
+   958→  const markAll = async () => {
+   959→    if (!allNotifications.length) return;
+   960→    await Promise.all(visibleNotifications.filter((n) => !n.read).map((n) => patchNotif(n.id, true)));
+   961→    refresh();
+   962→    toast({ title: 'All notifications marked as read' });
+   963→  };
+   964→
+   965→  const [showSettings, setShowSettings] = useState(false);
+   966→  const [settings, setSettings] = useState<{ sound: boolean; desktop: boolean; mutedTypes: string[] }>({ sound: false, desktop: false, mutedTypes: [] });
+   967→
+   968→  // Load settings from localStorage on mount.
+   969→  useEffect(() => {
+   970→    try {
+   971→      const raw = localStorage.getItem('jarvis-notif-settings');
+   972→      if (raw) setSettings(JSON.parse(raw));
+   973→    } catch { /* ignore */ }
+   974→  }, []);
+   975→
+   976→  const updateSettings = (updater: (prev: typeof settings) => typeof settings) => {
+   977→    setSettings((prev) => {
+   978→      const next = updater(prev);
+   979→      try { localStorage.setItem('jarvis-notif-settings', JSON.stringify(next)); } catch { /* ignore */ }
+   980→      return next;
+   981→    });
+   982→  };
+   983→
+   984→  const toggleMuteType = (type: string) => {
+   985→    updateSettings((prev) => ({
+   986→      ...prev,
+   987→      mutedTypes: prev.mutedTypes.includes(type)
+   988→        ? prev.mutedTypes.filter((t) => t !== type)
+   989→        : [...prev.mutedTypes, type],
+   990→    }));
+   991→  };
+   992→
+   993→  // Filter out muted types from displayed notifications.
+   994→  const visibleNotifications = allNotifications.filter((n) => !settings.mutedTypes.includes(n.type));
+   995→  const visibleTypeCounts = visibleNotifications.reduce<Record<string, number>>((acc, n) => {
+   996→    acc[n.type] = (acc[n.type] ?? 0) + 1;
+   997→    return acc;
+   998→  }, {});
+   999→  const filteredVisible = filter === 'all' ? visibleNotifications : visibleNotifications.filter((n) => n.type === filter);
+  1000→  const visibleUnread = visibleNotifications.filter((n) => !n.read).length;
+  1001→  const visibleTotalBadge = visibleUnread + criticalFindings.length;
+  1002→
+  1003→  const markOne = async (id: string, read: boolean) => {
+  1004→    await patchNotif(id, read);
+  1005→    refresh();
+  1006→  };
+  1007→
+  1008→  // Track previous unread count + seen notification IDs to detect new arrivals.
+  1009→  const prevUnreadRef = useRef(0);
+  1010→  const seenNotifIdsRef = useRef<Set<string>>(new Set());
+  1011→  // Debounce timer for batching desktop notifications.
+  1012→  const desktopBatchTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  1013→  const desktopBatchQueueRef = useRef<Array<{ title: string; message: string; type: string; id: string }>>([]);
+  1014→
+  1015→  useEffect(() => {
+  1016→    const currentUnread = visibleUnread;
+  1017→    const prevUnread = prevUnreadRef.current;
+  1018→    // Detect new unread notifications by comparing IDs.
+  1019→    const currentUnreadNotifs = visibleNotifications.filter((n) => !n.read);
+  1020→    const newNotifs = currentUnreadNotifs.filter((n) => !seenNotifIdsRef.current.has(n.id));
+  1021→
+  1022→    // Update seen set with all current unread IDs.
+  1023→    seenNotifIdsRef.current = new Set(currentUnreadNotifs.map((n) => n.id));
+  1024→
+  1025→    if (newNotifs.length === 0 || prevUnread === 0) {
+  1026→      prevUnreadRef.current = currentUnread;
+  1027→      return;
+  1028→    }
+  1029→
+  1030→    // Find the newest notification for the sound alert (play once, not per-notification).
+  1031→    const newest = newNotifs[0];
+  1032→    if (newest) {
+  1033→      // Sound alert: play a short beep using Web Audio API (no asset needed).
+  1034→      if (settings.sound && !settings.mutedTypes.includes(newest.type)) {
+  1035→        try {
+  1036→          const ctx = new (window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext)();
+  1037→          const osc = ctx.createOscillator();
+  1038→          const gain = ctx.createGain();
+  1039→          osc.connect(gain);
+  1040→          gain.connect(ctx.destination);
+  1041→          osc.frequency.value = newest.type === 'error' ? 220 : newest.type === 'warn' ? 440 : 660;
+  1042→          osc.type = 'sine';
+  1043→          gain.gain.setValueAtTime(0.3, ctx.currentTime);
+  1044→          gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.5);
+  1045→          osc.start(ctx.currentTime);
+  1046→          osc.stop(ctx.currentTime + 0.5);
+  1047→        } catch { /* AudioContext not available */ }
+  1048→      }
+  1049→    }
+  1050→
+  1051→    // Desktop notification with batching: queue new notifications and show a
+  1052→    // single grouped notification after a 2s debounce (instead of one per
+  1053→    // notification — prevents notification spam when many arrive at once).
+  1054→    if (settings.desktop && 'Notification' in window && Notification.permission === 'granted') {
+  1055→      const visibleNew = newNotifs.filter((n) => !settings.mutedTypes.includes(n.type));
+  1056→      if (visibleNew.length > 0) {
+  1057→        desktopBatchQueueRef.current.push(...visibleNew.map((n) => ({ title: n.title, message: n.message, type: n.type, id: n.id })));
+  1058→        // Clear any existing timer and set a new one (debounce).
+  1059→        if (desktopBatchTimerRef.current) clearTimeout(desktopBatchTimerRef.current);
+  1060→        desktopBatchTimerRef.current = setTimeout(() => {
+  1061→          const batch = desktopBatchQueueRef.current;
+  1062→          desktopBatchQueueRef.current = [];
+  1063→          if (batch.length === 0) return;
+  1064→          try {
+  1065→            if (batch.length === 1) {
+  1066→              // Single notification — show as-is. Click → focus + navigate.
+  1067→              const notif = new Notification(batch[0].title, {
+  1068→                body: batch[0].message.slice(0, 200),
+  1069→                icon: '/favicon.ico',
+  1070→                tag: batch[0].id,
+  1071→              });
+  1072→              // Click-to-navigate: map notification type → target tab.
+  1073→              //   error → logs, success → activity, warn → agent-monitor,
+  1074→              //   info/default → activity.
+  1075→              const targetTab = batch[0].type === 'error'
+  1076→                ? 'logs'
+  1077→                : batch[0].type === 'success'
+  1078→                  ? 'activity'
+  1079→                  : batch[0].type === 'warn'
+  1080→                    ? 'agent-monitor'
+  1081→                    : 'activity';
+  1082→              notif.onclick = () => {
+  1083→                window.focus();
+  1084→                navigate(targetTab);
+  1085→                notif.close();
+  1086→              };
+  1087→            } else {
+  1088→              // Multiple notifications — group into one.
+  1089→              const hasErrors = batch.some((n) => n.type === 'error');
+  1090→              const title = hasErrors ? `${batch.length} notifications (${batch.filter((n) => n.type === 'error').length} errors)` : `${batch.length} new notifications`;
+  1091→              const body = batch.slice(0, 4).map((n) => `• ${n.title}`).join('\n') + (batch.length > 4 ? `\n• +${batch.length - 4} more` : '');
+  1092→              const notif = new Notification(title, {
+  1093→                body,
+  1094→                icon: '/favicon.ico',
+  1095→                tag: 'jarvis-batch-' + Date.now(),
+  1096→              });
+  1097→              // Grouped click → focus window + navigate to activity tab.
+  1098→              notif.onclick = () => {
+  1099→                window.focus();
+  1100→                navigate('activity');
+  1101→                notif.close();
+  1102→              };
+  1103→            }
+  1104→          } catch { /* Notification API not available */ }
+  1105→        }, 2000);
+  1106→      }
+  1107→    }
+  1108→
+  1109→    prevUnreadRef.current = currentUnread;
+  1110→  }, [visibleUnread, visibleNotifications, settings.sound, settings.desktop, settings.mutedTypes, navigate]);
+  1111→
+  1112→  // Request Notification permission when desktop setting is toggled on.
+  1113→  useEffect(() => {
+  1114→    if (settings.desktop && 'Notification' in window && Notification.permission === 'default') {
+  1115→      Notification.requestPermission().catch(() => {});
+  1116→    }
+  1117→  }, [settings.desktop]);
+  1118→
+  1119→  const formatTime = (ts: string) => {
+  1120→    const diff = Date.now() - new Date(ts).getTime();
+  1121→    const mins = Math.floor(diff / 60000);
+  1122→    if (mins < 1) return 'just now';
+  1123→    if (mins < 60) return `${mins}m ago`;
+  1124→    const hrs = Math.floor(mins / 60);
+  1125→    if (hrs < 24) return `${hrs}h ago`;
+  1126→    const days = Math.floor(hrs / 24);
+  1127→    return `${days}d ago`;
+  1128→  };
+  1129→
+  1130→  return (
+  1131→    <div className="relative">
+  1132→      <button
+  1133→        onClick={() => setOpen(!open)}
+  1134→        className="relative flex h-8 w-8 items-center justify-center rounded-md border border-[var(--j-border)] text-[var(--j-text-dim)] hover:text-[var(--j-cyan)] hover:border-[var(--j-cyan)] transition-colors"
+  1135→        aria-label="Notifications"
+  1136→      >
+  1137→        <Bell className="h-4 w-4" />
+  1138→        {visibleTotalBadge > 0 && (
+  1139→          <span className={cn(
+  1140→            'absolute -top-1 -right-1 h-4 min-w-4 px-1 rounded-full text-[9px] font-bold text-white flex items-center justify-center',
+  1141→            criticalFindings.length > 0 ? 'bg-[var(--j-red)] jarvis-pulse-dot' : 'bg-[var(--j-amber)]'
+  1142→          )}>
+  1143→            {visibleTotalBadge}
+  1144→          </span>
+  1145→        )}
+  1146→      </button>
+  1147→      <AnimatePresence>
+  1148→        {open && (
+  1149→          <>
+  1150→            <div className="fixed inset-0 z-40" onClick={() => setOpen(false)} />
+  1151→            <motion.div
+  1152→              initial={{ opacity: 0, y: -8 }}
+  1153→              animate={{ opacity: 1, y: 0 }}
+  1154→              exit={{ opacity: 0, y: -8 }}
+  1155→              className="absolute right-0 mt-2 w-96 z-50 jarvis-panel p-0 overflow-hidden"
+  1156→            >
+  1157→              {/* Header */}
+  1158→              <div className="flex items-center justify-between px-3 py-2 border-b border-[var(--j-border)]">
+  1159→                <div className="flex items-center gap-2">
+  1160→                  <Bell className="h-3.5 w-3.5 text-[var(--j-cyan)]" />
+  1161→                  <span className="jarvis-mono text-[10px] uppercase text-[var(--j-text)]">Notifications</span>
+  1162→                  {visibleTotalBadge > 0 && <span className="jarvis-mono text-[9px] px-1.5 rounded bg-[var(--j-amber)]/20 text-[var(--j-amber)]">{visibleUnread} unread</span>}
+  1163→                </div>
+  1164→                <div className="flex items-center gap-2">
+  1165→                  <button
+  1166→                    onClick={() => setShowSettings((s) => !s)}
+  1167→                    className={`flex h-6 w-6 items-center justify-center rounded transition-colors ${showSettings ? 'text-[var(--j-cyan)] bg-[var(--j-cyan)]/10' : 'text-[var(--j-text-mute)] hover:text-[var(--j-cyan)]'}`}
+  1168→                    title="Notification settings"
+  1169→                  >
+  1170→                    <Sliders className="h-3 w-3" />
+  1171→                  </button>
+  1172→                  <button onClick={markAll} disabled={visibleUnread === 0} className="jarvis-mono text-[9px] uppercase text-[var(--j-cyan)] hover:underline disabled:opacity-40 disabled:no-underline">
+  1173→                    Mark all read
+  1174→                  </button>
+  1175→                </div>
+  1176→              </div>
+  1177→
+  1178→              {/* Settings panel (toggle) */}
+  1179→              <AnimatePresence>
+  1180→                {showSettings && (
+  1181→                  <motion.div
+  1182→                    initial={{ height: 0, opacity: 0 }}
+  1183→                    animate={{ height: 'auto', opacity: 1 }}
+  1184→                    exit={{ height: 0, opacity: 0 }}
+  1185→                    className="overflow-hidden border-b border-[var(--j-border)] bg-[var(--j-panel-soft)]/40"
+  1186→                  >
+  1187→                    <div className="p-3 space-y-3">
+  1188→                      <div className="jarvis-mono text-[9px] uppercase text-[var(--j-text-mute)] tracking-widest">Notification Settings</div>
+  1189→                      {/* Sound + Desktop toggles */}
+  1190→                      <div className="grid grid-cols-2 gap-2">
+  1191→                        <button
+  1192→                          onClick={() => updateSettings((p) => ({ ...p, sound: !p.sound }))}
+  1193→                          className={`flex items-center gap-2 px-2.5 py-1.5 rounded border text-xs transition-colors ${settings.sound ? 'border-[var(--j-green)] bg-[var(--j-green)]/10 text-[var(--j-green)]' : 'border-[var(--j-border)] text-[var(--j-text-mute)]'}`}
+  1194→                        >
+  1195→                          <span className="h-2 w-2 rounded-full" style={{ background: settings.sound ? JARVIS.colors.green : 'var(--j-text-mute)' }} />
+  1196→                          Sound alerts
+  1197→                        </button>
+  1198→                        <button
+  1199→                          onClick={() => updateSettings((p) => ({ ...p, desktop: !p.desktop }))}
+  1200→                          className={`flex items-center gap-2 px-2.5 py-1.5 rounded border text-xs transition-colors ${settings.desktop ? 'border-[var(--j-green)] bg-[var(--j-green)]/10 text-[var(--j-green)]' : 'border-[var(--j-border)] text-[var(--j-text-mute)]'}`}
+  1201→                        >
+  1202→                          <span className="h-2 w-2 rounded-full" style={{ background: settings.desktop ? JARVIS.colors.green : 'var(--j-text-mute)' }} />
+  1203→                          Desktop notifications
+  1204→                        </button>
+  1205→                      </div>
+  1206→                      {/* Per-type mute toggles */}
+  1207→                      <div>
+  1208→                        <div className="jarvis-mono text-[9px] uppercase text-[var(--j-text-mute)] mb-1.5">Mute by type</div>
+  1209→                        <div className="flex flex-wrap gap-1.5">
+  1210→                          {['success', 'warn', 'error', 'info'].map((t) => {
+  1211→                            const isMuted = settings.mutedTypes.includes(t);
+  1212→                            const color = notifColor(t);
+  1213→                            return (
+  1214→                              <button
+  1215→                                key={t}
+  1216→                                onClick={() => toggleMuteType(t)}
+  1217→                                className={`jarvis-mono text-[9px] uppercase px-2 py-1 rounded border flex items-center gap-1.5 transition-all ${isMuted ? 'opacity-40 line-through' : ''}`}
+  1218→                                style={{ borderColor: `${color}40`, color }}
+  1219→                              >
+  1220→                                <span className="h-1.5 w-1.5 rounded-full" style={{ background: color }} />
+  1221→                                {t}
+  1222→                                {isMuted && <span className="text-[var(--j-text-mute)]">· muted</span>}
+  1223→                              </button>
+  1224→                            );
+  1225→                          })}
+  1226→                        </div>
+  1227→                      </div>
+  1228→                    </div>
+  1229→                  </motion.div>
+  1230→                )}
+  1231→              </AnimatePresence>
+  1232→
+  1233→              {/* Filter chips */}
+  1234→              {allNotifications.length > 0 && (
+  1235→                <div className="flex flex-wrap gap-1 px-2 py-1.5 border-b border-[var(--j-border-soft)]">
+  1236→                  <button
+  1237→                    onClick={() => setFilter('all')}
+  1238→                    className={`jarvis-mono text-[9px] uppercase px-1.5 py-0.5 rounded border transition-colors ${
+  1239→                      filter === 'all' ? 'border-[var(--j-cyan)] bg-[var(--j-cyan)]/10 text-[var(--j-cyan)]' : 'border-[var(--j-border)] text-[var(--j-text-mute)] hover:text-[var(--j-text)]'
+  1240→                    }`}
+  1241→                  >
+  1242→                    All ({allNotifications.length})
+  1243→                  </button>
+  1244→                  {Object.entries(visibleTypeCounts).map(([t, count]) => (
+  1245→                    <button
+  1246→                      key={t}
+  1247→                      onClick={() => setFilter(filter === t ? 'all' : t)}
+  1248→                      className={`jarvis-mono text-[9px] uppercase px-1.5 py-0.5 rounded border transition-colors ${
+  1249→                        filter === t ? 'border-[var(--j-cyan)] bg-[var(--j-cyan)]/10 text-[var(--j-cyan)]' : 'border-[var(--j-border)] text-[var(--j-text-mute)] hover:text-[var(--j-text)]'
+  1250→                      }`}
+  1251→                    >
+  1252→                      {t} ({count})
+  1253→                    </button>
+  1254→                  ))}
+  1255→                </div>
+  1256→              )}
+  1257→
+  1258→              <div className="max-h-96 overflow-y-auto jarvis-scroll">
+  1259→                {/* Critical agent-monitor findings first */}
+  1260→                {criticalFindings.length > 0 && filter === 'all' && (
+  1261→                  <div className="border-b border-[var(--j-red)]/30">
+  1262→                    <div className="px-3 py-1.5 bg-[var(--j-red)]/10 flex items-center gap-1.5">
+  1263→                      <span className="h-1.5 w-1.5 rounded-full bg-[var(--j-red)] jarvis-pulse-dot" />
+  1264→                      <span className="jarvis-mono text-[9px] uppercase text-[var(--j-red)] tracking-widest">Agent Alerts · {criticalFindings.length}</span>
+  1265→                    </div>
+  1266→                    {criticalFindings.map((f) => (
+  1267→                      <button
+  1268→                        key={f.id}
+  1269→                        onClick={() => {
+  1270→                          navigate(f.actionTab || 'monitoring', f.actionMeta ? JSON.parse(f.actionMeta) : { findingId: f.id });
+  1271→                          setOpen(false);
+  1272→                        }}
+  1273→                        className="w-full text-left px-3 py-2.5 border-b border-[var(--j-border-soft)] hover:bg-[var(--j-red)]/10 transition-colors block"
+  1274→                      >
+  1275→                        <div className="flex items-center gap-2 mb-0.5">
+  1276→                          <span className="jarvis-mono text-[9px] uppercase px-1 rounded bg-[var(--j-red)]/20 text-[var(--j-red)]">{f.monitorKey}</span>
+  1277→                          <span className="text-xs font-medium text-[var(--j-text)] truncate flex-1">{f.title}</span>
+  1278→                          <span className="jarvis-mono text-[9px] text-[var(--j-text-mute)] shrink-0">{formatTime(f.createdAt)}</span>
+  1279→                        </div>
+  1280→                        <div className="text-[11px] text-[var(--j-text-dim)] line-clamp-2">{f.detail}</div>
+  1281→                        <div className="jarvis-mono text-[9px] uppercase text-[var(--j-cyan)] mt-1">→ {f.actionTab || 'monitoring'} tab</div>
+  1282→                      </button>
+  1283→                    ))}
+  1284→                  </div>
+  1285→                )}
+  1286→                {/* Regular notifications */}
+  1287→                {filteredVisible.length > 0 ? (
+  1288→                  filteredVisible.map((n) => (
+  1289→                    <div
+  1290→                      key={n.id}
+  1291→                      className={cn('group px-3 py-2.5 border-b border-[var(--j-border-soft)] hover:bg-[var(--j-panel-soft)]/60 transition-colors', !n.read && 'bg-[var(--j-cyan)]/5')}
+  1292→                    >
+  1293→                      <div className="flex items-center gap-2 mb-0.5">
+  1294→                        <span className="h-1.5 w-1.5 rounded-full shrink-0" style={{ background: notifColor(n.type) }} />
+  1295→                        <span className="text-xs font-medium text-[var(--j-text)] flex-1 truncate">{n.title}</span>
+  1296→                        <span className="jarvis-mono text-[9px] text-[var(--j-text-mute)] shrink-0">{formatTime(n.createdAt)}</span>
+  1297→                      </div>
+  1298→                      <div className="text-[11px] text-[var(--j-text-dim)] line-clamp-2">{n.message}</div>
+  1299→                      {/* Per-notification mark-as-read button */}
+  1300→                      <div className="flex items-center gap-2 mt-1 opacity-0 group-hover:opacity-100 transition-opacity">
+  1301→                        {!n.read && (
+  1302→                          <button
+  1303→                            onClick={() => markOne(n.id, true)}
+  1304→                            className="jarvis-mono text-[9px] uppercase text-[var(--j-cyan)] hover:underline"
+  1305→                          >
+  1306→                            Mark read
+  1307→                          </button>
+  1308→                        )}
+  1309→                        {n.read && (
+  1310→                          <button
+  1311→                            onClick={() => markOne(n.id, false)}
+  1312→                            className="jarvis-mono text-[9px] uppercase text-[var(--j-text-mute)] hover:text-[var(--j-text)]"
+  1313→                          >
+  1314→                            Mark unread
+  1315→                          </button>
+  1316→                        )}
+  1317→                      </div>
+  1318→                    </div>
+  1319→                  ))
+  1320→                ) : criticalFindings.length === 0 ? (
+  1321→                  <div className="px-3 py-10 text-center">
+  1322→                    <Bell className="h-8 w-8 mx-auto mb-2 text-[var(--j-text-mute)] opacity-30" />
+  1323→                    <div className="text-xs text-[var(--j-text-mute)]">No notifications</div>
+  1324→                    {filter !== 'all' && <div className="jarvis-mono text-[9px] text-[var(--j-text-mute)] mt-1">Try a different filter</div>}
+  1325→                  </div>
+  1326→                ) : null}
+  1327→              </div>
+  1328→
+  1329→              {/* Footer */}
+  1330→              <div className="px-3 py-1.5 border-t border-[var(--j-border)] bg-[var(--j-panel-soft)]/40 flex items-center justify-between jarvis-mono text-[9px] uppercase text-[var(--j-text-mute)]">
+  1331→                <span>{filteredVisible.length} shown{filter !== 'all' ? ` · filtered by ${filter}` : ''}</span>
+  1332→                <button onClick={() => navigate('activity')} className="text-[var(--j-cyan)] hover:underline">View all activity →</button>
+  1333→              </div>
+  1334→            </motion.div>
+  1335→          </>
+  1336→        )}
+  1337→      </AnimatePresence>
+  1338→    </div>
+  1339→  );
+  1340→}
+  1341→
+  1342→function notifColor(type: string): string {
+  1343→  switch (type) {
+  1344→    case 'success': return JARVIS.colors.green;
+  1345→    case 'warn': return JARVIS.colors.amber;
+  1346→    case 'error': return JARVIS.colors.red;
+  1347→    default: return JARVIS.colors.cyan;
+  1348→  }
+  1349→}
+  1350→
+  1351→async function patchNotif(id: string, read: boolean) {
+  1352→  await fetch(`/api/notifications/${id}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ read }) });
+  1353→}
+  1354→
+  1355→/* ---------- Command palette ---------- */
+  1356→function CommandPalette({ open, onClose, onNavigate, pinned = [], onTogglePin, hidden = [], onToggleHide }: {
+  1357→  open: boolean;
+  1358→  onClose: () => void;
+  1359→  onNavigate: (t: TabKey) => void;
+  1360→  pinned?: TabKey[];
+  1361→  onTogglePin?: (key: TabKey) => void;
+  1362→  hidden?: TabKey[];
+  1363→  onToggleHide?: (key: TabKey) => void;
+  1364→}) {
+  1365→  // Fresh mount (via key in parent) ensures q/sel start empty each open.
+  1366→  const [q, setQ] = useState('');
+  1367→  const [sel, setSel] = useState(0);
+  1368→  const [recentTabs, setRecentTabs] = useState<TabKey[]>([]);
+  1369→  const [frequentTabs, setFrequentTabs] = useState<Array<{ key: TabKey; count: number }>>([]);
+  1370→
+  1371→  // Load recent + frequent tabs from localStorage on mount.
+  1372→  useEffect(() => {
+  1373→    try {
+  1374→      const rawRecent = localStorage.getItem('jarvis-recent-tabs');
+  1375→      if (rawRecent) setRecentTabs(JSON.parse(rawRecent).slice(0, 5));
+  1376→      const rawFreq = localStorage.getItem('jarvis-frequent-tabs');
+  1377→      if (rawFreq) setFrequentTabs(JSON.parse(rawFreq).slice(0, 5));
+  1378→    } catch { /* ignore */ }
+  1379→  }, []);
+  1380→
+  1381→  // Track navigation when a tab is selected from the palette.
+  1382→  const navigateAndTrack = useCallback((key: TabKey) => {
+  1383→    // Update recent tabs (most recent first, deduped, max 5).
+  1384→    setRecentTabs((prev) => {
+  1385→      const next = [key, ...prev.filter((k) => k !== key)].slice(0, 5);
+  1386→      try { localStorage.setItem('jarvis-recent-tabs', JSON.stringify(next)); } catch { /* ignore */ }
+  1387→      return next;
+  1388→    });
+  1389→    // Update frequent tabs (sorted by count, max 5).
+  1390→    setFrequentTabs((prev) => {
+  1391→      const existing = prev.find((t) => t.key === key);
+  1392→      const updated = existing
+  1393→        ? prev.map((t) => (t.key === key ? { ...t, count: t.count + 1 } : t))
+  1394→        : [...prev, { key, count: 1 }];
+  1395→      updated.sort((a, b) => b.count - a.count);
+  1396→      const top = updated.slice(0, 5);
+  1397→      try { localStorage.setItem('jarvis-frequent-tabs', JSON.stringify(top)); } catch { /* ignore */ }
+  1398→      return top;
+  1399→    });
+  1400→    onNavigate(key);
+  1401→  }, [onNavigate]);
+  1402→
+  1403→  const [showHidden, setShowHidden] = useState(false);
+  1404→
+  1405→  const results = useMemo(() => {
+  1406→    const ql = q.toLowerCase();
+  1407→    return TABS.filter((t) => !ql || t.label.toLowerCase().includes(ql) || t.group.toLowerCase().includes(ql));
+  1408→  }, [q]);
+  1409→
+  1410→  // Build the display list: when no query, show recent + frequent + all. When query, show filtered.
+  1411→  const displaySections = useMemo(() => {
+  1412→    if (q.trim()) {
+  1413→      return [{ label: 'Results', items: results }];
+  1414→    }
+  1415→    const sections: Array<{ label: string; items: TabDef[] }> = [];
+  1416→    if (recentTabs.length > 0) {
+  1417→      const items = recentTabs
+  1418→        .map((k) => TABS.find((t) => t.key === k))
+  1419→        .filter((t): t is TabDef => Boolean(t));
+  1420→      if (items.length > 0) sections.push({ label: 'Recent', items });
+  1421→    }
+  1422→    if (frequentTabs.length > 0) {
+  1423→      const items = frequentTabs
+  1424→        .map((f) => TABS.find((t) => t.key === f.key))
+  1425→        .filter((t): t is TabDef => Boolean(t));
+  1426→      if (items.length > 0) sections.push({ label: 'Frequent', items });
+  1427→    }
+  1428→    // All visible tabs (exclude hidden unless showHidden is on)
+  1429→    const visibleTabs = TABS.filter((t) => showHidden || !hidden.includes(t.key));
+  1430→    sections.push({ label: 'All Tabs', items: visibleTabs });
+  1431→    // Hidden tabs section (only when showHidden is on and there are hidden tabs)
+  1432→    if (showHidden && hidden.length > 0) {
+  1433→      const hiddenItems = hidden.map((k) => TABS.find((t) => t.key === k)).filter((t): t is TabDef => Boolean(t));
+  1434→      if (hiddenItems.length > 0) sections.push({ label: 'Hidden', items: hiddenItems });
+  1435→    }
+  1436→    return sections;
+  1437→  }, [q, results, recentTabs, frequentTabs, hidden, showHidden]);
+  1438→
+  1439→  // Flatten for keyboard nav.
+  1440→  const flatItems = displaySections.flatMap((s) => s.items);
+  1441→
+  1442→  useEffect(() => {
+  1443→    if (!open) return;
+  1444→    const onKey = (e: KeyboardEvent) => {
+  1445→      if (e.key === 'ArrowDown') { e.preventDefault(); setSel((s) => Math.min(s + 1, flatItems.length - 1)); }
+  1446→      if (e.key === 'ArrowUp') { e.preventDefault(); setSel((s) => Math.max(s - 1, 0)); }
+  1447→      if (e.key === 'Enter') { e.preventDefault(); const r = flatItems[sel]; if (r) navigateAndTrack(r.key); }
+  1448→    };
+  1449→    window.addEventListener('keydown', onKey);
+  1450→    return () => window.removeEventListener('keydown', onKey);
+  1451→  }, [open, flatItems, sel, navigateAndTrack]);
+  1452→
+  1453→  // Reset selection when query changes.
+  1454→  useEffect(() => { setSel(0); }, [q]);
+  1455→
+  1456→  let runningIdx = -1;
+  1457→
+  1458→  return (
+  1459→    <AnimatePresence>
+  1460→      {open && (
+  1461→        <motion.div
+  1462→          className="fixed inset-0 z-50 flex items-start justify-center pt-[12vh] px-4"
+  1463→          initial={{ opacity: 0 }}
+  1464→          animate={{ opacity: 1 }}
+  1465→          exit={{ opacity: 0 }}
+  1466→        >
+  1467→          <div className="absolute inset-0 bg-black/70 backdrop-blur-sm" onClick={onClose} />
+  1468→          <motion.div
+  1469→            initial={{ opacity: 0, scale: 0.96, y: -8 }}
+  1470→            animate={{ opacity: 1, scale: 1, y: 0 }}
+  1471→            exit={{ opacity: 0, scale: 0.96, y: -8 }}
+  1472→            transition={{ duration: 0.18 }}
+  1473→            className="relative w-full max-w-xl jarvis-panel p-0 overflow-hidden"
+  1474→          >
+  1475→            <div className="flex items-center gap-2.5 px-4 h-12 border-b border-[var(--j-border)]">
+  1476→              <Search className="h-4 w-4 text-[var(--j-text-mute)]" />
+  1477→              <input
+  1478→                autoFocus
+  1479→                value={q}
+  1480→                onChange={(e) => { setQ(e.target.value); setSel(0); }}
+  1481→                placeholder="Search tabs and actions…"
+  1482→                className="flex-1 bg-transparent outline-none text-sm text-[var(--j-text)] placeholder:text-[var(--j-text-mute)]"
+  1483→              />
+  1484→              <kbd className="jarvis-mono text-[9px] px-1.5 py-0.5 rounded border border-[var(--j-border)] text-[var(--j-text-mute)]">ESC</kbd>
+  1485→            </div>
+  1486→            <div className="max-h-80 overflow-y-auto jarvis-scroll p-2">
+  1487→              {flatItems.length === 0 ? (
+  1488→                <div className="px-3 py-8 text-center text-xs text-[var(--j-text-mute)]">No results for "{q}"</div>
+  1489→              ) : (
+  1490→                displaySections.map((section) => {
+  1491→                  if (section.items.length === 0) return null;
+  1492→                  return (
+  1493→                    <div key={section.label} className="mb-2">
+  1494→                      <div className="jarvis-mono text-[9px] uppercase tracking-widest text-[var(--j-text-mute)] px-3 py-1.5 flex items-center gap-1.5">
+  1495→                        <span className="h-1 w-1 rounded-full bg-[var(--j-text-mute)]" />
+  1496→                        {section.label}
+  1497→                        <span className="ml-1 text-[var(--j-text-mute)] opacity-60">({section.items.length})</span>
+  1498→                      </div>
+  1499→                      {section.items.map((t) => {
+  1500→                        runningIdx++;
+  1501→                        const i = runningIdx;
+  1502→                        const Icon = t.icon;
+  1503→                        const active = i === sel;
+  1504→                        const isPinned = pinned.includes(t.key);
+  1505→                        return (
+  1506→                          <div
+  1507→                            key={`${section.label}-${t.key}`}
+  1508→                            onMouseEnter={() => setSel(i)}
+  1509→                            className={cn('group w-full flex items-center gap-3 px-3 py-2 rounded-md text-sm transition-colors cursor-pointer', active ? 'bg-[var(--j-panel-soft)] text-[var(--j-text)]' : 'text-[var(--j-text-dim)] hover:bg-[var(--j-panel-soft)]/40')}
+  1510→                            onClick={() => navigateAndTrack(t.key)}
+  1511→                          >
+  1512→                            <Icon className="h-4 w-4 shrink-0" style={{ color: active ? t.accent : undefined }} />
+  1513→                            <span className="flex-1 text-left truncate">{t.label}</span>
+  1514→                            {section.label === 'Frequent' && (
+  1515→                              <span className="jarvis-mono text-[9px] text-[var(--j-amber)]">
+  1516→                                {frequentTabs.find((f) => f.key === t.key)?.count}×
+  1517→                              </span>
+  1518→                            )}
+  1519→                            <span className="jarvis-mono text-[9px] uppercase text-[var(--j-text-mute)]">{t.group}</span>
+  1520→                            {/* Pin/unpin button — quick-pin from palette */}
+  1521→                            {onTogglePin && (
+  1522→                              <button
+  1523→                                onClick={(e) => { e.stopPropagation(); onTogglePin(t.key); }}
+  1524→                                className={`shrink-0 h-5 w-5 flex items-center justify-center rounded transition-all ${
+  1525→                                  isPinned
+  1526→                                    ? 'text-[var(--j-amber)] opacity-100'
+  1527→                                    : 'text-[var(--j-text-mute)] opacity-0 group-hover:opacity-100 hover:text-[var(--j-amber)]'
+  1528→                                }`}
+  1529→                                title={isPinned ? 'Unpin from sidebar' : 'Pin to sidebar'}
+  1530→                              >
+  1531→                                <Pin className={cn('h-3 w-3', isPinned && 'fill-current')} />
+  1532→                              </button>
+  1533→                            )}
+  1534→                            {/* Hide/unhide button — quick-hide from palette */}
+  1535→                            {onToggleHide && section.label !== 'Hidden' && (
+  1536→                              <button
+  1537→                                onClick={(e) => { e.stopPropagation(); onToggleHide(t.key); }}
+  1538→                                className="shrink-0 h-5 w-5 flex items-center justify-center rounded text-[var(--j-text-mute)] opacity-0 group-hover:opacity-100 hover:text-[var(--j-red)] transition-all"
+  1539→                                title="Hide from sidebar"
+  1540→                              >
+  1541→                                <EyeOff className="h-3 w-3" />
+  1542→                              </button>
+  1543→                            )}
+  1544→                            {/* Unhide button — only in Hidden section */}
+  1545→                            {onToggleHide && section.label === 'Hidden' && (
+  1546→                              <button
+  1547→                                onClick={(e) => { e.stopPropagation(); onToggleHide(t.key); }}
+  1548→                                className="shrink-0 h-5 w-5 flex items-center justify-center rounded text-[var(--j-green)] opacity-0 group-hover:opacity-100 hover:text-[var(--j-green)] transition-all"
+  1549→                                title="Show in sidebar"
+  1550→                              >
+  1551→                                <Eye className="h-3 w-3" />
+  1552→                              </button>
+  1553→                            )}
+  1554→                          </div>
+  1555→                        );
+  1556→                      })}
+  1557→                    </div>
+  1558→                  );
+  1559→                })
+  1560→              )}
+  1561→            </div>
+  1562→            <div className="px-4 py-2 border-t border-[var(--j-border)] bg-[var(--j-panel-soft)]/40 flex items-center justify-between jarvis-mono text-[9px] uppercase text-[var(--j-text-mute)]">
+  1563→              <span className="flex items-center gap-3">
+  1564→                <span>{flatItems.length} items</span>
+  1565→                {hidden.length > 0 && (
+  1566→                  <button
+  1567→                    onClick={() => setShowHidden((s) => !s)}
+  1568→                    className={`flex items-center gap-1 hover:text-[var(--j-cyan)] transition-colors ${showHidden ? 'text-[var(--j-cyan)]' : ''}`}
+  1569→                  >
+  1570→                    {showHidden ? <Eye className="h-3 w-3" /> : <EyeOff className="h-3 w-3" />}
+  1571→                    {hidden.length} hidden
+  1572→                  </button>
+  1573→                )}
+  1574→              </span>
+  1575→              <span className="flex items-center gap-2">
+  1576→                <span>↑↓ navigate</span>
+  1577→                <span>⏎ open</span>
+  1578→              </span>
+  1579→            </div>
+  1580→          </motion.div>
+  1581→        </motion.div>
+  1582→      )}
+  1583→    </AnimatePresence>
+  1584→  );
+  1585→}
+  1586→
+  1587→/* ---------- Manage Tabs modal (personalization) ---------- */
+  1588→function ManageTabsModal({
+  1589→  onClose,
+  1590→  tabPrefs,
+  1591→  updateTabPrefs,
+  1592→  onNavigate,
+  1593→}: {
+  1594→  onClose: () => void;
+  1595→  tabPrefs: { hidden: TabKey[]; pinned: TabKey[]; order: TabKey[] };
+  1596→  updateTabPrefs: (updater: (prev: { hidden: TabKey[]; pinned: TabKey[]; order: TabKey[] }) => { hidden: TabKey[]; pinned: TabKey[]; order: TabKey[] }) => void;
+  1597→  onNavigate: (t: TabKey) => void;
+  1598→}) {
+  1599→  const toggleHidden = (key: TabKey) => {
+  1600→    updateTabPrefs((prev) => ({
+  1601→      ...prev,
+  1602→      hidden: prev.hidden.includes(key) ? prev.hidden.filter((k) => k !== key) : [...prev.hidden, key],
+  1603→    }));
+  1604→  };
+  1605→  const togglePinned = (key: TabKey) => {
+  1606→    updateTabPrefs((prev) => ({
+  1607→      ...prev,
+  1608→      pinned: prev.pinned.includes(key) ? prev.pinned.filter((k) => k !== key) : [...prev.pinned, key],
+  1609→    }));
+  1610→  };
+  1611→  const resetAll = () => {
+  1612→    updateTabPrefs(() => ({ hidden: [], pinned: [], order: [] }));
+  1613→  };
+  1614→  const visibleCount = TABS.length - tabPrefs.hidden.length;
+  1615→
+  1616→  return (
+  1617→    <motion.div className="fixed inset-0 z-50 flex items-center justify-center p-4" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
+  1618→      <div className="absolute inset-0 bg-black/70 backdrop-blur-sm" onClick={onClose} />
+  1619→      <motion.div initial={{ scale: 0.96, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.96, opacity: 0 }} className="relative w-full max-w-2xl jarvis-panel p-0 overflow-hidden max-h-[85vh] flex flex-col">
+  1620→        <div className="flex items-center justify-between px-5 py-3 border-b border-[var(--j-border)]">
+  1621→          <div className="flex items-center gap-2">
+  1622→            <Sliders className="h-4 w-4 text-[var(--j-cyan)]" />
+  1623→            <h3 className="jarvis-mono text-sm uppercase text-[var(--j-cyan)]">Manage Tabs</h3>
+  1624→            <span className="jarvis-mono text-[9px] uppercase text-[var(--j-text-mute)]">{visibleCount} visible · {tabPrefs.pinned.length} pinned · {tabPrefs.hidden.length} hidden</span>
+  1625→          </div>
+  1626→          <div className="flex items-center gap-2">
+  1627→            <button onClick={resetAll} className="jarvis-mono text-[9px] uppercase text-[var(--j-text-mute)] hover:text-[var(--j-cyan)]">reset</button>
+  1628→            <button onClick={onClose} className="text-[var(--j-text-mute)] hover:text-[var(--j-text)]"><X className="h-4 w-4" /></button>
+  1629→          </div>
+  1630→        </div>
+  1631→        <div className="overflow-y-auto jarvis-scroll p-3">
+  1632→          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+  1633→            {TABS.map((t) => {
+  1634→              const isHidden = tabPrefs.hidden.includes(t.key);
+  1635→              const isPinned = tabPrefs.pinned.includes(t.key);
+  1636→              const Icon = t.icon;
+  1637→              return (
+  1638→                <div
+  1639→                  key={t.key}
+  1640→                  className={`flex items-center gap-2.5 p-2.5 rounded-lg border transition-all ${isHidden ? 'border-[var(--j-border-soft)] opacity-50' : 'border-[var(--j-border)] bg-[var(--j-panel-soft)]/40'}`}
+  1641→                >
+  1642→                  <button
+  1643→                    onClick={() => togglePinned(t.key)}
+  1644→                    className={`flex h-7 w-7 items-center justify-center rounded-md shrink-0 transition-colors ${isPinned ? 'text-[var(--j-violet)]' : 'text-[var(--j-text-mute)] hover:text-[var(--j-violet)]'}`}
+  1645→                    title={isPinned ? 'Unpin' : 'Pin to top'}
+  1646→                  >
+  1647→                    <Pin className={`h-3.5 w-3.5 ${isPinned ? 'fill-[var(--j-violet)]' : ''}`} />
+  1648→                  </button>
+  1649→                  <div className="flex h-7 w-7 items-center justify-center rounded-md shrink-0" style={{ background: `${t.accent}1a`, border: `1px solid ${t.accent}33`, color: t.accent }}>
+  1650→                    <Icon className="h-3.5 w-3.5" />
+  1651→                  </div>
+  1652→                  <button onClick={() => !isHidden && onNavigate(t.key)} className="flex-1 text-left min-w-0">
+  1653→                    <div className="text-xs text-[var(--j-text)] truncate">{t.label}</div>
+  1654→                    <div className="jarvis-mono text-[9px] uppercase text-[var(--j-text-mute)]">{isPinned ? 'pinned · ' : ''}{t.group}</div>
+  1655→                  </button>
+  1656→                  <button
+  1657→                    onClick={() => toggleHidden(t.key)}
+  1658→                    className={`flex h-7 w-7 items-center justify-center rounded-md shrink-0 transition-colors ${isHidden ? 'text-[var(--j-text-mute)] hover:text-[var(--j-green)]' : 'text-[var(--j-green)] hover:text-[var(--j-red)]'}`}
+  1659→                    title={isHidden ? 'Show' : 'Hide'}
+  1660→                  >
+  1661→                    {isHidden ? <EyeOff className="h-3.5 w-3.5" /> : <Eye className="h-3.5 w-3.5" />}
+  1662→                  </button>
+  1663→                </div>
+  1664→              );
+  1665→            })}
+  1666→          </div>
+  1667→        </div>
+  1668→        <div className="px-5 py-2.5 border-t border-[var(--j-border)] bg-[var(--j-panel-soft)]/40 flex items-center justify-between">
+  1669→          <span className="jarvis-mono text-[9px] uppercase text-[var(--j-text-mute)]">preferences saved to this browser</span>
+  1670→          <button onClick={onClose} className="jarvis-mono text-[10px] uppercase px-3 py-1 rounded jarvis-btn-accent border-0">Done</button>
+  1671→        </div>
+  1672→      </motion.div>
+  1673→    </motion.div>
+  1674→  );
+  1675→}
+  1676→
+  1677→/* ---------- Global search overlay (Cmd+Shift+F) ---------- */
+  1678→interface SearchResult {
+  1679→  id: string;
+  1680→  type: 'agent' | 'task' | 'memory' | 'comms' | 'skill';
+  1681→  title: string;
+  1682→  subtitle: string;
+  1683→  meta: string;
+  1684→  color: string;
+  1685→  href: TabKey;
+  1686→  score: number;
+  1687→}
+  1688→
+  1689→function GlobalSearch({ open, onClose, onNavigate }: { open: boolean; onClose: () => void; onNavigate: (t: TabKey) => void }) {
+  1690→  const [q, setQ] = useState('');
+  1691→  const [results, setResults] = useState<SearchResult[]>([]);
+  1692→  const [byType, setByType] = useState<Record<string, number>>({});
+  1693→  const [loading, setLoading] = useState(false);
+  1694→  const [sel, setSel] = useState(0);
+  1695→  const [typeFilter, setTypeFilter] = useState<string>('all');
+  1696→  const [savedSearches, setSavedSearches] = useState<string[]>([]);
+  1697→
+  1698→  // Load saved searches from localStorage on mount.
+  1699→  useEffect(() => {
+  1700→    try {
+  1701→      const raw = localStorage.getItem('jarvis-saved-searches');
+  1702→      if (raw) setSavedSearches(JSON.parse(raw));
+  1703→    } catch { /* ignore */ }
+  1704→  }, []);
+  1705→
+  1706→  const saveSearch = (term: string) => {
+  1707→    const t = term.trim();
+  1708→    if (!t) return;
+  1709→    setSavedSearches((prev) => {
+  1710→      const next = prev.includes(t) ? prev.filter((s) => s !== t) : [...prev, t].slice(-8);
+  1711→      try { localStorage.setItem('jarvis-saved-searches', JSON.stringify(next)); } catch { /* ignore */ }
+  1712→      return next;
+  1713→    });
+  1714→  };
+  1715→
+  1716→  // Debounced search.
+  1717→  useEffect(() => {
+  1718→    if (!open) { setQ(''); setResults([]); setByType({}); setSel(0); setTypeFilter('all'); return; }
+  1719→    if (!q.trim()) { setResults([]); setByType({}); return; }
+  1720→    setLoading(true);
+  1721→    const id = setTimeout(async () => {
+  1722→      try {
+  1723→        const res = await fetch(`/api/search?q=${encodeURIComponent(q)}${typeFilter !== 'all' ? `&type=${typeFilter}` : ''}`, { cache: 'no-store' });
+  1724→        const json = await res.json();
+  1725→        setResults(json.results ?? []);
+  1726→        setByType(json.byType ?? {});
+  1727→        setSel(0);
+  1728→      } catch { /* ignore */ } finally {
+  1729→        setLoading(false);
+  1730→      }
+  1731→    }, 200);
+  1732→    return () => clearTimeout(id);
+  1733→  }, [q, open, typeFilter]);
+  1734→
+  1735→  useEffect(() => {
+  1736→    if (!open) return;
+  1737→    const onKey = (e: KeyboardEvent) => {
+  1738→      if (e.key === 'ArrowDown') { e.preventDefault(); setSel((s) => Math.min(s + 1, results.length - 1)); }
+  1739→      if (e.key === 'ArrowUp') { e.preventDefault(); setSel((s) => Math.max(s - 1, 0)); }
+  1740→      if (e.key === 'Enter') { e.preventDefault(); const r = results[sel]; if (r) { onNavigate(r.href); onClose(); } }
+  1741→    };
+  1742→    window.addEventListener('keydown', onKey);
+  1743→    return () => window.removeEventListener('keydown', onKey);
+  1744→  }, [open, results, sel, onNavigate, onClose]);
+  1745→
+  1746→  const typeIcon: Record<string, typeof Bot> = {
+  1747→    agent: Bot, task: ListTodo, memory: Database, comms: MessagesSquare, skill: Sparkles,
+  1748→    model: Cpu, earning: DollarSign, rule: Gavel, payment: Wallet,
+  1749→  };
+  1750→  const typeLabel: Record<string, string> = {
+  1751→    agent: 'Agents', task: 'Tasks', memory: 'Memory', comms: 'Comms', skill: 'Skills',
+  1752→    model: 'Models', earning: 'Earnings', rule: 'Rules', payment: 'Payments',
+  1753→  };
+  1754→  const availableTypes = Object.keys(byType).filter((t) => byType[t] > 0);
+  1755→
+  1756→  return (
+  1757→    <AnimatePresence>
+  1758→      {open && (
+  1759→        <motion.div className="fixed inset-0 z-50 flex items-start justify-center pt-[10vh] px-4" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
+  1760→          <div className="absolute inset-0 bg-black/70 backdrop-blur-sm" onClick={onClose} />
+  1761→          <motion.div initial={{ scale: 0.96, opacity: 0, y: -8 }} animate={{ scale: 1, opacity: 1, y: 0 }} exit={{ scale: 0.96, opacity: 0, y: -8 }} className="relative w-full max-w-2xl jarvis-panel p-0 overflow-hidden">
+  1762→            <div className="flex items-center gap-2.5 px-4 h-12 border-b border-[var(--j-border)]">
+  1763→              <Search className="h-4 w-4 text-[var(--j-cyan)]" />
+  1764→              <input
+  1765→                autoFocus
+  1766→                value={q}
+  1767→                onChange={(e) => setQ(e.target.value)}
+  1768→                placeholder="Search agents, tasks, memory, comms, skills…"
+  1769→                className="flex-1 bg-transparent outline-none text-sm text-[var(--j-text)] placeholder:text-[var(--j-text-mute)]"
+  1770→              />
+  1771→              {loading && <Loader2 className="h-3.5 w-3.5 animate-spin text-[var(--j-cyan)]" />}
+  1772→              {q.trim() && (
+  1773→                <button onClick={() => saveSearch(q)} className="flex items-center gap-1 jarvis-mono text-[9px] uppercase text-[var(--j-cyan)] hover:underline shrink-0">
+  1774→                  <Star className="h-3 w-3" /> {savedSearches.includes(q.trim()) ? 'saved' : 'save'}
+  1775→                </button>
+  1776→              )}
+  1777→              <kbd className="jarvis-mono text-[9px] px-1.5 py-0.5 rounded border border-[var(--j-border)] text-[var(--j-text-mute)]">ESC</kbd>
+  1778→            </div>
+  1779→            <div className="max-h-96 overflow-y-auto jarvis-scroll p-2">
+  1780→              {/* Type filter chips */}
+  1781→              {availableTypes.length > 0 && (
+  1782→                <div className="flex flex-wrap gap-1 px-1 pb-2 mb-1 border-b border-[var(--j-border-soft)]">
+  1783→                  <button
+  1784→                    onClick={() => setTypeFilter('all')}
+  1785→                    className={`jarvis-mono text-[9px] uppercase px-2 py-1 rounded border transition-colors ${
+  1786→                      typeFilter === 'all' ? 'border-[var(--j-cyan)] bg-[var(--j-cyan)]/10 text-[var(--j-cyan)]' : 'border-[var(--j-border)] text-[var(--j-text-mute)] hover:text-[var(--j-text)]'
+  1787→                    }`}
+  1788→                  >
+  1789→                    All ({results.length})
+  1790→                  </button>
+  1791→                  {availableTypes.map((t) => (
+  1792→                    <button
+  1793→                      key={t}
+  1794→                      onClick={() => setTypeFilter(typeFilter === t ? 'all' : t)}
+  1795→                      className={`jarvis-mono text-[9px] uppercase px-2 py-1 rounded border transition-colors ${
+  1796→                        typeFilter === t ? 'border-[var(--j-cyan)] bg-[var(--j-cyan)]/10 text-[var(--j-cyan)]' : 'border-[var(--j-border)] text-[var(--j-text-mute)] hover:text-[var(--j-text)]'
+  1797→                      }`}
+  1798→                    >
+  1799→                      {typeLabel[t] ?? t} ({byType[t]})
+  1800→                    </button>
+  1801→                  ))}
+  1802→                </div>
+  1803→              )}
+  1804→              {results.length > 0 ? (
+  1805→                results.map((r, i) => {
+  1806→                  const Icon = typeIcon[r.type] ?? Search;
+  1807→                  const active = i === sel;
+  1808→                  return (
+  1809→                    <button
+  1810→                      key={r.id}
+  1811→                      onMouseEnter={() => setSel(i)}
+  1812→                      onClick={() => { onNavigate(r.href); onClose(); }}
+  1813→                      className={cn('w-full flex items-center gap-3 px-3 py-2.5 rounded-md text-left transition-colors', active ? 'bg-[var(--j-panel-soft)]' : 'hover:bg-[var(--j-panel-soft)]/60')}
+  1814→                    >
+  1815→                      <div className="flex h-8 w-8 items-center justify-center rounded-md shrink-0" style={{ background: `${r.color}1a`, border: `1px solid ${r.color}33`, color: r.color }}>
+  1816→                        <Icon className="h-4 w-4" />
+  1817→                      </div>
+  1818→                      <div className="min-w-0 flex-1">
+  1819→                        <div className="text-sm text-[var(--j-text)] truncate">{r.title}</div>
+  1820→                        <div className="text-[11px] text-[var(--j-text-dim)] truncate">{r.subtitle}</div>
+  1821→                      </div>
+  1822→                      <div className="text-right shrink-0">
+  1823→                        <div className="jarvis-mono text-[9px] uppercase px-1.5 py-0.5 rounded" style={{ color: r.color, background: `${r.color}1a` }}>{r.type}</div>
+  1824→                        <div className="jarvis-mono text-[9px] text-[var(--j-text-mute)] mt-0.5">{r.meta}</div>
+  1825→                      </div>
+  1826→                    </button>
+  1827→                  );
+  1828→                })
+  1829→              ) : q.trim() ? (
+  1830→                <div className="px-3 py-10 text-center">
+  1831→                  <Search className="h-8 w-8 mx-auto mb-2 text-[var(--j-text-mute)] opacity-40" />
+  1832→                  <div className="text-sm text-[var(--j-text-mute)]">No results for "{q}"</div>
+  1833→                </div>
+  1834→              ) : savedSearches.length > 0 ? (
+  1835→                <div className="px-3 py-4">
+  1836→                  <div className="jarvis-mono text-[9px] uppercase text-[var(--j-text-mute)] mb-2 flex items-center gap-1.5"><Star className="h-3 w-3" /> saved searches</div>
+  1837→                  <div className="flex flex-wrap gap-2">
+  1838→                    {savedSearches.map((s) => (
+  1839→                      <button key={s} onClick={() => setQ(s)} className="group flex items-center gap-1.5 text-xs px-2.5 py-1.5 rounded-md border border-[var(--j-border)] bg-[var(--j-panel-soft)] text-[var(--j-text-dim)] hover:border-[var(--j-cyan)] hover:text-[var(--j-cyan)] transition-colors">
+  1840→                        <Search className="h-3 w-3" /> {s}
+  1841→                        <span onClick={(e) => { e.stopPropagation(); saveSearch(s); }} className="text-[var(--j-text-mute)] hover:text-[var(--j-red)] ml-0.5"><X className="h-2.5 w-2.5" /></span>
+  1842→                      </button>
+  1843→                    ))}
+  1844→                  </div>
+  1845→                </div>
+  1846→              ) : (
+  1847→                <div className="px-3 py-10 text-center">
+  1848→                  <div className="text-sm text-[var(--j-text-mute)]">Type to search across the fleet</div>
+  1849→                  <div className="jarvis-mono text-[10px] text-[var(--j-text-mute)] mt-1">agents · tasks · memory · comms · skills</div>
+  1850→                </div>
+  1851→              )}
+  1852→            </div>
+  1853→            <div className="px-4 py-2 border-t border-[var(--j-border)] bg-[var(--j-panel-soft)]/40 flex items-center justify-between jarvis-mono text-[9px] uppercase text-[var(--j-text-mute)]">
+  1854→              <span>{results.length} results</span>
+  1855→              <span className="flex items-center gap-2">
+  1856→                <span>↑↓ navigate</span>
+  1857→                <span>⏎ open</span>
+  1858→              </span>
+  1859→            </div>
+  1860→          </motion.div>
+  1861→        </motion.div>
+  1862→      )}
+  1863→    </AnimatePresence>
+  1864→  );
+  1865→}
+  1866→
+  1867→/**
+  1868→ * Returns true if the user is currently typing in an input/textarea/select
+  1869→ * (so we don't hijack `?` and other shortcut keys while they're typing).
+  1870→ */
+  1871→function isTypingTarget(target: EventTarget | null): boolean {
+  1872→  if (!(target instanceof HTMLElement)) return false;
+  1873→  const tag = target.tagName.toLowerCase();
+  1874→  return tag === 'input' || tag === 'textarea' || tag === 'select' || target.isContentEditable;
+  1875→}
+  1876→
+  1877→/* ---------- Keyboard shortcuts overlay (press `?`) ---------- */
+  1878→const SHORTCUT_GROUPS: { label: string; accent: string; items: { keys: string[]; label: string; tab?: TabKey }[] }[] = [
+  1879→  {
+  1880→    label: 'Global',
+  1881→    accent: JARVIS.colors.cyan,
+  1882→    items: [
+  1883→      { keys: ['⌘', 'K'], label: 'Command palette' },
+  1884→      { keys: ['⌘', '⇧', 'F'], label: 'Global search' },
+  1885→      { keys: ['⌘', '⇧', 'O'], label: 'Orion voice mode' },
+  1886→      { keys: ['?'], label: 'This shortcuts overlay' },
+  1887→      { keys: ['Esc'], label: 'Close any overlay' },
+  1888→    ],
+  1889→  },
+  1890→  {
+  1891→    label: 'Navigation',
+  1892→    accent: JARVIS.colors.violet,
+  1893→    items: [
+  1894→      { keys: ['G', 'O'], label: 'Overview', tab: 'overview' },
+  1895→      { keys: ['G', 'F'], label: 'Agent Fleet', tab: 'fleet' },
+  1896→      { keys: ['G', 'T'], label: 'Tasks', tab: 'tasks' },
+  1897→      { keys: ['G', 'C'], label: 'ARIA Chat', tab: 'chat' },
+  1898→      { keys: ['G', 'H'], label: 'Fleet Health', tab: 'health' },
+  1899→      { keys: ['G', 'M'], label: 'AI Models', tab: 'models' },
+  1900→      { keys: ['G', 'P'], label: 'Payments', tab: 'payments' },
+  1901→      { keys: ['G', 'A'], label: 'Monitoring', tab: 'monitoring' },
+  1902→      { keys: ['G', 'S'], label: 'Scheduler', tab: 'scheduler' },
+  1903→    ],
+  1904→  },
+  1905→  {
+  1906→    label: 'Theme',
+  1907→    accent: JARVIS.colors.amber,
+  1908→    items: [
+  1909→      { keys: ['T'], label: 'Toggle dark / light theme' },
+  1910→    ],
+  1911→  },
+  1912→];
+  1913→
+  1914→function ShortcutsOverlay({ onClose, onNavigate }: { onClose: () => void; onNavigate: (t: TabKey) => void }) {
+  1915→  const [pendingKeys, setPendingKeys] = useState<string[]>([]);
+  1916→
+  1917→  // Listen for `G` + letter combos for go-to-tab navigation while overlay is open.
+  1918→  useEffect(() => {
+  1919→    let timeout: ReturnType<typeof setTimeout> | null = null;
+  1920→    const onKey = (e: KeyboardEvent) => {
+  1921→      if (e.key === 'Escape') { onClose(); return; }
+  1922→      const key = e.key.toUpperCase();
+  1923→      if (key === 'G' && !isTypingTarget(e.target)) {
+  1924→        setPendingKeys(['G']);
+  1925→        if (timeout) clearTimeout(timeout);
+  1926→        timeout = setTimeout(() => setPendingKeys([]), 1200);
+  1927→        return;
+  1928→      }
+  1929→      if (pendingKeys[0] === 'G' && !isTypingTarget(e.target)) {
+  1930→        for (const grp of SHORTCUT_GROUPS) {
+  1931→          for (const item of grp.items) {
+  1932→            if (item.tab && item.keys[1] === key) {
+  1933→              e.preventDefault();
+  1934→              onNavigate(item.tab);
+  1935→              return;
+  1936→            }
+  1937→          }
+  1938→        }
+  1939→      }
+  1940→      setPendingKeys([]);
+  1941→    };
+  1942→    window.addEventListener('keydown', onKey);
+  1943→    return () => {
+  1944→      window.removeEventListener('keydown', onKey);
+  1945→      if (timeout) clearTimeout(timeout);
+  1946→    };
+  1947→  }, [pendingKeys, onClose, onNavigate]);
+  1948→
+  1949→  return (
+  1950→    <motion.div
+  1951→      className="fixed inset-0 z-[60] flex items-center justify-center p-4"
+  1952→      initial={{ opacity: 0 }}
+  1953→      animate={{ opacity: 1 }}
+  1954→      exit={{ opacity: 0 }}
+  1955→    >
+  1956→      <div className="absolute inset-0 bg-black/70 backdrop-blur-sm" onClick={onClose} />
+  1957→      <motion.div
+  1958→        initial={{ scale: 0.96, opacity: 0, y: 10 }}
+  1959→        animate={{ scale: 1, opacity: 1, y: 0 }}
+  1960→        exit={{ scale: 0.96, opacity: 0, y: 10 }}
+  1961→        className="relative w-full max-w-2xl jarvis-glass border border-[var(--j-border)] rounded-xl overflow-hidden max-h-[88vh] flex flex-col"
+  1962→      >
+  1963→        <div className="flex items-center justify-between p-4 border-b border-[var(--j-border)]">
+  1964→          <div className="flex items-center gap-2.5">
+  1965→            <div className="flex h-8 w-8 items-center justify-center rounded-md bg-[var(--j-cyan)]/15 border border-[var(--j-cyan)]/30">
+  1966→              <Command className="h-4 w-4 text-[var(--j-cyan)]" />
+  1967→            </div>
+  1968→            <div>
+  1969→              <div className="text-sm font-bold text-[var(--j-text)]">Keyboard Shortcuts</div>
+  1970→              <div className="jarvis-mono text-[9px] uppercase text-[var(--j-text-mute)]">
+  1971→                {pendingKeys.length > 0 ? (
+  1972→                  <span className="text-[var(--j-amber)]">listening: {pendingKeys.join(' + ')}…</span>
+  1973→                ) : (
+  1974→                  <span>type `G` then a letter to jump to a tab</span>
+  1975→                )}
+  1976→              </div>
+  1977→            </div>
+  1978→          </div>
+  1979→          <button onClick={onClose} className="text-[var(--j-text-mute)] hover:text-[var(--j-text)] transition-colors">
+  1980→            <X className="h-4 w-4" />
+  1981→          </button>
+  1982→        </div>
+  1983→
+  1984→        <div className="p-4 overflow-y-auto jarvis-scroll grid grid-cols-1 md:grid-cols-3 gap-4">
+  1985→          {SHORTCUT_GROUPS.map((grp) => (
+  1986→            <div key={grp.label}>
+  1987→              <div className="jarvis-mono text-[9px] uppercase tracking-widest mb-2 flex items-center gap-1.5" style={{ color: grp.accent }}>
+  1988→                <span className="h-1 w-1 rounded-full" style={{ background: grp.accent }} />
+  1989→                {grp.label}
+  1990→              </div>
+  1991→              <div className="space-y-1.5">
+  1992→                {grp.items.map((item) => (
+  1993→                  <button
+  1994→                    key={item.label}
+  1995→                    onClick={() => item.tab && onNavigate(item.tab)}
+  1996→                    disabled={!item.tab}
+  1997→                    className={`w-full flex items-center justify-between gap-2 px-2 py-1.5 rounded text-left transition-colors ${
+  1998→                      item.tab ? 'hover:bg-[var(--j-panel-soft)] cursor-pointer' : 'cursor-default'
+  1999→                    }`}
+  2000→                  >
+
+[showing lines 1-2000 of 2030; use offset=2001 with limit to continue reading]

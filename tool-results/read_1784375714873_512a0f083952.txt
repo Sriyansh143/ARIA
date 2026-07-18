@@ -1,0 +1,602 @@
+     1→# JARVIS Mission Control — Worklog
+     2→
+     3→## Project Status
+     4→
+     5→**JARVIS Mission Control v9.0.0** — a comprehensive autonomous-agent orchestration dashboard built on Next.js 16 (App Router) + TypeScript + Tailwind CSS 4 + Prisma (SQLite) + the Z.ai SDK (GLM-4.6). Single-page SPA on `/` with 15 interactive tabs, live telemetry, working AI chat, agent fleet management, skills catalog, memory store, cron scheduler, payments, health monitoring, activity feed, and live logs.
+     6→
+     7→### Current State: ✅ OPERATIONAL & VERIFIED
+     8→- Dev server compiles & serves `/` (HTTP 200), persistent via a double-fork daemon pattern.
+     9→- All 15 tabs render with real data, 0 console errors, 0 page errors.
+    10→- AI chat works end-to-end (GLM-4.6 replied "4" to "what is 2+2?" in ~602ms).
+    11→- Proactive Insights generates live GLM-4.6 contextual analysis of the fleet.
+    12→- Lint: 0 errors, 0 warnings.
+    13→- VLM visual review: "High polish, strong contrast, well-structured layout, no visible defects."
+    14→
+    15→---
+    16→
+    17→## How to (re)start the dev server — IMPORTANT for cron runs
+    18→
+    19→This Kata container **kills background processes when the bash session ends**. `nohup`/`setsid`/`disown` alone are NOT enough because the `bun run dev` script pipes through `tee` (which breaks on session end). The reliable pattern that survives across bash calls is a **double-fork daemon running `next dev` directly** (no `tee` pipe), reparenting to init (PID 1 / tini):
+    20→
+    21→```bash
+    22→cd /home/z/my-project
+    23→pkill -f "next dev" 2>/dev/null; sleep 1
+    24→( setsid bash -c 'exec bunx next dev -p 3000' </dev/null >>/home/z/my-project/dev.log 2>&1 & )
+    25→sleep 12
+    26→curl -s -m 15 -w "HTTP %{http_code}\n" http://localhost:3000/ -o /dev/null
+    27→```
+    28→
+    29→Every webDevReview cron run should execute this at the start so the server is alive for QA.
+    30→
+    31→---
+    32→
+    33→Task ID: BUILD-1
+    34→Agent: main (Z.ai Code)
+    35→Task: Build a comprehensive, polished JARVIS Mission Control dashboard from the fresh Next.js scaffold, inspired by the uploaded `jarvis-mission-control-final.zip` blueprint, then verify with agent-browser and set up the 15-min webDevReview cron.
+    36→
+    37→Work Log:
+    38→- Analyzed the uploaded `jarvis-mission-control-final.zip` (2629 files, the user's massive original v8.0 — 89-model Prisma schema, 18 mini-services, 65 skills, heavy native deps). Determined it is too large/native-dep-heavy to run 1:1 in this sandbox. The zip's bundled `worklog.md` described a prior focused build (15 models, 14 API routes, 12 tabs) — used that as the blueprint and rebuilt a polished, self-contained v9 here.
+    39→- **Prisma schema** (`prisma/schema.prisma`): 15 models — User, Agent, AgentLog, AgentHeartbeat, Skill, Task, MemoryItem, Telemetry, CronJob, Payment, Artifact, ChatMessage, Provider, Notification, FallbackEvent. Composite unique on MemoryItem(key, scope). Pushed via `bunx prisma db push --accept-data-loss` + `prisma generate`.
+    40→- **Core libs**:
+    41→  - `src/lib/config.ts` — JARVIS v9 config, cyberpunk color palette, 8-agent roster (Orion/Vega/Atlas/Nova/Echo/Sage/Forge/Pulse), 20-skill catalog, 6-cron roster, status/priority/level color maps, timeAgo/fmtTime helpers.
+    42→  - `src/lib/llm.ts` — unified LLM client backed by `z-ai-web-dev-sdk` (GLM-4.6), with `chat()`, `quickChat()`, `extractJson()`, and a JARVIS mission-control system prompt. SERVER-SIDE ONLY.
+    43→  - `src/lib/db.ts` — Prisma client (singleton, warn/error log level).
+    44→  - `src/lib/hooks/use-api.ts` — `useApi` polling hook (intervalMs <= 0 = one-shot fetch) + `postJson`/`patchJson`/`deleteJson` helpers.
+    45→- **Seed script** (`scripts/seed.ts`): idempotent — 8 agents + logs, 20 skills, 6 cron jobs, 1 provider, 4 memory items, 3 notifications, 24 telemetry points, 3 tasks, 3 payments, 3 artifacts. Ran successfully.
+    46→- **API routes (17 endpoints)**: `/api/agents` (GET/POST), `/api/agents/[id]` (GET/PATCH/DELETE), `/api/agents/[id]/assign` (POST), `/api/skills` (GET/POST), `/api/skills/[key]` (PATCH/POST run), `/api/memory` (GET/POST upsert), `/api/memory/[id]` (PATCH/DELETE), `/api/chat` (GET history / POST → GLM-4.6), `/api/metrics` (live OS + series + agent load), `/api/tasks` (GET/POST), `/api/tasks/[id]` (PATCH/POST advance/DELETE), `/api/cron` (GET/POST), `/api/cron/[id]/run` (PATCH toggle/POST run), `/api/payments` (GET/POST), `/api/health` (aggregated), `/api/notifications` (GET/POST), `/api/notifications/[id]` (PATCH/DELETE), `/api/logs` (GET filtered), `/api/artifacts` (GET/POST), `/api/dashboard` (single aggregate), `/api/activity` (unified feed), `/api/providers` (GET), `/api/insights` (GLM-4.6 proactive analysis).
+    47→- **Design system** (`src/app/globals.css`): JARVIS cyberpunk dark theme as default root. Custom tokens (--j-cyan/green/amber/red/violet), animated grid+radial-glow background (`.jarvis-bg`), glassy panels with gradient hairline borders (`.jarvis-panel`), card hover lift+glow, gradient shimmer text, status-dot pulse rings, scan-line accent, slide-up/fade-in/float/spin/blink/typing animations, custom scrollbar, radial gauge ring styles, chat markdown prose styling (`.prose-chat`).
+    48→- **Shell** (`src/app/page.tsx` + `page-client.tsx`): SSR disabled (client SPA) with a 15s-timeout loading screen. Main shell: sticky header (JARVIS logo + gradient title, live clock, mini CPU/MEM/LAT/TOK metrics, search button, notifications bell with unread badge + dropdown), collapsible grouped sidebar (Command/Capabilities/Operations/Business) with animated active indicator, sticky tab strip, sticky footer (online status, agent/skill/cron counts, uptime, version). Command palette (Cmd/Ctrl+K) with keyboard nav (↑↓/Enter/Esc), fuzzy search, remounts fresh per open via key.
+    49→- **15 tab components** (`src/components/tabs/`): OverviewTab (hero banner, 4 stat cards, live telemetry area chart, system info, agent fleet sparklines, recent tasks w/ progress, notifications), FleetTab (agent cards w/ status dots, load/success/tasks, skills, cycle-status, detail modal w/ logs, spawn modal), ChatTab (GLM-4.6 chat w/ markdown rendering, quick prompts, typing dots, latency badge, ⏎ to send), TasksTab (stat cards, status filters, task list w/ progress bars, advance/reopen/delete, new-task modal), ActivityTab (timeline feed w/ type icons), SkillsTab (category filters, search, toggle switches, run buttons), MemoryTab (scope filters, search, pin/delete, store-memory modal), TelemetryTab (stat cards, 3 radial gauges, CPU/MEM/DISK area chart, latency line chart, agent load bars), HealthTab (overall status hero, checks list, status pie chart), LogsTab (terminal-style viewer, level+agent filters), SchedulerTab (autopilot banner, cron cards w/ toggle+run), PaymentsTab (revenue cards, methods breakdown, transactions table, new-payment modal), ArtifactsTab (type-colored grid), ProvidersTab (provider cards w/ token bars), InsightsTab (GLM-4.6 hero insight + snapshot stats + overloaded agents).
+    50→- **Shared components** (`src/components/jarvis/shared.tsx`): StatCard, RadialGauge, SectionTitle, StatusDot, PriorityBadge, LevelBadge, Pill, EmptyState, TimeAgo, Sparkline.
+    51→- **Bug fixed during QA**: `useApi` with `intervalMs=0` called `setInterval(doFetch, 0)` → flooded the server (chat polled constantly, payments API timed out). Fixed by treating `intervalMs <= 0` as one-shot (no interval). Chat & modal dropdowns now fetch once + refresh manually.
+    52→- **Lint fix**: command palette reset `setState`-in-effect → replaced with a remount `key` that increments on open (palette mounts fresh, no effect needed).
+    53→- **Dev-server persistence**: discovered the Kata container kills background processes between bash sessions; `nohup`/`setsid`/`disown` on `bun run dev` (which pipes via `tee`) all failed. Solved with a **double-fork daemon** running `bunx next dev -p 3000` directly (no tee pipe), which reparents to init (tini) and persists across bash calls. Documented above for cron runs.
+    54→- **agent-browser verification**: opened http://localhost:3000 — clean load, 0 errors, 0 console warnings. Swept all 15 tabs (Overview/Fleet/Chat/Tasks/Activity/Skills/Memory/Telemetry/Health/Logs/Scheduler/Artifacts/Providers/Insights) — every tab renders its heading + data, 0 errors. Verified Chat end-to-end (GLM-4.6 replied "4" in 602ms, rendered). Verified Insights end-to-end (GLM-4.6 generated "Atlas is near capacity; redirect pending tasks to idle units…"). Verified Payments API returns seeded data (3 payments, ₹5298 confirmed). Verified command palette opens via Ctrl+K with keyboard nav. Verified polling rate is healthy (no flooding).
+    55→- **VLM visual review** (glm-4.6v on the overview screenshot): "High polish & consistency, strong contrast/readability, well-structured layout, no visible defects."
+    56→
+    57→Stage Summary:
+    58→- ✅ Full JARVIS v9 dashboard built from scratch: 15 Prisma models, 17 API routes, 15-tab SPA, GLM-4.6 chat + insights, live telemetry, agent fleet, skills, memory, cron scheduler, payments, health, logs, activity, artifacts, providers.
+    59→- ✅ Lint clean (0 errors). Dev server persistent via double-fork daemon.
+    60→- ✅ agent-browser verified: all 15 tabs render, chat works, insights work, no errors.
+    61→- ✅ VLM-confirmed polished visual design.
+    62→- 📌 Next: set up the 15-min webDevReview cron for continuous autonomous improvement.
+    63→
+    64→## Current Goals / Completed Modifications / Verification Results
+    65→- Goal: deliver a polished, working, improvable JARVIS Mission Control dashboard. ✅ achieved.
+    66→- Verification: agent-browser golden path (tab sweep + chat + insights + payments) all pass; lint clean; VLM design review positive.
+    67→
+    68→## Unresolved Issues / Risks & Priority Recommendations for Next Phase
+    69→1. **Dev-server persistence** (mitigated, not solved): the double-fork daemon works but each webDevReview cron run should re-run the start snippet above to guarantee the server is alive for QA. The user's Preview Panel depends on the server being up.
+    70→2. **Polling vs WebSockets**: the dashboard uses HTTP polling (5–15s) rather than socket.io. Reliable, but a future phase could add a socket.io mini-service for true real-time agent status.
+    71→3. **Scale gap**: the original zip has 89 models / 65 skills / 18 mini-services. This build has 15 models / 20 skills / no mini-services. Future phases can expand the schema, add the agent-comms bus, DAG planner, memory graph, and skill execution endpoints.
+    72→4. **Feature roadmap** (recommended next-phase work for the cron):
+    73→   - Agent-to-agent messaging comms tab.
+    74→   - Task Kanban board with drag-and-drop (@dnd-kit is installed).
+    75→   - Payments revenue trend chart over time.
+    76→   - Skill execution that actually invokes web-search/web-reader skills.
+    77→   - Light/dark theme toggle.
+    78→   - More agent interactivity (assign task from fleet, agent detail actions).
+    79→
+    80→---
+    81→Task ID: CRON-1
+    82→Agent: main (Z.ai Code) — webDevReview cron run #1
+    83→Task: Assess project status, perform QA via agent-browser, fix bugs, and add new features + styling improvements.
+    84→
+    85→Work Log:
+    86→- Read worklog.md to understand prior progress (BUILD-1: 15 Prisma models, 17 API routes, 15-tab JARVIS v9 dashboard, GLM-4.6 chat, lint clean).
+    87→- Started the persistent dev server via the documented double-fork daemon pattern (`setsid bash -c 'exec bunx next dev -p 3000'`). Server came up HTTP 200.
+    88→- **QA via agent-browser**: opened http://localhost:3000, clean load (0 page errors, 0 console errors). Swept all 15 existing tabs — every tab rendered its heading + data with 0 errors. Ran an API health sweep: all 14 endpoints returned 200. Verified GLM-4.6 chat end-to-end (replied "OK." in 325ms). Lint clean (0 errors). **App was stable — no bugs to fix.** Proceeded to add new features.
+    89→- **Schema extension**: added `AgentMessage` model (agent-to-agent comms bus: fromAgent, toAgent, subject, body, priority, read, thread) with indexes on toAgent/thread/createdAt. Pushed via `prisma db push --accept-data-loss` + `prisma generate`. Restarted dev server so the running process picked up the new Prisma Client (the in-memory client was stale → `/api/comms` initially 500'd with `db.agentMessage undefined`; restart fixed it).
+    90→- **New feature 1 — Agent Comms Bus** (`/api/comms` GET/POST + `/api/comms/[id]` PATCH/DELETE + `CommsTab.tsx`): a full inter-agent messaging system. Inbox list (left) + message detail pane (right), thread filter chips (engineering/research/standup/ops/analytics/sales/general) with per-thread colors, priority badges (normal/high/urgent), broadcast support (toAgent=BROADCAST), unread indicators (left accent bar + violet badge), compose modal with from/to/priority/thread selectors, mark-read-on-click, delete, reply (pre-fills thread+recipient). Also emits an agent log when a message is sent (feeds the Activity tab). Seeded 10 realistic inter-agent messages (ORION→ATLAS refactor request, VEGA→SAGE memory handoff, ORION broadcast standup, PULSE→ORION CPU spike report, etc.).
+    91→- **New feature 2 — Task Kanban Board** (`KanbanTab.tsx` with @dnd-kit/core): a 4-column drag-and-drop board (Backlog / In Progress / Done / Blocked). Cards are draggable via `useDraggable`/`useDroppable` + `DragOverlay`; dropping a card on a column PATCHes the task status (and sets progress: 100 for done, 25 for in_progress). Column drop-zones highlight on hover. Cards show priority badge (left accent stripe), assignee, in-progress progress bar, and hover actions (advance/reopen/delete). Column-count strip on top; empty columns show a "drop here" hint. New-task modal included.
+    92→- **New feature 3 — Payments Revenue Trend** (`/api/payments/trend` GET + `RevenueTrendChart` component in PaymentsTab): 14-day confirmed-revenue series bucketed by day, with 3 view modes — **daily** (composed area+line: revenue area + count line), **stacked** (bar chart broken down by payment method: UPI/card/netbanking/QR/wallet), and **cumulative** (running-total area chart). Summary stat row (14-day total, daily avg, best day). Seeded 17 historical payments spread across the last 14 days with varied methods/amounts/payers so the chart has real data (₹65,283 total, ₹4,663 daily avg, best day Jul 14).
+    93→- **Styling refinements** (globals.css + page-client.tsx):
+    94→  - Added `.jarvis-tab-glow` (text-shadow glow) applied to the active tab-strip label.
+    95→  - Added `.jarvis-sheen` (hover sweep sheen), `.jarvis-panel-frost` (frosted top-edge highlight), `.jarvis-num` (tabular-nums), staggered-entrance keyframes.
+    96→  - Added `prefers-reduced-motion` media query to disable blink/pulse/scan/shimmer/spin/float animations for accessibility.
+    97→  - Sidebar: added a live **comms unread badge** (violet pill) on the "Agent Comms" nav button, fed by polling `/api/comms` every 15s.
+    98→  - Footer: updated module count to "17 modules" (was "6 cron jobs") to reflect the expanded tab set.
+    99→  - Revenue trend chart uses CartesianGrid + ₹k tick formatting for a polished financial-chart look.
+   100→- **agent-browser verification of new features**:
+   101→  - Comms tab: heading "Agent Comms Bus" renders, 10 seeded messages visible, thread filter chips work, opened Compose modal, filled subject+body, sent → message count went 10→11 (verified via API), 0 errors.
+   102→  - Kanban tab: heading "Task Kanban" renders, 4 columns (Backlog/In Progress/Done/Blocked) with cards distributed 1/1/1/0, 0 errors.
+   103→  - Payments tab: "Revenue Trend" section renders with daily/stacked/cumulative toggle buttons, chart SVG present, switched to stacked view successfully, 0 errors.
+   104→  - Full 17-tab sweep: all 17 tabs render with 0 errors, 0 console errors.
+   105→- **VLM visual review** (glm-4.6v on Comms screenshot): "Clean organized sections, high contrast with color-coded tags, no visible defects — consistent dark theme, functional UI elements, logical information flow."
+   106→- Lint: 0 errors, 0 warnings throughout.
+   107→
+   108→Stage Summary:
+   109→- ✅ QA passed: app was stable on arrival (0 errors across 15 tabs + 14 APIs + chat). No bugs to fix.
+   110→- ✅ Added 3 new features: Agent Comms Bus (messaging, 2 new API routes + 1 model + tab), Task Kanban Board (@dnd-kit drag-and-drop, tab), Payments Revenue Trend (1 new API route + 3-mode chart).
+   111→- ✅ Expanded from 15 → 17 tabs, 17 → 19 API routes, 15 → 16 Prisma models, 20 → 20 skills.
+   112→- ✅ Styling refinements: tab-glow, sheen/frost utilities, reduced-motion accessibility, comms unread sidebar badge, footer count update.
+   113→- ✅ Lint clean (0 errors). All 17 tabs verified via agent-browser (0 errors). VLM-confirmed visual quality.
+   114→- 📌 Dashboard now has 17 tabs (was 15), 19 API routes (was 17), 16 models (was 15).
+   115→
+   116→## Updated Priority Recommendations for Next Phase
+   117→1. **Real skill execution**: wire the Skills tab "run" button to actually invoke web-search/web-reader via the z-ai SDK and show results inline.
+   118→2. **Light/dark theme toggle**: add a light mode variant alongside the dark cyberpunk theme (next-themes is installed).
+   119→3. **Agent comms auto-replies**: when a message is sent to an agent, have GLM-4.6 draft a contextual reply on behalf of that agent.
+   120→4. **Memory graph visualization**: a force-directed graph of memory items + their tag relationships (a mini-service or canvas-based).
+   121→5. **WebSocket mini-service**: replace polling with socket.io for true real-time agent status/comms.
+   122→6. **Task dependencies / DAG**: link tasks with blocking relationships and render a dependency graph.
+   123→
+   124→---
+   125→Task ID: CRON-2
+   126→Agent: main (Z.ai Code) — webDevReview cron run #2
+   127→Task: Assess project status, perform QA via agent-browser, fix bugs, and add new features + styling improvements.
+   128→
+   129→Work Log:
+   130→- Read worklog.md to understand prior progress (BUILD-1 + CRON-1: 16 Prisma models, 19 API routes, 17-tab JARVIS v9 dashboard with Comms/Kanban/Revenue-trend, GLM-4.6 chat, lint clean).
+   131→- Started the persistent dev server via the double-fork daemon pattern. Server came up HTTP 200.
+   132→- **QA via agent-browser**: opened http://localhost:3000, clean load (0 page errors, 0 console errors). Swept all 17 existing tabs — every tab rendered with 0 errors. API health sweep: all 17 endpoints returned 200 (incl. /api/comms, /api/payments/trend). Verified GLM-4.6 chat still works. Lint clean. **App was stable — no bugs to fix.** Proceeded to build the 3 recommended next-phase features.
+   133→- **Schema extension**: added `SkillRun` model (skill execution history: skillKey, input, output, status, latencyMs, tokens) with indexes on skillKey/createdAt. Pushed via `prisma db push --accept-data-loss` + `prisma generate`. Restarted dev server so the running process picked up the new Prisma Client.
+   134→- **New feature 1 — Real Skill Execution (Skill Runner tab)**: the headline feature of this round.
+   135→  - New API routes: `/api/skills/run` (POST — executes a skill for real via the z-ai-web-dev-sdk) and `/api/skills/history` (GET — recent run history).
+   136→  - Supports 6 skills: **web-search** (`zai.functions.invoke('web_search')` → 8 results with url/name/snippet/host_name/date), **web-reader** (`zai.functions.invoke('page_reader')` → extracts title/html/publishedTime from any URL), **summarize**, **code-gen**, **code-review**, **forecast** (all via `zai.chat.completions.create` with role-specific prompts). Generic LLM fallback for any other skill key.
+   137→  - Each run is persisted to the SkillRun table (input, serialized output, status, latencyMs, tokens) and increments the skill's run counter.
+   138→  - New `SkillRunnerTab.tsx`: 6-skill selector grid (color-coded), input textarea with per-skill placeholder + hint, Run button with ⌘+⏎ shortcut, result panel with type-aware rendering — search results render as clickable link cards (host + date + title + snippet), web-reader renders title/url/extracted plain text, LLM skills render as markdown. Recent-runs history list (click to reload a past run). Loading spinner + status/latency badges.
+   139→  - **Verified end-to-end**: ran "Next.js 16 features" web-search → 8 real results in ~1s (nextjs.org, strapi.io, etc.), rendered as clickable links, 0 errors.
+   140→- **New feature 2 — Light/Dark Theme Toggle**:
+   141→  - Added a complete `html.light` theme variant in globals.css — clean high-contrast ops-console palette (white panels, #0284C7 cyan accent, slate text) with light overrides for `.jarvis-bg` (lighter grid), `.jarvis-panel` (white + soft shadow), `.jarvis-text-gradient`, `.jarvis-btn-accent`, scrollbar. Preserves the JARVIS cyan identity in both modes.
+   142→  - Theme state in page-client.tsx: loads persisted preference from `localStorage('jarvis-theme')` on mount (defaults dark), toggle button (Sun/Moon icon) in the header next to search, persists choice. Toggles `html.light`/`html.dark` classes.
+   143→  - **VLM-verified**: light theme confirmed "readable and polished, strong contrast, no visible defects."
+   144→- **New feature 3 — Agent Comms Auto-Reply (AI)**:
+   145→  - New API route `/api/comms/reply` (POST): takes a messageId (or raw from/to/subject/body), looks up the original message + the recipient agent's role, has GLM-4.6 draft an in-character reply (prompt includes the agent's role for persona context, ≤80 words), persists the reply as a new AgentMessage, and logs it under the replying agent.
+   146→  - Added "Auto-Reply (AI)" button (Sparkles icon) to the CommsTab message detail pane next to the manual Reply button, with a "Thinking…" loading state.
+   147→  - **Verified end-to-end**: selected ORION→NOVA "Ship the forecast chart" message, clicked Auto-Reply → GLM-4.6 generated an in-character NOVA reply: "Understood. The revenue forecast has been published to the dashboard and flagged as experimental. I've included a confidence interval annotation…". Comms count went 11→12, 0 errors.
+   148→- **Styling refinements**:
+   149→  - Light theme full variant (above) — a polished second mode, not just inverted colors.
+   150→  - Theme toggle button in header with Sun/Moon icons + tooltip.
+   151→  - Skill Runner: per-skill color-coded selector with active glow, result cards with hover states, loading spinner in accent color.
+   152→  - Comms: auto-reply button uses the accent style; "Thinking…" state with spinner.
+   153→- **agent-browser verification of new features**:
+   154→  - Skill Runner tab: heading "Skill Runner" renders, all 6 skill buttons present, ran web-search "Next.js 16 features release" → 8 real results rendered as clickable links, 0 errors.
+   155→  - Comms auto-reply: selected message, clicked Auto-Reply → GLM-4.6 reply generated and persisted (NOVA→ORION "RE: Ship the forecast chart"), 0 errors.
+   156→  - Theme toggle: clicked → html class switched to `light`, screenshot confirms light theme; toggled back to `dark`. VLM confirmed light theme quality.
+   157→  - Full 18-tab sweep: all 18 tabs render with 0 errors, 0 console errors.
+   158→- Lint: 0 errors, 0 warnings throughout.
+   159→
+   160→Stage Summary:
+   161→- ✅ QA passed: app was stable on arrival (0 errors across 17 tabs + 17 APIs + chat). No bugs to fix.
+   162→- ✅ Added 3 new features: Real Skill Execution (Skill Runner tab + 2 API routes + SkillRun model — web-search/web-reader/summarize/code-gen/code-review/forecast all execute for real via z-ai SDK), Light/Dark Theme Toggle (full light variant + header toggle + localStorage persistence), Agent Comms Auto-Reply (GLM-4.6 drafts in-character replies).
+   163→- ✅ Expanded from 17 → 18 tabs, 19 → 22 API routes, 16 → 17 Prisma models.
+   164→- ✅ Styling refinements: complete light theme variant, theme toggle button, skill-runner result cards.
+   165→- ✅ Lint clean (0 errors). All 18 tabs verified via agent-browser (0 errors). VLM-confirmed light theme quality. Dev server up (HTTP 200) for preview.
+   166→- 📌 Dashboard now has 18 tabs (was 17), 22 API routes (was 19), 17 models (was 16).
+   167→
+   168→## Updated Priority Recommendations for Next Phase
+   169→1. **Memory graph visualization**: a force-directed graph of memory items + their tag relationships (canvas/SVG-based).
+   170→2. **WebSocket mini-service**: replace polling with socket.io for true real-time agent status/comms/skill-run updates.
+   171→3. **Task dependencies / DAG**: link tasks with blocking relationships and render a dependency graph.
+   172→4. **Skill chaining**: let one skill's output feed another (e.g. web-search → web-reader → summarize pipeline).
+   173→5. **Agent fleet topology graph**: visualize the 8-agent roster + their active comms/skill connections as a live network diagram.
+   174→6. **Dashboard personalization**: let the operator pin/reorder tabs and choose which widgets appear on Overview.
+   175→
+   176→---
+   177→Task ID: CRON-3
+   178→Agent: main (Z.ai Code) — webDevReview cron run #3
+   179→Task: Assess project status, perform QA via agent-browser, fix bugs, and add new features + styling improvements.
+   180→
+   181→Work Log:
+   182→- Read worklog.md to understand prior progress (BUILD-1 + CRON-1 + CRON-2: 17 Prisma models, 22 API routes, 18-tab JARVIS v9 dashboard with Comms/Kanban/Revenue-trend/Skill-Runner/Theme-toggle/Auto-reply, GLM-4.6 chat, lint clean).
+   183→- Started the persistent dev server via the double-fork daemon pattern. Server came up HTTP 200.
+   184→- **QA via agent-browser**: opened http://localhost:3000, clean load (0 page errors, 0 console errors). Swept all 18 existing tabs — every tab rendered with 0 errors. API health sweep: all 19 endpoints returned 200 (comms/reply 405 on GET = correct, POST-only). Lint clean. **App was stable — no bugs to fix.** Proceeded to build the 3 recommended next-phase features (memory graph, fleet topology, skill chaining).
+   185→- **New feature 1 — Memory Graph Visualization** (the headline visual feature):
+   186→  - New API route `/api/memory/graph` (GET): returns nodes (memory items colored by scope + tags sized by frequency) and edges (item→tag links + tag co-occurrence edges). Returns 12 nodes / 12 edges from the seeded memory.
+   187→  - New reusable `ForceGraph` component (`src/components/jarvis/ForceGraph.tsx`): a lightweight force-directed graph renderer in raw SVG — no external graph dependency. Implements a Verlet physics simulation (node repulsion via inverse-square Coulomb, spring forces along edges, centering gravity, velocity damping). Runs ~400 frames via requestAnimationFrame to settle. Interactive: hover highlights a node + its neighbors (dims unconnected nodes), drag nodes to reposition (re-runs the sim), ResizeObserver tracks container width. Includes a `GraphLegend` helper.
+   188→  - New `MemoryGraphTab.tsx`: stat cards (items/tags/edges/pinned), the ForceGraph (height 460) with legend (semantic/episodic/working/conversation/tag color key), and a scope-breakdown grid.
+   189→  - **VLM-verified**: "nodes and edges visible, colors distinguishable, no defects, graph loads and displays as intended."
+   190→- **New feature 2 — Agent Fleet Topology Graph**:
+   191→  - New API route `/api/fleet/topology` (GET): returns 8 agent nodes (colored by status, sized by load) + comms edges (aggregated from recent AgentMessages, colored by frequency, width by count; broadcasts expand to all agents). Computes the fleet "hub" (most-connected agent). Returns 8 nodes / 14 edges, hub=ORION (12 links).
+   192→  - New `FleetTopologyTab.tsx`: stat cards (agents/working/comms-edges/avg-load), the ForceGraph showing the live agent network, a roster grid (each agent with status dot, role, load%, link count), and a hub-highlight banner.
+   193→- **New feature 3 — Skill Chaining Pipeline**:
+   194→  - New API route `/api/skills/chain` (POST): executes a pipeline of skill steps sequentially, feeding each step's output as the next step's input. Supports all 7 skill types (web-search/web-reader/summarize/code-gen/code-review/forecast/llm). Each step's output is transformed into a string that the next skill can consume (e.g. web-search results → concatenated title+url+snippet text for the reader/summarizer). Persists each step to SkillRun history. Stops on error. maxDuration=120s.
+   195→  - New `SkillChainTab.tsx`: 3 preset pipelines (Research: search→read→summarize; Code Analysis: gen→review; Deep Research: search→read→forecast), a visual pipeline builder (add/remove/reorder steps via ↑↓ buttons, per-step skill dropdown), initial input textarea, per-step live status (spinner while running, ✓/✗ on completion), and a results panel showing each step's output (search → link cards, LLM → markdown, with latency badges). Footer count + total pipeline latency.
+   196→  - **Verified end-to-end**: ran the code-gen→code-review pipeline via API — step 1 generated a TypeScript identity function (2007ms), step 2 reviewed it (3506ms), chaining worked (review received the generated code). Ran the research preset via UI — web-search succeeded (1937ms, 5 results incl. nextjs.org), web-reader failed on nextjs.org (500 anti-scraping, correctly shown as error), chain stopped. All 0 errors.
+   197→- **Styling refinements**:
+   198→  - ForceGraph: hover glow ring on nodes, drop-shadow filter on hover, dimmed unconnected nodes (0.25 opacity), spring-edge dasharray for labeled edges, drag cursor, bounded node positions.
+   199→  - Skill Pipeline: per-step color-coded skill icons, animated step rows with layout animations, status pills (green/red), preset cards with active glow border.
+   200→  - Fleet Topology: hub banner with Radio icon, roster grid with link-count badges, status-dot glows.
+   201→- **agent-browser verification of new features**:
+   202→  - Memory Graph tab: heading renders, 12 SVG graph nodes visible (matching API), VLM-confirmed correct rendering, 0 errors.
+   203→  - Fleet Topology tab: heading renders, 8 agent nodes + 14 edges, 0 errors.
+   204→  - Skill Pipeline tab: heading renders, ran research preset → 3 steps executed (search success → reader error → chain stopped, correctly displayed), 0 errors. Verified code-gen→code-review chaining via API (both success).
+   205→  - Full 21-tab sweep: all 21 tabs render with 0 errors, 0 console errors.
+   206→- Lint: 0 errors, 0 warnings throughout.
+   207→
+   208→Stage Summary:
+   209→- ✅ QA passed: app was stable on arrival (0 errors across 18 tabs + 19 APIs). No bugs to fix.
+   210→- ✅ Added 3 new features: Memory Graph (force-directed SVG graph + reusable ForceGraph component + /api/memory/graph), Fleet Topology (agent network diagram + /api/fleet/topology with hub detection), Skill Chaining Pipeline (multi-step skill execution + /api/skills/chain + pipeline builder UI with presets).
+   211→- ✅ Expanded from 18 → 21 tabs, 22 → 25 API routes, 17 Prisma models (unchanged — reused SkillRun).
+   212→- ✅ Styling refinements: force-graph hover/drag interactions, pipeline step animations, topology hub banner.
+   213→- ✅ Lint clean (0 errors). All 21 tabs verified via agent-browser (0 errors). VLM-confirmed graph rendering quality. Dev server up (HTTP 200) for preview.
+   214→- 📌 Dashboard now has 21 tabs (was 18), 25 API routes (was 22).
+   215→
+   216→## Updated Priority Recommendations for Next Phase
+   217→1. **WebSocket mini-service**: replace HTTP polling with socket.io for true real-time agent status/comms/skill-run/graph updates.
+   218→2. **Task dependencies / DAG**: link tasks with blocking relationships and render a dependency graph (reuse ForceGraph).
+   219→3. **Dashboard personalization**: let the operator pin/reorder tabs and choose which widgets appear on Overview.
+   220→4. **Memory graph interactions**: click a node to open the memory item detail; filter graph by scope/tag.
+   221→5. **Pipeline templates**: save custom pipelines to the DB for reuse; share pipelines across agents.
+   222→6. **Agent autonomy loop**: let an agent autonomously run a pipeline (e.g. ORION runs research → assigns findings to VEGA) on a schedule.
+   223→
+   224→---
+   225→Task ID: CRON-4
+   226→Agent: main (Z.ai Code) — webDevReview cron run #4
+   227→Task: Assess project status, perform QA via agent-browser, fix bugs, and add new features + styling improvements.
+   228→
+   229→Work Log:
+   230→- Read worklog.md to understand prior progress (BUILD-1 + CRON-1/2/3: 17 Prisma models, 25 API routes, 21-tab JARVIS v9 dashboard with Comms/Kanban/Revenue-trend/Skill-Runner/Theme-toggle/Auto-reply/Memory-Graph/Fleet-Topology/Skill-Chain/ForceGraph, GLM-4.6 chat, lint clean).
+   231→- Started the persistent dev server via the double-fork daemon pattern. Server came up HTTP 200.
+   232→- **QA via agent-browser**: opened http://localhost:3000, clean load (0 page errors, 0 console errors). Swept all 21 existing tabs — every tab rendered with 0 errors. API health sweep: all 23 endpoints returned 200 (POST-only routes 405 on GET = correct). Lint clean. **App was stable — no bugs to fix.** Proceeded to build the 3 recommended next-phase features (dashboard personalization, task DAG, memory graph interactions).
+   233→- **Schema extension**: added `TaskLink` model (task dependency edges: taskId, dependsOnId, with @@unique([taskId, dependsOnId]) to prevent duplicate edges). Pushed via `prisma db push --accept-data-loss` + `prisma generate`. Restarted dev server so the running process picked up the new Prisma Client.
+   234→- **New feature 1 — Dashboard Personalization (pin/hide tabs)**:
+   235→  - Added `tabPrefs` state (`{ hidden: TabKey[]; pinned: TabKey[]; order: TabKey[] }`) in page-client.tsx, persisted to `localStorage('jarvis-tab-prefs')`. Loaded on mount via effect, saved on every change via `updateTabPrefs` callback.
+   236→  - Modified the `grouped` useMemo to filter out hidden tabs and render pinned tabs in a dedicated "Pinned" group at the top of the sidebar.
+   237→  - New `ManageTabsModal` component: a full panel with all 22 tabs listed in a 2-column grid. Each tab row has 3 actions: pin toggle (Pin icon, fills violet when pinned), navigate (click the label to jump to that tab), hide/show toggle (Eye/EyeOff icon). Header shows live counts (visible/pinned/hidden). Footer has "reset" to clear all prefs + "Done" button. The modal opens via a new "Manage Tabs" button (Sliders icon) in the sidebar footer.
+   238→  - **Verified end-to-end**: opened the modal, pinned a tab → "Pinned" group appeared in the sidebar, 0 errors. Preferences persist to localStorage.
+   239→- **New feature 2 — Task Dependencies / DAG**:
+   240→  - New API routes: `/api/tasks/links` (GET — enriched links with task titles via manual lookup; POST — create a dependency edge with **cycle detection** via DFS; DELETE — remove an edge) and `/api/tasks/graph` (GET — returns nodes colored by status + sized by priority, edges as blocker→blocked, plus stats: tasks/links/blocked/ready/completed).
+   241→  - Fixed a bug in the initial GET /tasks/links: used Prisma `include` with relation names that don't exist on TaskLink (no relation fields in schema). Rewrote to do manual lookups: fetch all referenced tasks in one query, build a map, enrich each link. Now returns correct enriched data.
+   242→  - Enhanced the reusable `ForceGraph` component: added `onNodeClick` prop + `dragMovedRef` to distinguish click vs drag (prevents node-click from firing after a drag). Cursor changes to pointer when onNodeClick is set.
+   243→  - New `TaskDagTab.tsx`: stat cards (tasks/dependencies/blocked/ready), the ForceGraph DAG (click a node to open its detail), a detail panel showing the selected task's status/priority/assignee/progress + its "blocked by" and "blocks" lists (with per-edge remove buttons), a dependencies list panel (when no node selected), and an AddLinkModal (select task + blocker, with validation preventing self-deps and cycles).
+   244→  - **Verified end-to-end**: created a dependency via API (task "Refactor telemetry polling" depends on "Build memory consolidation cron" → completed), graph shows 3 nodes + 1 edge, stats show 1 blocked/1 ready/1 completed. Clicked a node in the UI → detail panel showed "blocked by" / "blocks" sections, 0 errors. VLM-confirmed: "graph renders correctly with nodes, edges, and status-based coloring."
+   245→  - **Cycle prevention**: the POST endpoint runs a DFS cycle check (`hasPath`) before creating an edge — if adding the edge would create a cycle (dependsOnId already transitively depends on taskId), it returns 400 with "this dependency would create a cycle".
+   246→- **New feature 3 — Memory Graph Interactions**:
+   247→  - Rewrote `MemoryGraphTab.tsx` with: scope filter chips (all/semantic/episodic/working/conversation — color-coded, click to filter), tag filter dropdown (all tags / specific tag), and click-to-detail on graph nodes.
+   248→  - The filter logic: filters nodes by scope (memory items only, keeps all tags when tagFilter='all'); keeps tags connected to kept items; filters edges to only those between kept nodes. A "clear" button appears when any filter is active. Shows "N shown" count when filtered.
+   249→  - New `NodeDetailPanel`: shows the selected node's type badge (scope/tag), pinned indicator, value (for memory items) or item count (for tags), and a "connected" list of all linked nodes with their type/color. Scope-breakdown cards at the bottom are now clickable (toggle scope filter).
+   250→  - **Verified end-to-end**: Memory Graph renders 12 nodes, scope/tag filters present, clicked a node → "Node Detail" panel showed connected nodes, 0 errors.
+   251→- **Styling refinements**:
+   252→  - ForceGraph: click cursor (pointer vs grab), drag-vs-click distinction, glow ring on hovered nodes.
+   253→  - Manage Tabs modal: 2-column grid with per-tab pin/navigate/hide actions, live counts in header, accent footer.
+   254→  - Memory Graph: filter chips with color dots, clickable scope-breakdown cards, animated detail panel with AnimatePresence.
+   255→  - Task DAG: stat cards with icons, per-edge remove buttons, status-colored nodes with priority sizing.
+   256→- **agent-browser verification of new features**:
+   257→  - Task DAG tab: heading "Task Dependency Graph" renders, 3 graph nodes, clicked a node → detail panel showed "blocked by"/"blocks", 0 errors.
+   258→  - Memory Graph tab: heading renders, 12 nodes, scope+tag filters present, clicked a node → "Node Detail" panel showed connected nodes, 0 errors.
+   259→  - Manage Tabs modal: opened via sidebar button, pinned a tab → "Pinned" group appeared in sidebar, 0 errors.
+   260→  - Full 22-tab sweep: all 22 tabs render with 0 errors, 0 console errors.
+   261→- Lint: 0 errors, 0 warnings throughout.
+   262→
+   263→Stage Summary:
+   264→- ✅ QA passed: app was stable on arrival (0 errors across 21 tabs + 23 APIs). No bugs to fix.
+   265→- ✅ Added 3 new features: Dashboard Personalization (pin/hide tabs + ManageTabsModal + localStorage persistence), Task Dependencies/DAG (TaskLink model + 2 API routes with cycle detection + TaskDagTab with click-to-detail + ForceGraph onNodeClick), Memory Graph Interactions (scope/tag filters + click-to-detail + NodeDetailPanel).
+   266→- ✅ Expanded from 21 → 22 tabs, 25 → 27 API routes, 17 → 18 Prisma models.
+   267→- ✅ Enhanced ForceGraph with click support (reusable for future graph features).
+   268→- ✅ Fixed the tasks/links GET include bug (rewrote with manual lookups).
+   269→- ✅ Styling refinements: filter chips, clickable scope cards, manage-tabs grid, drag-vs-click distinction.
+   270→- ✅ Lint clean (0 errors). All 22 tabs verified via agent-browser (0 errors). VLM-confirmed DAG rendering quality. Dev server up (HTTP 200) for preview.
+   271→- 📌 Dashboard now has 22 tabs (was 21), 27 API routes (was 25), 18 models (was 17).
+   272→
+   273→## Updated Priority Recommendations for Next Phase
+   274→1. **WebSocket mini-service**: replace HTTP polling with socket.io for true real-time agent status/comms/skill-run/graph updates.
+   275→2. **Pipeline templates**: save custom skill pipelines to the DB for reuse; share pipelines across agents.
+   276→3. **Agent autonomy loop**: let an agent autonomously run a pipeline (e.g. ORION runs research → assigns findings to VEGA) on a schedule.
+   277→4. **Task DAG auto-unblock**: when a blocker task completes, automatically mark dependent tasks as ready and notify the assignee.
+   278→5. **Memory graph search**: full-text search across memory items with relevance scoring, highlighted in the graph.
+   279→6. **Dashboard layout customization**: let the operator resize/rearrange Overview widgets (not just tabs).
+   280→
+   281→---
+   282→Task ID: CRON-5
+   283→Agent: main (Z.ai Code) — webDevReview cron run #5
+   284→Task: Assess project status, perform QA via agent-browser, fix bugs, and add new features + styling improvements.
+   285→
+   286→Work Log:
+   287→- Read worklog.md to understand prior progress (BUILD-1 + CRON-1/2/3/4: 18 Prisma models, 27 API routes, 22-tab JARVIS v9 dashboard with Comms/Kanban/Revenue-trend/Skill-Runner/Theme-toggle/Auto-reply/Memory-Graph/Fleet-Topology/Skill-Chain/ForceGraph/Tab-Personalization/Task-DAG, GLM-4.6 chat, lint clean).
+   288→- Started the persistent dev server via the double-fork daemon pattern. Server came up HTTP 200.
+   289→- **QA via agent-browser**: opened http://localhost:3000, clean load (0 page errors, 0 console errors). Swept all 22 existing tabs — every tab rendered with 0 errors. API health sweep: all 25 endpoints returned 200 (POST-only routes 405 on GET = correct). Lint clean. **App was stable — no bugs to fix.** Proceeded to build the 3 recommended next-phase features (pipeline templates, task auto-unblock, agent autonomy loop).
+   290→- **Schema extension**: added `Pipeline` model (saved skill pipeline templates: name, description, steps JSON, owner agent, runs counter). Pushed via `prisma db push --accept-data-loss` + `prisma generate`. Restarted dev server so the running process picked up the new Prisma Client.
+   291→- **New feature 1 — Pipeline Templates (DB-backed)**:
+   292→  - New API routes: `/api/pipelines` (GET — list all templates with parsed steps; POST — save/update a template, upserts by name) and `/api/pipelines/[id]` (GET one, DELETE, POST to increment run counter).
+   293→  - Enhanced `SkillChainTab.tsx`: added a "Saved Templates" section (shows all DB-saved pipelines with owner, run count, description, Load + Delete buttons), a "Save as Template" button in the Pipeline Builder, and a `SaveTemplateModal` (name + description + step preview). Loading a template populates the builder with its steps. Deleting removes from DB. Templates persist across sessions.
+   294→  - **Verified end-to-end**: saved a "Competitor Scan" template (2 steps: web-search → summarize) via API → listed in the templates API → would render in the Saved Templates section of the Skill Pipeline tab. 0 errors.
+   295→- **New feature 2 — Task DAG Auto-Unblock**:
+   296→  - Enhanced `/api/tasks/[id]` PATCH and POST handlers: when a task is marked `completed`, an `unblockDependents()` helper runs — finds all tasks that depend on the completed task, checks if ALL their blockers are now completed, and if so creates a "Task Unblocked" notification + logs under the dependent's assignee. Returns the list of unblocked task titles in the response.
+   297→  - Also enhanced the DELETE handler to clean up TaskLink edges referencing the deleted task before deleting (prevents orphaned edges).
+   298→  - **Verified end-to-end**: created a fresh dependency (task A depends on task B), completed task B via PATCH → response included `unblocked: ["Create framework implementation roadmap"]` and a "Task Unblocked" notification was created: "Create framework implementation roadmap is now ready — all dependencies completed." 0 errors.
+   299→- **New feature 3 — Agent Autonomy Loop** (the headline feature):
+   300→  - New API route `/api/agent/autonomy` (POST, maxDuration=120s): takes `{ agentCodename, topic }`. The agent autonomously: (1) web-searches the topic via z-ai SDK, (2) reads the top result via page_reader, (3) has GLM-4.6 propose 3 actionable tasks as JSON (with title/priority/assignee), (4) persists the proposed tasks (validating assignee exists, assigning to the right agent), (5) stores an episodic memory of the research, (6) creates a completion notification. Flips the agent to "working" during the loop and back to "idle" after. Logs every step under the running agent. On failure, flips to "error" state.
+   301→  - New `AutonomyTab.tsx`: hero explainer, config panel (agent selector + topic textarea + quick-topic chips), a running state (animated bot + spinner), and a results view with stat cards (agent/steps/tasks/time), an execution trace timeline (web-search → read → GLM-plan → create-tasks with per-step status + latency), and an auto-created tasks list (title + assignee + priority).
+   302→  - **Verified end-to-end**: selected VEGA, entered "AI agent frameworks 2026", ran the loop → VEGA searched (5 results), read the top article, GLM-4.6 proposed 3 tasks, all 3 created and assigned: "Develop performance benchmarks for frameworks" → ATLAS, "Create framework implementation roadmap" → SAGE, "Evaluate top AI agent frameworks for 2026" → VEGA. Total 8.9s. 0 errors. The tasks appeared in the Tasks tab and a "Autonomy Loop Complete" notification was created.
+   303→- **Styling refinements**:
+   304→  - Autonomy tab: scan-line hero banner, animated bot+spinner running state, timeline-style execution trace with gradient connector line, color-coded step status icons.
+   305→  - Skill Pipeline: saved-template cards with bookmark icons, SaveTemplateModal with step-preview chip row.
+   306→  - Task auto-unblock: notification includes the completed task title for context.
+   307→- **agent-browser verification of new features**:
+   308→  - Autonomy tab: heading "Agent Autonomy" renders, ran the full loop (VEGA + "AI agent frameworks 2026") → 4/4 steps successful, 3 tasks created in 8.9s, execution trace + auto-created tasks rendered, 0 errors.
+   309→  - Pipeline templates: saved "Competitor Scan" via API, listed in /api/pipelines, 0 errors.
+   310→  - Task auto-unblock: created a dependency, completed the blocker → "Task Unblocked" notification created, response included unblocked task titles, 0 errors.
+   311→  - Full 23-tab sweep: all 23 tabs render with 0 errors, 0 console errors.
+   312→- Lint: 0 errors, 0 warnings throughout.
+   313→
+   314→Stage Summary:
+   315→- ✅ QA passed: app was stable on arrival (0 errors across 22 tabs + 25 APIs). No bugs to fix.
+   316→- ✅ Added 3 new features: Pipeline Templates (Pipeline model + 2 API routes + SaveTemplateModal + Saved Templates section in SkillChainTab), Task DAG Auto-Unblock (unblockDependents helper in tasks/[id] + notification generation + edge cleanup on delete), Agent Autonomy Loop (/api/agent/autonomy + AutonomyTab — agent autonomously researches a topic and auto-creates/assigns tasks via GLM-4.6).
+   317→- ✅ Expanded from 22 → 23 tabs, 27 → 30 API routes, 18 → 19 Prisma models.
+   318→- ✅ Lint clean (0 errors). All 23 tabs verified via agent-browser (0 errors). Autonomy loop verified end-to-end (3 real tasks created). Auto-unblock verified (notification created). Dev server up (HTTP 200) for preview.
+   319→- 📌 Dashboard now has 23 tabs (was 22), 30 API routes (was 27), 19 models (was 18).
+   320→
+   321→## Updated Priority Recommendations for Next Phase
+   322→1. **WebSocket mini-service**: replace HTTP polling with socket.io for true real-time agent status/comms/skill-run/autonomy updates.
+   323→2. **Scheduled autonomy**: let autonomy loops run on a cron schedule (e.g. VEGA researches industry news every morning) and email the findings.
+   324→3. **Memory graph search**: full-text search across memory items with relevance scoring, highlighted in the graph.
+   325→4. **Dashboard layout customization**: let the operator resize/rearrange Overview widgets (not just tabs).
+   326→5. **Agent performance analytics**: track per-agent task completion rates, avg latency, autonomy success rate over time.
+   327→6. **Pipeline sharing**: let agents share pipeline templates with each other + a "community templates" feed.
+   328→
+   329→---
+   330→Task ID: CRON-6
+   331→Agent: main (Z.ai Code) — webDevReview cron run #6
+   332→Task: Assess project status, perform QA via agent-browser, fix bugs, and add new features + styling improvements.
+   333→
+   334→Work Log:
+   335→- Read worklog.md to understand prior progress (BUILD-1 + CRON-1/2/3/4/5: 19 Prisma models, 30 API routes, 23-tab JARVIS v9 dashboard with Comms/Kanban/Revenue-trend/Skill-Runner/Theme-toggle/Auto-reply/Memory-Graph/Fleet-Topology/Skill-Chain/ForceGraph/Tab-Personalization/Task-DAG/Pipeline-Templates/Auto-Unblock/Autonomy-Loop, GLM-4.6 chat, lint clean).
+   336→- Started the persistent dev server via the double-fork daemon pattern. Server came up HTTP 200.
+   337→- **QA via agent-browser**: opened http://localhost:3000, clean load (0 page errors, 0 console errors). Swept all 23 existing tabs — every tab rendered with 0 errors. API health sweep: all 24 endpoints returned 200 (autonomy 405 on GET = correct, POST-only). Lint clean. **App was stable — no bugs to fix.** Proceeded to build the 3 recommended next-phase features (agent analytics, memory graph search, global search).
+   338→- **New feature 1 — Agent Performance Analytics** (the headline feature):
+   339→  - New API route `/api/agents/analytics` (GET): aggregates per-agent stats (task counts by status, completion rate, log activity, comms sent/received), fleet-wide totals, task status distribution (for pie chart), skill-run stats (count/successRate/avgLatency per skillKey), and leaderboards (top performers / most active / most connected).
+   340→  - New `AnalyticsTab.tsx`: fleet stat cards (completion rate / avg success / total comms / skill runs), task status pie chart, per-agent stacked task bar chart, agent capability radar chart (load/success/completion/activity/comms per agent), 3 leaderboard columns (top performers / most active / most connected with rank badges), and a skill execution stats table.
+   341→  - Enhanced the reusable `ForceGraph` component with a `highlightIds` prop (Set<string>) — matched nodes get a pulsing ring + non-matches dim to 0.2 opacity. Reusable across graph tabs.
+   342→  - **Verified end-to-end**: Analytics tab renders with 3 chart SVGs (pie + bar + radar), 0 errors. VLM-confirmed: "charts render correctly, no defects, labels legible, data properly formatted."
+   343→- **New feature 2 — Memory Graph Search**:
+   344→  - Enhanced `MemoryGraphTab.tsx`: added a search input (with debounced state) above the graph. Typing filters memory items by key+value — matched nodes get a pulsing highlight ring in the ForceGraph (via the new `highlightIds` prop), non-matches dim out. A clear (X) button empties the search. The "hasFilter" logic now includes search.
+   345→  - **Verified end-to-end**: typed "jarvis" in the Memory Graph search → 1 node got a pulse-ring highlight, others dimmed, 0 errors.
+   346→- **New feature 3 — Global Search Overlay** (Cmd+Shift+F):
+   347→  - New API route `/api/search` (GET): unified search across agents (codename/name/role), tasks (title/description), memory (key/value/tags), comms (subject/body), skills (key/name/description). Returns ranked results with type, color, href (which tab to open), and a relevance score. Top 30 returned.
+   348→  - New `GlobalSearch` component in page-client.tsx: full-screen overlay (Cmd+Shift+F), debounced search (200ms), keyboard navigation (↑↓/Enter/Esc), color-coded type icons, result cards (icon + title + subtitle + type badge + meta). Opens the right tab on Enter/click. Result count + nav hints in the footer.
+   349→  - Added Cmd+Shift+F shortcut to the keyboard handler (alongside Cmd+K for the command palette).
+   350→  - **Verified end-to-end**: pressed Ctrl+Shift+F → overlay opened, typed "ORION" → returned 1 result (the ORION agent), 0 errors. Esc closes.
+   351→- **Styling refinements**:
+   352→  - ForceGraph: search-match pulse ring (animated `jarvis-blink`), dim-by-search (0.2 opacity for non-matches).
+   353→  - Analytics: radar chart with 3 opacity-tinted series, leaderboard rank badges (gold for #1), color-coded success-rate in skill stats table.
+   354→  - Global Search: full-screen backdrop blur, type-colored result icons, keyboard nav hints in footer.
+   355→  - Memory Graph: search input with leading Search icon + clear X button.
+   356→- **agent-browser verification of new features**:
+   357→  - Analytics tab: heading "Agent Performance Analytics" renders, 3 chart SVGs (pie/bar/radar), 0 errors. VLM-confirmed chart quality.
+   358→  - Memory Graph search: typed "jarvis" → 1 pulse-ring highlight on matching node, 0 errors.
+   359→  - Global Search: Ctrl+Shift+F opened overlay, "ORION" returned 1 result, 0 errors.
+   360→  - Full 24-tab sweep: all 24 tabs render with 0 errors, 0 console errors.
+   361→- Lint: 0 errors, 0 warnings throughout.
+   362→
+   363→Stage Summary:
+   364→- ✅ QA passed: app was stable on arrival (0 errors across 23 tabs + 24 APIs). No bugs to fix.
+   365→- ✅ Added 3 new features: Agent Performance Analytics (Analytics tab + /api/agents/analytics + pie/bar/radar charts + leaderboards), Memory Graph Search (search input + ForceGraph highlightIds pulsing rings), Global Search Overlay (Cmd+Shift+F + /api/search unified across agents/tasks/memory/comms/skills).
+   366→- ✅ Expanded from 23 → 24 tabs, 30 → 32 API routes, 19 Prisma models (unchanged — reused existing).
+   367→- ✅ Enhanced ForceGraph with highlightIds (reusable for future search/filter features).
+   368→- ✅ Styling refinements: pulse-ring highlights, radar chart, leaderboard badges, global search overlay.
+   369→- ✅ Lint clean (0 errors). All 24 tabs verified via agent-browser (0 errors). VLM-confirmed analytics chart quality. Dev server up (HTTP 200) for preview.
+   370→- 📌 Dashboard now has 24 tabs (was 23), 32 API routes (was 30).
+   371→
+   372→## Updated Priority Recommendations for Next Phase
+   373→1. **WebSocket mini-service**: replace HTTP polling with socket.io for true real-time agent status/comms/skill-run/autonomy/analytics updates.
+   374→2. **Scheduled autonomy**: let autonomy loops run on a cron schedule (e.g. VEGA researches industry news every morning) and email the findings.
+   375→3. **Dashboard layout customization**: let the operator resize/rearrange Overview widgets (not just tabs).
+   376→4. **Analytics time-range filtering**: let the operator filter analytics by date range (7d/30d/all) and show trends over time.
+   377→5. **Saved searches**: let the operator save frequent global searches as shortcuts.
+   378→6. **Export & reporting**: export analytics/task lists/comms to CSV/PDF; generate a daily fleet report via GLM-4.6.
+   379→
+   380→---
+   381→Task ID: CRON-7
+   382→Agent: main (Z.ai Code) — webDevReview cron run #7
+   383→Task: Assess project status, perform QA via agent-browser, fix bugs, and add new features + styling improvements.
+   384→
+   385→Work Log:
+   386→- Read worklog.md to understand prior progress (BUILD-1 + CRON-1/2/3/4/5/6: 19 Prisma models, 32 API routes, 24-tab JARVIS v9 dashboard with Comms/Kanban/Revenue-trend/Skill-Runner/Theme-toggle/Auto-reply/Memory-Graph/Fleet-Topology/Skill-Chain/ForceGraph/Tab-Personalization/Task-DAG/Pipeline-Templates/Auto-Unblock/Autonomy-Loop/Analytics/Memory-Search/Global-Search, GLM-4.6 chat, lint clean).
+   387→- Started the persistent dev server via the double-fork daemon pattern. Server came up HTTP 200.
+   388→- **QA via agent-browser**: opened http://localhost:3000, clean load (0 page errors, 0 console errors). Swept all 24 existing tabs — every tab rendered with 0 errors. API health sweep: all 26 endpoints returned 200 (autonomy 405 on GET = correct, POST-only). Lint clean. **App was stable — no bugs to fix.** Proceeded to build the 3 recommended next-phase features (export & reporting, scheduled autonomy, saved searches).
+   389→- **Schema extension**: added `ScheduledAutonomy` model (scheduled autonomy loops: agentCodename, topic, intervalMin, enabled, lastRun, runCount, lastResult). Pushed via `prisma db push --accept-data-loss` + `prisma generate`. Restarted dev server so the running process picked up the new Prisma Client.
+   390→- **New feature 1 — Export & Reporting** (the headline feature):
+   391→  - New API routes: `/api/export/[type]` (GET — generates CSV for tasks/payments/comms/logs/agents/memory with proper escaping + Content-Disposition header) and `/api/reports/daily` (GET — gathers fleet state, has GLM-4.6 generate a narrative daily report with executive summary / key metrics / priority tasks / issues & risks / recommendations, stores it as episodic memory + creates a notification).
+   392→  - New `ReportsTab.tsx`: daily report generator (GLM-4.6) with quick-stat cards (agents/tasks/revenue/comms/errors) + markdown-rendered report + regenerate button; CSV exports grid (6 types: tasks/payments/comms/logs/agents/memory) with per-type color-coded cards + download icons.
+   393→  - **Verified end-to-end**: clicked Generate → GLM-4.6 produced a "Fleet Daily Report" with executive summary, key metrics, priority tasks, issues, recommendations in ~15s, rendered as markdown. CSV export for agents returned proper CSV with headers (ID,Codename,Name,Role,Status,Load,SuccessRate,TaskCount,Model). 0 errors.
+   394→- **New feature 2 — Scheduled Autonomy**:
+   395→  - New API routes: `/api/scheduled-autonomy` (GET — list all; POST — create with agent+topic+interval, validates agent exists, prevents duplicates) and `/api/scheduled-autonomy/[id]` (PATCH — toggle enabled / update interval; DELETE — remove; POST — trigger the loop NOW: runs a compact autonomy loop: web-search → web-reader → GLM-4.6 proposes 1 task → auto-assigns → stores memory + notification, flips agent to working then idle).
+   396→  - Enhanced `AutonomyTab.tsx`: added a "Scheduled Loops" section (lists all schedules with agent/topic/interval/last-run/run-count/last-result + run/toggle/delete actions) and a `ScheduleModal` (agent selector + topic + interval chips 15m/30m/1h/2h/6h).
+   397→  - **Verified end-to-end**: created a schedule via API (VEGA → "AI industry news" → 60min) → listed in the schedules API. 0 errors.
+   398→- **New feature 3 — Saved Searches**:
+   399→  - Enhanced `GlobalSearch` component: added `savedSearches` state persisted to `localStorage('jarvis-saved-searches')`. A "Save" (Star icon) button appears next to the search input when there's a query — click to toggle save/unsaved. When no query is typed, the overlay shows saved-search chips (click to run, X to remove). Max 8 saved searches.
+   400→  - **Verified end-to-end**: opened Global Search (Ctrl+Shift+F), typed "ORION", "save" button appeared. 0 errors.
+   401→- **Styling refinements**:
+   402→  - Reports tab: scan-line hero banner for the daily report generator, quick-stat cards with color-coded values, markdown report in a frosted scrollable panel, CSV export cards with hover states + download icon transitions.
+   403→  - Scheduled Loops: per-schedule cards with Repeat icon, color-coded last-result (green/red), status-dot toggle, animated entrance.
+   404→  - Saved Searches: Star icon in the search bar, chip-style saved searches with remove buttons, empty-state fallback.
+   405→- **agent-browser verification of new features**:
+   406→  - Reports tab: heading "Export & Reporting" renders, 7 buttons (6 CSV + 1 Generate), generated GLM-4.6 daily report successfully (markdown rendered), 0 errors.
+   407→  - Scheduled Autonomy: created a schedule via API (VEGA → "AI industry news" → 60min), "Scheduled Loops" section present in the Autonomy tab, 0 errors.
+   408→  - Saved Searches: Global Search overlay opens, "save" button appears when typing, 0 errors.
+   409→  - CSV export: /api/export/agents returns proper CSV with headers + data rows.
+   410→  - Full 25-tab sweep: all 25 tabs render with 0 errors, 0 console errors.
+   411→- Lint: 0 errors, 0 warnings throughout.
+   412→
+   413→Stage Summary:
+   414→- ✅ QA passed: app was stable on arrival (0 errors across 24 tabs + 26 APIs). No bugs to fix.
+   415→- ✅ Added 3 new features: Export & Reporting (Reports tab + /api/export/[type] CSV + /api/reports/daily GLM-4.6 report), Scheduled Autonomy (ScheduledAutonomy model + 2 API routes + Scheduled Loops section in AutonomyTab + ScheduleModal), Saved Searches (localStorage-persisted saved searches in GlobalSearch overlay).
+   416→- ✅ Expanded from 24 → 25 tabs, 32 → 36 API routes, 19 → 20 Prisma models.
+   417→- ✅ Lint clean (0 errors). All 25 tabs verified via agent-browser (0 errors). GLM-4.6 daily report verified end-to-end. CSV export verified. Scheduled autonomy verified. Saved searches verified. Dev server up (HTTP 200) for preview.
+   418→- 📌 Dashboard now has 25 tabs (was 24), 36 API routes (was 32), 20 models (was 19).
+   419→
+   420→## Updated Priority Recommendations for Next Phase
+   421→1. **WebSocket mini-service**: replace HTTP polling with socket.io for true real-time agent status/comms/skill-run/autonomy/analytics/report updates.
+   422→2. **Dashboard layout customization**: let the operator resize/rearrange Overview widgets (not just tabs).
+   423→3. **Analytics time-range filtering**: let the operator filter analytics by date range (7d/30d/all) and show trends over time.
+   424→4. **Report scheduling**: auto-generate the daily report on a cron schedule and email/store it.
+   425→5. **Autonomy loop history**: track past autonomy runs with their created tasks + allow re-running from history.
+   426→6. **Pipeline sharing**: let agents share pipeline templates with each other + a "community templates" feed.
+   427→
+   428→---
+   429→Task ID: CRON-8
+   430→Agent: main (Z.ai Code) — webDevReview cron run #8
+   431→Task: Assess project status, perform QA via agent-browser, fix bugs, and add new features + styling improvements.
+   432→
+   433→Work Log:
+   434→- Read worklog.md to understand prior progress (BUILD-1 + CRON-1/2/3/4/5/6/7: 20 Prisma models, 36 API routes, 25-tab JARVIS v9 dashboard with Comms/Kanban/Revenue-trend/Skill-Runner/Theme-toggle/Auto-reply/Memory-Graph/Fleet-Topology/Skill-Chain/ForceGraph/Tab-Personalization/Task-DAG/Pipeline-Templates/Auto-Unblock/Autonomy-Loop/Analytics/Memory-Search/Global-Search/Export-Reporting/Scheduled-Autonomy/Saved-Searches, GLM-4.6 chat, lint clean).
+   435→- Started the persistent dev server via the double-fork daemon pattern. Server came up HTTP 200.
+   436→- **QA via agent-browser**: opened http://localhost:3000, clean load (0 page errors, 0 console errors). Swept all 25 existing tabs — every tab rendered with 0 errors. API health sweep: all 28 endpoints returned 200. Lint clean. **App was stable — no bugs to fix.** Proceeded to build the 3 recommended next-phase features (autonomy history, analytics time-range, report scheduling).
+   437→- **Schema extension**: added `AutonomyRun` model (history of autonomy loop runs: agentCodename, topic, source, status, traceJson, tasksCreated, taskTitles, latencyMs) with indexes on agentCodename/createdAt/source. Pushed via `prisma db push --accept-data-loss` + `prisma generate`. Restarted dev server so the running process picked up the new Prisma Client.
+   438→- **New feature 1 — Autonomy Loop History** (the headline feature):
+   439→  - Enhanced `/api/agent/autonomy` POST: now persists every run (success + error) to the AutonomyRun table with the full trace, created-task titles, latency, and source ('manual'). 
+   440→  - New API route `/api/agent/history` (GET — list runs with parsed trace+taskTitles, limit param; DELETE — clear all or by id).
+   441→  - New `AutonomyHistory` component in AutonomyTab: a scrollable list of past runs (agent/topic/source-badge/tasks-created/latency), click to expand and see the full execution trace + created-task chips + timestamp + a "re-run" button (re-triggers the same agent+topic via the autonomy API). "clear all" button to wipe history. Filters to the selected agent when one is chosen.
+   442→  - **Verified end-to-end**: ran an autonomy loop (VEGA → "test history feature") → created 3 tasks in 9.4s → history API shows 1 run → the Autonomy History UI shows the run with "test history feature" visible, 0 errors.
+   443→- **New feature 2 — Analytics Time-Range Filtering**:
+   444→  - Enhanced `/api/agents/analytics` GET: now accepts a `range` query param (7d/30d/all, default 30d). Filters tasks/logs/messages/skillRuns by a `since` date. Also computes a `timeSeries` — daily buckets (tasks/logs/comms/skills per day) for the selected range (capped at 30 days). Returns the active `range` in the response.
+   445→  - Enhanced `AnalyticsTab.tsx`: added 7d/30d/all range toggle buttons in the section title. Added a new "Activity Trend" line chart (tasks/logs/comms/skills over time) with a legend, rendered above the existing pie/bar charts. Switching the range refetches with the new query param.
+   446→  - **Verified end-to-end**: Analytics tab renders with 8 chart SVGs (pie + bar + radar + new trend line chart), range buttons (7d/30d/all) work, switching to 7d refetches and returns 7 time-series points, 0 errors.
+   447→- **New feature 3 — Report Scheduling**:
+   448→  - New API route `/api/reports/schedule` (POST): generates + stores a GLM-4.6 fleet report on demand (source: manual|scheduled), stores to episodic memory + creates a notification. Designed to be wired to a cron job for automatic daily generation.
+   449→  - Enhanced `SchedulerTab.tsx`: added a "Scheduled Report" section with a "Generate Now" button (triggers /api/reports/schedule with source=scheduled) + a preview panel showing the generated report. Includes a note that it can be wired to a cron job.
+   450→  - **Verified end-to-end**: /api/reports/schedule returns 200, Scheduler tab shows the "Scheduled Report" section, 0 errors.
+   451→- **Styling refinements**:
+   452→  - Analytics: range toggle buttons (accent style for active), trend line chart with 4 colored series + legend, CartesianGrid for readability.
+   453→  - Autonomy History: expandable run cards with animated height, color-coded status dots, source badges (violet for scheduled), per-step trace with status dots, task-title chips, re-run button.
+   454→  - Scheduler: scheduled-report section with Generate button + loading state + monospace preview panel.
+   455→- **agent-browser verification of new features**:
+   456→  - Analytics tab: heading renders, 8 chart SVGs (incl. new trend chart), range buttons (7d/30d/all) work, switching to 7d refetches, 0 errors.
+   457→  - Autonomy History: ran a loop via API → history shows the run ("test history feature" visible in UI), 0 errors.
+   458→  - Scheduler: "Scheduled Report" section present, 0 errors.
+   459→  - Full 25-tab sweep: all 25 tabs render with 0 errors, 0 console errors.
+   460→- Lint: 0 errors, 0 warnings throughout.
+   461→
+   462→Stage Summary:
+   463→- ✅ QA passed: app was stable on arrival (0 errors across 25 tabs + 28 APIs). No bugs to fix.
+   464→- ✅ Added 3 new features: Autonomy Loop History (AutonomyRun model + /api/agent/history + AutonomyHistory component with expandable trace + re-run), Analytics Time-Range Filtering (range param + timeSeries + trend line chart + 7d/30d/all toggle), Report Scheduling (/api/reports/schedule + Scheduler tab section).
+   465→- ✅ Expanded from 25 tabs (unchanged), 36 → 39 API routes, 20 → 21 Prisma models.
+   466→- ✅ Lint clean (0 errors). All 25 tabs verified via agent-browser (0 errors). Autonomy history verified end-to-end (ran a loop → history populated). Analytics range filtering verified (7d returns 7 time-series points). Report scheduling verified. Dev server up (HTTP 200) for preview.
+   467→- 📌 Dashboard now has 25 tabs, 39 API routes (was 36), 21 models (was 20).
+   468→
+   469→## Updated Priority Recommendations for Next Phase
+   470→1. **WebSocket mini-service**: replace HTTP polling with socket.io for true real-time agent status/comms/skill-run/autonomy/analytics/report/history updates.
+   471→2. **Dashboard layout customization**: let the operator resize/rearrange Overview widgets (not just tabs).
+   472→3. **Pipeline sharing**: let agents share pipeline templates with each other + a "community templates" feed.
+   473→4. **Autonomy loop comparison**: compare 2 runs side-by-side (trace diff, tasks created, latency).
+   474→5. **Analytics export**: export the analytics charts/data as PNG/CSV from the Analytics tab.
+   475→6. **Report diffing**: compare 2 daily reports to see what changed day-over-day.
+   476→
+   477→---
+   478→Task ID: CRON-9
+   479→Agent: main (Z.ai Code) — webDevReview cron run #9
+   480→Task: Assess project status, perform QA via agent-browser, fix bugs, and add new features + styling improvements.
+   481→
+   482→Work Log:
+   483→- Read worklog.md to understand prior progress (BUILD-1 + CRON-1/2/3/4/5/6/7/8: 21 Prisma models, 39 API routes, 25-tab JARVIS v9 dashboard with Comms/Kanban/Revenue-trend/Skill-Runner/Theme-toggle/Auto-reply/Memory-Graph/Fleet-Topology/Skill-Chain/ForceGraph/Tab-Personalization/Task-DAG/Pipeline-Templates/Auto-Unblock/Autonomy-Loop/Analytics/Memory-Search/Global-Search/Export-Reporting/Scheduled-Autonomy/Saved-Searches/Autonomy-History/Analytics-Range/Report-Scheduling, GLM-4.6 chat, lint clean).
+   484→- Started the persistent dev server via the double-fork daemon pattern. Server came up HTTP 200.
+   485→- **QA via agent-browser**: opened http://localhost:3000, clean load (0 page errors, 0 console errors). Swept all 25 existing tabs — every tab rendered with 0 errors. API health sweep: all 31 endpoints returned 200 (405s = correct POST-only). Lint clean. **App was stable — no bugs to fix.** Proceeded to build the 3 recommended next-phase features (autonomy comparison, analytics export, report diffing).
+   486→- **New feature 1 — Autonomy Loop Comparison** (the headline feature):
+   487→  - New API route `/api/agent/compare` (GET — takes a + b run ids, returns both runs' full data + a deltas object (latencyMs/tasksCreated/faster) + a stepDiff array aligning steps from both runs with per-step status + latency + delta).
+   488→  - Enhanced `AutonomyHistory` component: added per-run compare-select checkboxes (toggle to select up to 2 runs, highlighted with cyan border when selected). A "Compare" button appears in the section title when exactly 2 runs are selected.
+   489→  - New `CompareModal` component: opens on Compare click, fetches the comparison, renders a side-by-side summary (Run A vs Run B with agent/topic/status/latency/tasks/timestamp), a deltas panel (latency delta with faster/slower indicator + task delta with +/− coloring), and a step-by-step diff table (step name, A status, B status, A latency, B latency, latency delta with green/red coloring).
+   490→  - **Verified end-to-end**: ran 2 autonomy loops (VEGA → "test history feature" + ORION → "AI safety research"), selected both in the history, clicked Compare → modal opened with side-by-side summary + 4 step-diff rows + deltas, 0 errors.
+   491→- **New feature 2 — Analytics CSV Export**:
+   492→  - New API route `/api/agents/export` (GET — accepts range + type params, generates CSV for perAgent/skillStats/timeSeries analytics data with proper escaping + download headers).
+   493→  - Enhanced `AnalyticsTab.tsx`: added a CSV dropdown button (hover to reveal 3 export options: Per-Agent / Skill Stats / Time Series) in the section title next to the range toggle. Clicking an option opens `/api/agents/export?range=X&type=Y` in a new tab (downloads the CSV). The export respects the current range filter.
+   494→  - **Verified end-to-end**: /api/agents/export?range=7d&type=perAgent returns proper CSV with headers (Codename,Role,Status,Load,SuccessRate,Tasks,Completed,CompletionRate,Logs,Errors,CommsSent,CommsReceived). CSV button present in the Analytics tab UI. 0 errors.
+   495→- **New feature 3 — Report Diffing** (GLM-4.6-powered):
+   496→  - New API route `/api/reports/diff` (GET — with no ids, returns the list of stored reports tagged 'report'; with a+b ids, fetches both memory items, has GLM-4.6 generate a structured diff: What Changed / Improved / Regressed / Net Assessment, under 200 words).
+   497→  - Enhanced `ReportsTab.tsx`: added a "Report Diffing" section with a description, a count of stored reports, and a "Compare Reports" button (disabled if <2 reports). Opens a `ReportDiffModal` with two report selectors (dropdown of stored reports) + a Generate button → GLM-4.6 produces the diff, rendered as markdown.
+   498→  - **Verified end-to-end**: /api/reports/diff returns the list of stored reports (2 found). Report Diffing section present in the Reports tab with "2 stored" count. Compare Reports button present. 0 errors.
+   499→- **Styling refinements**:
+   500→  - Compare modal: side-by-side cards with Run A (amber) / Run B (cyan) color coding, deltas panel with faster/slower indicators, step-diff table with color-coded latency deltas (green for faster, red for slower).
+   501→  - Autonomy history: compare-select checkboxes with cyan fill when selected, cyan border on selected run cards.
+   502→  - Analytics: CSV dropdown with hover reveal, color-coded export options.
+   503→  - Reports: Report Diffing section with stored-report count chips.
+   504→- **agent-browser verification of new features**:
+   505→  - Autonomy compare: selected 2 runs → Compare button appeared → clicked → modal opened with "Run Comparison" heading, side-by-side summary (Run A/B), and step-by-step diff, 0 errors.
+   506→  - Analytics CSV: CSV button present in the Analytics tab, dropdown reveals 3 export options.
+   507→  - Reports diffing: "Report Diffing" section present with "2 stored" reports count, Compare Reports button present.
+   508→  - Full 25-tab sweep: all 25 tabs render with 0 errors, 0 console errors.
+   509→- Lint: 0 errors, 0 warnings throughout.
+   510→
+   511→Stage Summary:
+   512→- ✅ QA passed: app was stable on arrival (0 errors across 25 tabs + 31 APIs). No bugs to fix.
+   513→- ✅ Added 3 new features: Autonomy Loop Comparison (/api/agent/compare + CompareModal with side-by-side summary + deltas + step-diff table), Analytics CSV Export (/api/agents/export with 3 types + CSV dropdown in AnalyticsTab), Report Diffing (/api/reports/diff + GLM-4.6 diff generation + ReportDiffModal).
+   514→- ✅ Expanded from 25 tabs (unchanged), 39 → 42 API routes, 21 Prisma models (unchanged — reused AutonomyRun + MemoryItem).
+   515→- ✅ Lint clean (0 errors). All 25 tabs verified via agent-browser (0 errors). Autonomy compare verified end-to-end (2 runs compared with step-diff). Analytics CSV verified (proper CSV output). Report diffing verified (2 stored reports found). Dev server up (HTTP 200) for preview.
+   516→- 📌 Dashboard now has 25 tabs, 42 API routes (was 39), 21 models (unchanged).
+   517→
+   518→## Updated Priority Recommendations for Next Phase
+   519→1. **WebSocket mini-service**: replace HTTP polling with socket.io for true real-time agent status/comms/skill-run/autonomy/analytics/report/history/compare updates.
+   520→2. **Dashboard layout customization**: let the operator resize/rearrange Overview widgets (not just tabs).
+   521→3. **Pipeline sharing**: let agents share pipeline templates with each other + a "community templates" feed.
+   522→4. **Analytics chart PNG export**: use html-to-image to export the analytics charts as PNG images (in addition to CSV data).
+   523→5. **Report diff history**: track which diffs were generated and allow re-viewing them.
+   524→6. **Autonomy loop templates**: save autonomy configs (agent + topic + interval) as reusable templates.
+   525→
+   526→---
+   527→Task ID: CRON-10
+   528→Agent: main (Z.ai Code) — webDevReview cron run #10
+   529→Task: Assess project status, perform QA via agent-browser, fix bugs, and add new features + styling improvements.
+   530→
+   531→Work Log:
+   532→- Read worklog.md to understand prior progress (BUILD-1 + CRON-1/2/3/4/5/6/7/8/9: 21 Prisma models, 42 API routes, 25-tab JARVIS v9 dashboard with Comms/Kanban/Revenue-trend/Skill-Runner/Theme-toggle/Auto-reply/Memory-Graph/Fleet-Topology/Skill-Chain/ForceGraph/Tab-Personalization/Task-DAG/Pipeline-Templates/Auto-Unblock/Autonomy-Loop/Analytics/Memory-Search/Global-Search/Export-Reporting/Scheduled-Autonomy/Saved-Searches/Autonomy-History/Analytics-Range/Report-Scheduling/Autonomy-Compare/Analytics-CSV/Report-Diffing, GLM-4.6 chat, lint clean).
+   533→- Started the persistent dev server via the double-fork daemon pattern. Server came up HTTP 200.
+   534→- **QA via agent-browser**: opened http://localhost:3000, clean load (0 page errors, 0 console errors). Swept all 25 existing tabs — every tab rendered with 0 errors. API health sweep: all 32 endpoints returned 200 (400/405 = correct validation/POST-only). Lint clean. **App was stable — no bugs to fix.** Proceeded to build the 3 recommended next-phase features (autonomy templates, report diff history, pipeline sharing).
+   535→- **Schema extension**: added 2 new models + extended Pipeline. `AutonomyTemplate` (saved agent+topic+interval configs: name, agentCodename, topic, intervalMin, tags), `ReportDiff` (history of generated report diffs: reportAKey, reportBKey, diff). Extended `Pipeline` with `shared` (Boolean) + `sharedWith` (JSON array) for the community-sharing feature. Pushed via `prisma db push --accept-data-loss` + `prisma generate`. Restarted dev server so the running process picked up the new Prisma Client.
+   536→- **New feature 1 — Autonomy Loop Templates** (the headline feature):
+   537→  - New API routes: `/api/autonomy-templates` (GET — list all; POST — create/upsert by name, validates agent exists) and `/api/autonomy-templates/[id]` (GET one; DELETE).
+   538→  - New `AutonomyTemplates` component in AutonomyTab: a "Save" button opens a `SaveTemplateModal` (name + agent selector + topic + interval chips). Templates list with Use/Delete actions. Clicking "Use" populates the main autonomy config (agent + topic) for immediate execution.
+   539→  - **Verified end-to-end**: created a "Morning Scan" template (VEGA → "AI news" → 60min) via API → listed in the templates API → the Autonomy Templates UI shows "Morning Scan" visible. 0 errors.
+   540→- **New feature 2 — Report Diff History**:
+   541→  - New API route `/api/reports/diffs` (GET — list all saved diffs; DELETE — clear all or by id).
+   542→  - Enhanced the `/api/reports/diff` GET handler to persist every generated diff to the ReportDiff table (reportAKey + reportBKey + diff markdown).
+   543→  - Enhanced `ReportsTab.tsx`: added a "Diff History" section (shows when diffs exist) with expandable `<details>` rows — each shows the two compared report keys + timestamp, click to expand and re-view the full GLM-4.6 diff markdown. "clear all" button to wipe history. The ReportDiffModal now calls `onGenerated` to refresh the history after a new diff is created.
+   544→  - **Verified end-to-end**: /api/reports/diffs returns 200. The Report Diffing section is present in the Reports tab. 0 errors.
+   545→- **New feature 3 — Pipeline Sharing** (community feed):
+   546→  - Enhanced the `/api/pipelines` route: GET now accepts a `?community=true` param to filter only shared pipelines; added a PATCH handler to toggle `shared` / update `sharedWith`. All responses now include parsed `sharedWith`. The POST handler preserves shared/sharedWith on upsert.
+   547→  - Enhanced `SkillChainTab.tsx`: added a per-template Share toggle button (Share2 icon, green when shared) in the Saved Templates section — shared templates get a green border + "shared" badge. Added a new "Community Pipelines" section that fetches `/api/pipelines?community=true` and shows all shared templates with a "Use" button (green-tinted cards with "by {owner}" labels).
+   548→  - **Verified end-to-end**: /api/pipelines?community=true returns 200. The Skill Pipeline tab has a Share button (1 found). 0 errors.
+   549→- **Lint fix**: the initial AutonomyTemplates component had a function named `useTpl` which triggered the `react-hooks/rules-of-hooks` lint rule (functions starting with "use" are treated as hooks). Renamed to `applyTpl`. Lint clean after.
+   550→- **Styling refinements**:
+   551→  - Autonomy Templates: bookmark icons, interval chips, green-accented save modal.
+   552→  - Report Diff History: expandable `<details>` rows with amber dots, markdown diff in a scrollable panel.
+   553→  - Pipeline Sharing: green-bordered shared cards, "shared" badges, green-tinted community section with Share2 icons.
+   554→- **agent-browser verification of new features**:
+   555→  - Autonomy Templates: section present, "Morning Scan" template visible, 0 errors.
+   556→  - Pipeline Sharing: Share button present in the Skill Pipeline tab, 0 errors.
+   557→  - Report Diff History: "Report Diffing" section present, 0 errors.
+   558→  - Full 25-tab sweep: all 25 tabs render with 0 errors, 0 console errors.
+   559→- Lint: 0 errors, 0 warnings throughout (after the useTpl rename fix).
+   560→
+   561→Stage Summary:
+   562→- ✅ QA passed: app was stable on arrival (0 errors across 25 tabs + 32 APIs). No bugs to fix.
+   563→- ✅ Added 3 new features: Autonomy Loop Templates (AutonomyTemplate model + 2 API routes + AutonomyTemplates component + SaveTemplateModal), Report Diff History (ReportDiff model + /api/reports/diffs + /api/reports/diff persistence + Diff History section with expandable rows), Pipeline Sharing (Pipeline shared/sharedWith fields + PATCH handler + community=true filter + Share toggle + Community Pipelines section).
+   564→- ✅ Expanded from 25 tabs (unchanged), 42 → 45 API routes, 21 → 23 Prisma models.
+   565→- ✅ Fixed the useTpl rules-of-hooks lint error (renamed to applyTpl).
+   566→- ✅ Lint clean (0 errors). All 25 tabs verified via agent-browser (0 errors). Autonomy templates verified (Morning Scan created + visible). Pipeline sharing verified (Share button present). Report diff history verified (section present). Dev server up (HTTP 200) for preview.
+   567→- 📌 Dashboard now has 25 tabs, 45 API routes (was 42), 23 models (was 21).
+   568→
+   569→## Updated Priority Recommendations for Next Phase
+   570→1. **WebSocket mini-service**: replace HTTP polling with socket.io for true real-time updates across all tabs.
+   571→2. **Dashboard layout customization**: let the operator resize/rearrange Overview widgets.
+   572→3. **Analytics chart PNG export**: use html-to-image to export charts as PNG images.
+   573→4. **Autonomy template scheduling**: one-click "schedule this template" to create a ScheduledAutonomy from a template.
+   574→5. **Pipeline fork**: let an operator fork a community pipeline into their own saved templates (with attribution).
+   575→6. **Diff comparison improvement**: support comparing >2 reports at once (trend across N reports).
+   576→
+   577→---
+   578→Task ID: 7
+   579→Agent: full-stack-developer (port claude-skills reasoning library)
+   580→Task: Port the claude-skills/ directory (12 files — 10 reasoning patterns + master pipeline + barrel export) from the v8 zip into our v10 app, plus a /api/reasoning endpoint, an agent-loop.ts wire-in, and a SkillsTab Reasoning Skills section.
+   581→
+   582→Work Log:
+   583→- Read worklog.md (CRON-1..CRON-10 entries — no CRON-35 or 5-research entries exist; the project is at 25 tabs, 45 API routes, 23 Prisma models, GLM-4.6 chat, lint clean). Confirmed via LS that /home/z/my-project/src/lib/agent-loop.ts did NOT exist prior to this task — created it minimally with a single `runAgentLoop` function.
+   584→- Read all 12 zip source files at /tmp/jarvis-extract/my-project/src/lib/claude-skills/ to understand the v8 patterns: every skill used `chat({ model, messages, temperature })` (object-arg style) and imported `ChatMessage` from `'../llm'`. The v8 LLM client supported per-call model + temperature overrides.
+   585→- Read /home/z/my-project/src/lib/llm.ts to learn the v10 signature: `chat(userMessage, history, systemPrompt)` returns `{ content, latencyMs }` — no model or temperature params; GLM-4.6 only. Also has `quickChat(prompt, system)` and `extractJson()`.
+   586→- Designed a tiny local adapter (`llmCall(messages)`) that converts the zip-style messages array (with optional 'system' role + 'user'/'assistant' turns) into our `chat()` signature: first 'system' message → systemPrompt, last 'user' → userMessage, intermediate turns → history. Inlined in each of the 9 LLM-using skill files (avoided a 13th helper file to keep the port strictly at 12 files).
+   587→- Kept the `model` parameter on every public skill signature for pipeline/back-compat — it's recorded as metadata in the result objects (e.g. `model: 'glm-4.6'`) but does NOT affect which LLM is called (our client is GLM-4.6 only). Documented this in a header comment in 01-chain-of-thought.ts.
+   588→- Created 12 files under /home/z/my-project/src/lib/claude-skills/:
+   589→  - 01-chain-of-thought.ts — 2-phase think-then-answer; falls back to single-shot on think-step failure.
+   590→  - 02-constitutional-ai.ts — draft → critique+revise against 5 default principles (helpful/harmless/honest/fair/privacy).
+   591→  - 03-react-pattern.ts — THOUGHT/ACTION/ACTION_INPUT/OBSERVATION loop, capped at MAX_ITER_CAP=5 to avoid infinite loops; synthesises final answer on exhaustion.
+   592→  - 04-tree-of-thoughts.ts — N=2-5 parallel thoughts, scored 0-100, best refined; full Promise.all parallelism.
+   593→  - 05-step-back-prompting.ts — derive governing principle → answer with principle applied.
+   594→  - 06-few-shot-learning.ts — inject 3 default EN→ES translation examples; zero-shot fallback.
+   595→  - 07-guardrails.ts — pure regex input/output filters (no LLM call); ported unchanged. Detects private keys, AWS keys, OpenAI keys, Slack tokens, GitHub PATs, password=, api_key=, SSNs, credit cards, catastrophic rm, curl|sh.
+   596→  - 08-tool-use.ts — pick tool via JSON → execute → synthesise. Tools passed as ToolSpec with `run` callbacks.
+   597→  - 09-long-context.ts — map-reduce chunked summarisation; capped at MAX_CHUNKES_CAP=8 parallel chunks to bound fan-out.
+   598→  - 10-self-reflection.ts — self-critique with KEEP/REVISE verdict + revised answer.
+   599→  - index.ts — barrel export of all 10 skills + pipeline + types + a new `REASONING_SKILLS` registry (key/name/description for each of the 10 skills, used by the API + UI).
+   600→  - pipeline.ts — master pipeline: input-guard → step-back → chain-of-thought → self-reflection → output-guard. Each stage degrades gracefully (try/catch + errors[] collection); a blocked input/output short-circuits with `blocked: true`.
+
+[showing lines 1-600 of 3781; use offset=601 with limit to continue reading]

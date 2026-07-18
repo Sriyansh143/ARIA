@@ -1,0 +1,759 @@
+     1→// =====================================================================
+     2→// agent-monitors.ts — Server-side Monitor Agents
+     3→// =====================================================================
+     4→// A registry of lightweight, self-contained monitor agents that scan the
+     5→// database for anomalies (broken agents, slow APIs, stale tasks, unpaid
+     6→// invoices, broken AI models, …) and persist findings to the
+     7→// `AgentMonitorFinding` table.
+     8→//
+     9→// Each monitor is idempotent, runs in isolation, and dedupes its own
+    10→// findings within a 24h window (no spam if the same condition persists).
+    11→//
+    12→// Monitors are invoked:
+    13→//   1. Manually via /api/agent-monitors (Run All / Run Now buttons)
+    14→//   2. Automatically by the `agent-monitors` cron job (every 10 min)
+    15→//   3. Programmatically via runMonitor(key) / runAllMonitors()
+    16→//
+    17→// Findings can suggest a navigation action (`actionTab` + `actionMeta`) so
+    18→// the operator can jump straight to the affected tab, and can be converted
+    19→// to Tasks via /api/agent-monitors/findings/[id]/create-task.
+    20→// =====================================================================
+    21→
+    22→import { db } from '@/lib/db';
+    23→
+    24→// ─── Types ───────────────────────────────────────────────────────────
+    25→
+    26→export type MonitorSeverity = 'info' | 'warn' | 'error' | 'critical';
+    27→export type MonitorCategory =
+    28→  | 'bug'
+    29→  | 'performance'
+    30→  | 'ux'
+    31→  | 'security'
+    32→  | 'opportunity'
+    33→  | 'error-rate';
+    34→
+    35→export interface MonitorFindingInput {
+    36→  /** Which tab is affected (e.g. 'fleet', 'tasks', 'comms'). */
+    37→  tab: string;
+    38→  severity: MonitorSeverity;
+    39→  category: MonitorCategory;
+    40→  /** Short headline — used for dedupe. */
+    41→  title: string;
+    42→  /** Long-form explanation. */
+    43→  detail: string;
+    44→  /** JSON-serializable evidence (metrics, agent ids, sample rows). */
+    45→  evidence?: Record<string, unknown>;
+    46→  /** Suggested action label e.g. "navigate:tasks", "create-task:fix-button". */
+    47→  suggestedAction?: string;
+    48→  /** Tab to navigate to when the operator clicks "Take Action". */
+    49→  actionTab?: string;
+    50→  /** Context payload passed to the nav store on action click. */
+    51→  actionMeta?: Record<string, unknown>;
+    52→}
+    53→
+    54→export interface MonitorDef {
+    55→  key: string;
+    56→  name: string;
+    57→  description: string;
+    58→  intervalMs: number;
+    59→  /** Returns raw findings (persistence + dedupe handled by the runner). */
+    60→  check: () => Promise<MonitorFindingInput[]>;
+    61→}
+    62→
+    63→export interface MonitorRunResult {
+    64→  key: string;
+    65→  ok: boolean;
+    66→  ranAt: string;
+    67→  durationMs: number;
+    68→  findingsCreated: number;
+    69→  findingsDeduped: number;
+    70→  error?: string;
+    71→}
+    72→
+    73→// In-memory last-run cache. Persisted across requests via module singleton.
+    74→const lastRunByMonitor: Record<
+    75→  string,
+    76→  { ranAt: string; durationMs: number; findingsCreated: number; ok: boolean }
+    77→> = {};
+    78→
+    79→// ─── Monitors ────────────────────────────────────────────────────────
+    80→
+    81→const monitors: MonitorDef[] = [
+    82→  // ── 1. Fleet Watchdog ──
+    83→  // Flags agents stuck in error >5min, agents with 0% success, agents >90% load.
+    84→  {
+    85→    key: 'fleet-watchdog',
+    86→    name: 'Fleet Watchdog',
+    87→    description:
+    88→      'Scans the agent fleet for stuck agents (error state >5 min), agents with 0% success rate, and agents above 90% load.',
+    89→    intervalMs: 5 * 60 * 1000,
+    90→    check: async () => {
+    91→      const findings: MonitorFindingInput[] = [];
+    92→      const fiveMinAgo = new Date(Date.now() - 5 * 60 * 1000);
+    93→
+    94→      const [errorAgents, zeroSuccessAgents, heavyAgents] = await Promise.all([
+    95→        db.agent.findMany({
+    96→          where: { status: 'error', lastActive: { lt: fiveMinAgo } },
+    97→          take: 20,
+    98→        }),
+    99→        db.agent.findMany({
+   100→          where: { successRate: 0 },
+   101→          take: 20,
+   102→        }),
+   103→        db.agent.findMany({
+   104→          where: { load: { gt: 90 } },
+   105→          take: 20,
+   106→        }),
+   107→      ]);
+   108→
+   109→      if (errorAgents.length > 0) {
+   110→        findings.push({
+   111→          tab: 'fleet',
+   112→          severity: 'error',
+   113→          category: 'bug',
+   114→          title: `${errorAgents.length} agent(s) stuck in error state`,
+   115→          detail: `Agents in error state for >5 min: ${errorAgents
+   116→            .map((a) => `${a.codename} (${a.role})`)
+   117→            .join(', ')}. Recommend restarting via Health tab.`,
+   118→          evidence: {
+   119→            count: errorAgents.length,
+   120→            agents: errorAgents.map((a) => ({
+   121→              codename: a.codename,
+   122→              role: a.role,
+   123→              lastActive: a.lastActive,
+   124→              status: a.status,
+   125→            })),
+   126→          },
+   127→          suggestedAction: 'navigate:fleet',
+   128→          actionTab: 'fleet',
+   129→          actionMeta: { filter: 'error', focusAgentId: errorAgents[0]?.id },
+   130→        });
+   131→      }
+   132→
+   133→      if (zeroSuccessAgents.length > 0) {
+   134→        findings.push({
+   135→          tab: 'fleet',
+   136→          severity: 'warn',
+   137→          category: 'bug',
+   138→          title: `${zeroSuccessAgents.length} agent(s) with 0% success rate`,
+   139→          detail: `Agents with 0% success rate: ${zeroSuccessAgents
+   140→            .map((a) => `${a.codename} (${a.successRate}%)`)
+   141→            .join(', ')}. Possible misconfiguration or repeated failures.`,
+   142→          evidence: {
+   143→            count: zeroSuccessAgents.length,
+   144→            agents: zeroSuccessAgents.map((a) => ({
+   145→              codename: a.codename,
+   146→              successRate: a.successRate,
+   147→            })),
+   148→          },
+   149→          suggestedAction: 'navigate:fleet',
+   150→          actionTab: 'fleet',
+   151→          actionMeta: { filter: 'low-success' },
+   152→        });
+   153→      }
+   154→
+   155→      if (heavyAgents.length > 0) {
+   156→        findings.push({
+   157→          tab: 'fleet',
+   158→          severity: 'warn',
+   159→          category: 'performance',
+   160→          title: `${heavyAgents.length} agent(s) above 90% load`,
+   161→          detail: `Agents above 90% load: ${heavyAgents
+   162→            .map((a) => `${a.codename} (${Math.round(a.load)}%)`)
+   163→            .join(', ')}. Consider spawning sub-agents to redistribute work.`,
+   164→          evidence: {
+   165→            count: heavyAgents.length,
+   166→            agents: heavyAgents.map((a) => ({
+   167→              codename: a.codename,
+   168→              load: a.load,
+   169→              status: a.status,
+   170→            })),
+   171→          },
+   172→          suggestedAction: 'navigate:fleet',
+   173→          actionTab: 'fleet',
+   174→          actionMeta: { filter: 'high-load' },
+   175→        });
+   176→      }
+   177→
+   178→      return findings;
+   179→    },
+   180→  },
+   181→
+   182→  // ── 2. API Sentinel ──
+   183→  // Checks UserAction table for recent error rates + slow submits (>2s).
+   184→  {
+   185→    key: 'api-sentinel',
+   186→    name: 'API Sentinel',
+   187→    description:
+   188→      'Watches the UserAction stream for elevated error rates and slow submissions (>2s duration). Surfaces UX friction + broken endpoints.',
+   189→    intervalMs: 5 * 60 * 1000,
+   190→    check: async () => {
+   191→      const findings: MonitorFindingInput[] = [];
+   192→      const oneHourAgo = new Date(Date.now() - 60 * 60 * 1000);
+   193→
+   194→      const [errorActions, slowActions, totalActions] = await Promise.all([
+   195→        db.userAction.count({
+   196→          where: { type: 'error', createdAt: { gt: oneHourAgo } },
+   197→        }),
+   198→        db.userAction.findMany({
+   199→          where: { duration: { gt: 2000 }, createdAt: { gt: oneHourAgo } },
+   200→          take: 50,
+   201→          orderBy: { duration: 'desc' },
+   202→        }),
+   203→        db.userAction.count({
+   204→          where: { createdAt: { gt: oneHourAgo } },
+   205→        }),
+   206→      ]);
+   207→
+   208→      const errorRate = totalActions > 0 ? (errorActions / totalActions) * 100 : 0;
+   209→
+   210→      if (errorActions >= 5 || errorRate >= 10) {
+   211→        findings.push({
+   212→          tab: 'agent-monitor',
+   213→          severity: errorRate >= 25 ? 'critical' : 'error',
+   214→          category: 'error-rate',
+   215→          title: `Elevated error rate: ${errorRate.toFixed(1)}% (${errorActions} errors in last hour)`,
+   216→          detail: `${errorActions} user-facing errors recorded in the last hour out of ${totalActions} total actions. This may indicate broken buttons, failing form submits, or JS exceptions.`,
+   217→          evidence: { errorCount: errorActions, totalActions, errorRate: Number(errorRate.toFixed(2)) },
+   218→          suggestedAction: 'navigate:logs',
+   219→          actionTab: 'logs',
+   220→          actionMeta: { level: 'error' },
+   221→        });
+   222→      }
+   223→
+   224→      if (slowActions.length > 0) {
+   225→        const slowest = slowActions[0]!;
+   226→        findings.push({
+   227→          tab: 'agent-monitor',
+   228→          severity: 'warn',
+   229→          category: 'performance',
+   230→          title: `${slowActions.length} slow action(s) detected (>2s duration)`,
+   231→          detail: `Slowest action took ${slowest.duration}ms — type "${slowest.type}" on tab "${slowest.tab ?? '?'}" target "${slowest.target ?? '?'}". Possible slow API or heavy client render.`,
+   232→          evidence: {
+   233→            count: slowActions.length,
+   234→            slowest: {
+   235→              type: slowest.type,
+   236→              tab: slowest.tab,
+   237→              target: slowest.target,
+   238→              duration: slowest.duration,
+   239→            },
+   240→            allSlow: slowActions.map((a) => ({
+   241→              type: a.type,
+   242→              tab: a.tab,
+   243→              target: a.target,
+   244→              duration: a.duration,
+   245→            })),
+   246→          },
+   247→          suggestedAction: 'navigate:logs',
+   248→          actionTab: 'logs',
+   249→        });
+   250→      }
+   251→
+   252→      return findings;
+   253→    },
+   254→  },
+   255→
+   256→  // ── 3. Health Monitor ──
+   257→  // Checks system CPU/MEM/DISK thresholds from Telemetry table.
+   258→  {
+   259→    key: 'health-monitor',
+   260→    name: 'System Health Monitor',
+   261→    description:
+   262→      'Checks the most recent Telemetry row against CPU >80%, MEM >85%, DISK >90% thresholds. Emits critical findings on breach.',
+   263→    intervalMs: 2 * 60 * 1000,
+   264→    check: async () => {
+   265→      const findings: MonitorFindingInput[] = [];
+   266→      const latest = await db.telemetry.findFirst({
+   267→        orderBy: { createdAt: 'desc' },
+   268→      });
+   269→
+   270→      if (!latest) return findings; // no telemetry yet — don't spam
+   271→
+   272→      if (latest.cpu > 80) {
+   273→        findings.push({
+   274→          tab: 'telemetry',
+   275→          severity: latest.cpu > 95 ? 'critical' : 'error',
+   276→          category: 'performance',
+   277→          title: `CPU usage critical: ${latest.cpu.toFixed(1)}%`,
+   278→          detail: `System CPU is at ${latest.cpu.toFixed(1)}% (threshold 80%). Sustained high CPU can cause agent timeouts and slow responses.`,
+   279→          evidence: { cpu: latest.cpu, mem: latest.mem, disk: latest.disk, sampledAt: latest.createdAt },
+   280→          suggestedAction: 'navigate:telemetry',
+   281→          actionTab: 'telemetry',
+   282→          actionMeta: { metric: 'cpu' },
+   283→        });
+   284→      }
+   285→
+   286→      if (latest.mem > 85) {
+   287→        findings.push({
+   288→          tab: 'telemetry',
+   289→          severity: latest.mem > 95 ? 'critical' : 'error',
+   290→          category: 'performance',
+   291→          title: `Memory usage critical: ${latest.mem.toFixed(1)}%`,
+   292→          detail: `System memory is at ${latest.mem.toFixed(1)}% (threshold 85%). May cause OOM crashes or agent eviction.`,
+   293→          evidence: { cpu: latest.cpu, mem: latest.mem, disk: latest.disk, sampledAt: latest.createdAt },
+   294→          suggestedAction: 'navigate:telemetry',
+   295→          actionTab: 'telemetry',
+   296→          actionMeta: { metric: 'mem' },
+   297→        });
+   298→      }
+   299→
+   300→      if (latest.disk > 90) {
+   301→        findings.push({
+   302→          tab: 'telemetry',
+   303→          severity: 'critical',
+   304→          category: 'performance',
+   305→          title: `Disk usage critical: ${latest.disk.toFixed(1)}%`,
+   306→          detail: `Disk is at ${latest.disk.toFixed(1)}% (threshold 90%). SQLite writes may fail soon — prune logs/telemetry or expand storage.`,
+   307→          evidence: { cpu: latest.cpu, mem: latest.mem, disk: latest.disk, sampledAt: latest.createdAt },
+   308→          suggestedAction: 'navigate:telemetry',
+   309→          actionTab: 'telemetry',
+   310→          actionMeta: { metric: 'disk' },
+   311→        });
+   312→      }
+   313→
+   314→      return findings;
+   315→    },
+   316→  },
+   317→
+   318→  // ── 4. Task Watcher ──
+   319→  // Flags stale in_progress tasks (>3 days) and blocked tasks.
+   320→  {
+   321→    key: 'task-watcher',
+   322→    name: 'Task Watcher',
+   323→    description:
+   324→      'Flags tasks stuck in `in_progress` for >3 days and blocked tasks whose dependencies have not resolved.',
+   325→    intervalMs: 30 * 60 * 1000,
+   326→    check: async () => {
+   327→      const findings: MonitorFindingInput[] = [];
+   328→      const threeDaysAgo = new Date(Date.now() - 3 * 24 * 60 * 60 * 1000);
+   329→
+   330→      const [staleTasks, blockedLinks] = await Promise.all([
+   331→        db.task.findMany({
+   332→          where: { status: 'in_progress', updatedAt: { lt: threeDaysAgo } },
+   333→          take: 30,
+   334→          orderBy: { updatedAt: 'asc' },
+   335→        }),
+   336→        db.taskLink.findMany({ take: 200 }),
+   337→      ]);
+   338→
+   339→      if (staleTasks.length > 0) {
+   340→        findings.push({
+   341→          tab: 'tasks',
+   342→          severity: 'warn',
+   343→          category: 'bug',
+   344→          title: `${staleTasks.length} task(s) stuck in_progress >3 days`,
+   345→          detail: `Stale tasks: ${staleTasks
+   346→            .slice(0, 5)
+   347→            .map((t) => `"${t.title}" (updated ${t.updatedAt.toISOString().slice(0, 10)})`)
+   348→            .join(', ')}${staleTasks.length > 5 ? ` … +${staleTasks.length - 5} more` : ''}. Consider breaking them down or cancelling.`,
+   349→          evidence: {
+   350→            count: staleTasks.length,
+   351→            tasks: staleTasks.slice(0, 10).map((t) => ({
+   352→              id: t.id,
+   353→              title: t.title,
+   354→              priority: t.priority,
+   355→              updatedAt: t.updatedAt,
+   356→            })),
+   357→          },
+   358→          suggestedAction: 'navigate:tasks',
+   359→          actionTab: 'tasks',
+   360→          actionMeta: { filter: 'stale' },
+   361→        });
+   362→      }
+   363→
+   364→      // Build blocked-task map: a task is blocked if any dependsOnId is not completed.
+   365→      if (blockedLinks.length > 0) {
+   366→        const taskIds = new Set<string>();
+   367→        blockedLinks.forEach((l) => {
+   368→          taskIds.add(l.taskId);
+   369→          taskIds.add(l.dependsOnId);
+   370→        });
+   371→        const tasks = await db.task.findMany({
+   372→          where: { id: { in: Array.from(taskIds) } },
+   373→          select: { id: true, title: true, status: true, priority: true },
+   374→        });
+   375→        const taskMap = new Map(tasks.map((t) => [t.id, t]));
+   376→        const blockedTasks: Array<{ id: string; title: string; blockingStatuses: string[] }> = [];
+   377→        for (const link of blockedLinks) {
+   378→          const t = taskMap.get(link.taskId);
+   379→          const dep = taskMap.get(link.dependsOnId);
+   380→          if (!t || !dep) continue;
+   381→          if (t.status !== 'completed' && t.status !== 'cancelled' && dep.status !== 'completed') {
+   382→            const existing = blockedTasks.find((b) => b.id === t.id);
+   383→            if (existing) existing.blockingStatuses.push(`${dep.title} (${dep.status})`);
+   384→            else blockedTasks.push({ id: t.id, title: t.title, blockingStatuses: [`${dep.title} (${dep.status})`] });
+   385→          }
+   386→        }
+   387→        if (blockedTasks.length > 0) {
+   388→          findings.push({
+   389→            tab: 'tasks',
+   390→            severity: 'info',
+   391→            category: 'ux',
+   392→            title: `${blockedTasks.length} blocked task(s) with unresolved dependencies`,
+   393→            detail: `Tasks blocked by incomplete dependencies: ${blockedTasks
+   394→              .slice(0, 5)
+   395→              .map((b) => `"${b.title}" (blocked by ${b.blockingStatuses.join(', ')})`)
+   396→              .join('; ')}${blockedTasks.length > 5 ? ` … +${blockedTasks.length - 5} more` : ''}.`,
+   397→            evidence: {
+   398→              count: blockedTasks.length,
+   399→              blocked: blockedTasks.slice(0, 10),
+   400→            },
+   401→            suggestedAction: 'navigate:task-dag',
+   402→            actionTab: 'task-dag',
+   403→          });
+   404→        }
+   405→      }
+   406→
+   407→      return findings;
+   408→    },
+   409→  },
+   410→
+   411→  // ── 5. Comms Watcher ──
+   412→  // Flags unread high-priority comms >24h old.
+   413→  {
+   414→    key: 'comm-watcher',
+   415→    name: 'Comms Watcher',
+   416→    description:
+   417→      'Flags unread high/urgent priority agent messages older than 24h. These may be alerts from autonomous agents that need attention.',
+   418→    intervalMs: 30 * 60 * 1000,
+   419→    check: async () => {
+   420→      const findings: MonitorFindingInput[] = [];
+   421→      const oneDayAgo = new Date(Date.now() - 24 * 60 * 60 * 1000);
+   422→
+   423→      const unread = await db.agentMessage.findMany({
+   424→        where: {
+   425→          read: false,
+   426→          priority: { in: ['high', 'urgent'] },
+   427→          createdAt: { lt: oneDayAgo },
+   428→        },
+   429→        take: 30,
+   430→        orderBy: { createdAt: 'asc' },
+   431→      });
+   432→
+   433→      if (unread.length > 0) {
+   434→        const urgent = unread.filter((m) => m.priority === 'urgent');
+   435→        findings.push({
+   436→          tab: 'comms',
+   437→          severity: unread.some((m) => m.priority === 'urgent') ? 'error' : 'warn',
+   438→          category: 'ux',
+   439→          title: `${unread.length} unread high-priority message(s) >24h old (${urgent.length} urgent)`,
+   440→          detail: `Oldest unread: "${unread[0]!.subject}" from ${unread[0]!.fromAgent} (${unread[0]!.createdAt.toISOString().slice(0, 10)}). High-priority comms going unread may indicate an unhandled escalation.`,
+   441→          evidence: {
+   442→            count: unread.length,
+   443→            urgentCount: urgent.length,
+   444→            oldest: {
+   445→              from: unread[0]!.fromAgent,
+   446→              subject: unread[0]!.subject,
+   447→              createdAt: unread[0]!.createdAt,
+   448→            },
+   449→            messages: unread.slice(0, 10).map((m) => ({
+   450→              id: m.id,
+   451→              from: m.fromAgent,
+   452→              to: m.toAgent,
+   453→              subject: m.subject,
+   454→              priority: m.priority,
+   455→              createdAt: m.createdAt,
+   456→            })),
+   457→          },
+   458→          suggestedAction: 'navigate:comms',
+   459→          actionTab: 'comms',
+   460→          actionMeta: { filter: 'unread-high' },
+   461→        });
+   462→      }
+   463→
+   464→      return findings;
+   465→    },
+   466→  },
+   467→
+   468→  // ── 6. Cron Monitor ──
+   469→  // Flags cron jobs that haven't run in 2x their interval.
+   470→  {
+   471→    key: 'cron-monitor',
+   472→    name: 'Cron Monitor',
+   473→    description:
+   474→      'Flags enabled cron jobs whose last run is older than 2x their schedule interval. May indicate a stalled scheduler.',
+   475→    intervalMs: 15 * 60 * 1000,
+   476→    check: async () => {
+   477→      const findings: MonitorFindingInput[] = [];
+   478→      const jobs = await db.cronJob.findMany({
+   479→        where: { enabled: true },
+   480→      });
+   481→
+   482→      const stale: Array<{ key: string; name: string; schedule: string; lastRun: Date | null; expectedEveryMin: number }> = [];
+   483→      for (const job of jobs) {
+   484→        // Parse "*/N * * * *" or "N * * * *" → expected interval in minutes.
+   485→        const minField = job.schedule.split(' ')[0]!;
+   486→        let expectedMin = 60; // default hourly
+   487→        if (minField.startsWith('*/')) {
+   488→          expectedMin = parseInt(minField.slice(2), 10) || 60;
+   489→        } else if (/^\d+$/.test(minField)) {
+   490→          // Specific minute(s) → assume hourly
+   491→          expectedMin = 60;
+   492→        }
+   493→        const staleAfterMs = expectedMin * 2 * 60 * 1000;
+   494→        if (!job.lastRun) {
+   495→          // Never run — only flag if it's been more than 2x interval since creation.
+   496→          if (Date.now() - job.createdAt.getTime() > staleAfterMs) {
+   497→            stale.push({ key: job.key, name: job.name, schedule: job.schedule, lastRun: null, expectedEveryMin: expectedMin });
+   498→          }
+   499→        } else if (Date.now() - job.lastRun.getTime() > staleAfterMs) {
+   500→          stale.push({ key: job.key, name: job.name, schedule: job.schedule, lastRun: job.lastRun, expectedEveryMin: expectedMin });
+   501→        }
+   502→      }
+   503→
+   504→      if (stale.length > 0) {
+   505→        findings.push({
+   506→          tab: 'scheduler',
+   507→          severity: stale.length >= 5 ? 'error' : 'warn',
+   508→          category: 'bug',
+   509→          title: `${stale.length} cron job(s) haven't run in 2x their interval`,
+   510→          detail: `Stale jobs: ${stale
+   511→            .slice(0, 5)
+   512→            .map((j) => `${j.name} (last run: ${j.lastRun ? j.lastRun.toISOString().slice(0, 16) : 'never'})`)
+   513→            .join(', ')}${stale.length > 5 ? ` … +${stale.length - 5} more` : ''}. Check the scheduler service.`,
+   514→          evidence: {
+   515→            count: stale.length,
+   516→            jobs: stale.slice(0, 20).map((j) => ({
+   517→              key: j.key,
+   518→              name: j.name,
+   519→              schedule: j.schedule,
+   520→              lastRun: j.lastRun,
+   521→              expectedEveryMin: j.expectedEveryMin,
+   522→            })),
+   523→          },
+   524→          suggestedAction: 'navigate:scheduler',
+   525→          actionTab: 'scheduler',
+   526→        });
+   527→      }
+   528→
+   529→      return findings;
+   530→    },
+   531→  },
+   532→
+   533→  // ── 7. Payment Monitor ──
+   534→  // Flags pending payments >7 days old.
+   535→  {
+   536→    key: 'payment-monitor',
+   537→    name: 'Payment Monitor',
+   538→    description:
+   539→      'Flags payments stuck in `pending` status for >7 days. These may be failed payouts that need manual confirmation.',
+   540→    intervalMs: 60 * 60 * 1000,
+   541→    check: async () => {
+   542→      const findings: MonitorFindingInput[] = [];
+   543→      const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
+   544→
+   545→      const pending = await db.payment.findMany({
+   546→        where: { status: 'pending', createdAt: { lt: sevenDaysAgo } },
+   547→        take: 30,
+   548→        orderBy: { createdAt: 'asc' },
+   549→      });
+   550→
+   551→      if (pending.length > 0) {
+   552→        const totalAmount = pending.reduce((s, p) => s + p.amount, 0);
+   553→        findings.push({
+   554→          tab: 'payments',
+   555→          severity: 'warn',
+   556→          category: 'bug',
+   557→          title: `${pending.length} pending payment(s) >7 days old (₹${totalAmount.toFixed(2)})`,
+   558→          detail: `Oldest pending: ₹${pending[0]!.amount.toFixed(2)} ${pending[0]!.currency} via ${pending[0]!.method} created ${pending[0]!.createdAt.toISOString().slice(0, 10)}. May need manual confirmation or refund.`,
+   559→          evidence: {
+   560→            count: pending.length,
+   561→            totalAmount,
+   562→            oldest: {
+   563→              amount: pending[0]!.amount,
+   564→              currency: pending[0]!.currency,
+   565→              method: pending[0]!.method,
+   566→              createdAt: pending[0]!.createdAt,
+   567→            },
+   568→          },
+   569→          suggestedAction: 'navigate:payments',
+   570→          actionTab: 'payments',
+   571→          actionMeta: { filter: 'pending' },
+   572→        });
+   573→      }
+   574→
+   575→      return findings;
+   576→    },
+   577→  },
+   578→
+   579→  // ── 8. Model Watchdog ──
+   580→  // Flags AI models with status='broken'.
+   581→  {
+   582→    key: 'model-watchdog',
+   583→    name: 'Model Watchdog',
+   584→    description:
+   585→      'Counts AI models marked as `broken` (provider sync failed, deprecated, or returning errors). Suggests a provider re-sync.',
+   586→    intervalMs: 30 * 60 * 1000,
+   587→    check: async () => {
+   588→      const findings: MonitorFindingInput[] = [];
+   589→
+   590→      const [brokenCount, brokenModels] = await Promise.all([
+   591→        db.model.count({ where: { status: 'broken' } }),
+   592→        db.model.findMany({
+   593→          where: { status: 'broken' },
+   594→          take: 20,
+   595→          select: { id: true, providerKey: true, modelId: true, status: true, lastChecked: true },
+   596→        }),
+   597→      ]);
+   598→
+   599→      if (brokenCount > 0) {
+   600→        findings.push({
+   601→          tab: 'models',
+   602→          severity: brokenCount >= 5 ? 'error' : 'warn',
+   603→          category: 'bug',
+   604→          title: `${brokenCount} model(s) marked as broken`,
+   605→          detail: `Broken models: ${brokenModels
+   606→            .slice(0, 5)
+   607→            .map((m) => `${m.modelId} (${m.providerKey})`)
+   608→            .join(', ')}${brokenModels.length > 5 ? ` … +${brokenModels.length - 5} more` : ''}. Run a provider sync to refresh.`,
+   609→          evidence: {
+   610→            count: brokenCount,
+   611→            models: brokenModels.map((m) => ({
+   612→              id: m.id,
+   613→              providerKey: m.providerKey,
+   614→              modelId: m.modelId,
+   615→              lastChecked: m.lastChecked,
+   616→            })),
+   617→          },
+   618→          suggestedAction: 'navigate:models',
+   619→          actionTab: 'models',
+   620→          actionMeta: { filter: 'broken' },
+   621→        });
+   622→      }
+   623→
+   624→      return findings;
+   625→    },
+   626→  },
+   627→];
+   628→
+   629→// ─── Registry helpers ────────────────────────────────────────────────
+   630→
+   631→export function listMonitors(): MonitorDef[] {
+   632→  return monitors;
+   633→}
+   634→
+   635→export function getMonitor(key: string): MonitorDef | undefined {
+   636→  return monitors.find((m) => m.key === key);
+   637→}
+   638→
+   639→export function getLastRun(key: string): MonitorRunResult['ranAt'] | null {
+   640→  return lastRunByMonitor[key]?.ranAt ?? null;
+   641→}
+   642→
+   643→export function getAllLastRuns(): Record<string, { ranAt: string; durationMs: number; findingsCreated: number; ok: boolean }> {
+   644→  return { ...lastRunByMonitor };
+   645→}
+   646→
+   647→// ─── Persistence + dedupe ────────────────────────────────────────────
+   648→
+   649→/**
+   650→ * Persist a finding IF no open finding with the same (monitorKey, title)
+   651→ * exists in the last 24h. Returns true if created, false if deduped.
+   652→ */
+   653→async function persistFinding(
+   654→  monitorKey: string,
+   655→  input: MonitorFindingInput,
+   656→): Promise<{ created: boolean; id?: string }> {
+   657→  const oneDayAgo = new Date(Date.now() - 24 * 60 * 60 * 1000);
+   658→  const existing = await db.agentMonitorFinding.findFirst({
+   659→    where: {
+   660→      monitorKey,
+   661→      title: input.title,
+   662→      status: 'open',
+   663→      createdAt: { gt: oneDayAgo },
+   664→    },
+   665→    select: { id: true },
+   666→  });
+   667→  if (existing) {
+   668→    return { created: false };
+   669→  }
+   670→  const created = await db.agentMonitorFinding.create({
+   671→    data: {
+   672→      monitorKey,
+   673→      tab: input.tab,
+   674→      severity: input.severity,
+   675→      category: input.category,
+   676→      title: input.title,
+   677→      detail: input.detail,
+   678→      evidence: JSON.stringify(input.evidence ?? {}),
+   679→      suggestedAction: input.suggestedAction ?? null,
+   680→      actionTab: input.actionTab ?? null,
+   681→      actionMeta: JSON.stringify(input.actionMeta ?? {}),
+   682→      status: 'open',
+   683→    },
+   684→  });
+   685→  return { created: true, id: created.id };
+   686→}
+   687→
+   688→// ─── Runners ─────────────────────────────────────────────────────────
+   689→
+   690→/**
+   691→ * Run a single monitor by key. Persists findings (with dedupe) and updates
+   692→ * the in-memory last-run cache. NEVER throws — returns an error result.
+   693→ */
+   694→export async function runMonitor(key: string): Promise<MonitorRunResult> {
+   695→  const start = Date.now();
+   696→  const monitor = getMonitor(key);
+   697→  if (!monitor) {
+   698→    return {
+   699→      key,
+   700→      ok: false,
+   701→      ranAt: new Date().toISOString(),
+   702→      durationMs: 0,
+   703→      findingsCreated: 0,
+   704→      findingsDeduped: 0,
+   705→      error: `Unknown monitor key: ${key}`,
+   706→    };
+   707→  }
+   708→  try {
+   709→    const rawFindings = await monitor.check();
+   710→    let created = 0;
+   711→    let deduped = 0;
+   712→    for (const f of rawFindings) {
+   713→      const result = await persistFinding(monitor.key, f);
+   714→      if (result.created) created++;
+   715→      else deduped++;
+   716→    }
+   717→    const durationMs = Date.now() - start;
+   718→    lastRunByMonitor[monitor.key] = {
+   719→      ranAt: new Date().toISOString(),
+   720→      durationMs,
+   721→      findingsCreated: created,
+   722→      ok: true,
+   723→    };
+   724→    return {
+   725→      key: monitor.key,
+   726→      ok: true,
+   727→      ranAt: new Date().toISOString(),
+   728→      durationMs,
+   729→      findingsCreated: created,
+   730→      findingsDeduped: deduped,
+   731→    };
+   732→  } catch (err) {
+   733→    const durationMs = Date.now() - start;
+   734→    lastRunByMonitor[monitor.key] = {
+   735→      ranAt: new Date().toISOString(),
+   736→      durationMs,
+   737→      findingsCreated: 0,
+   738→      ok: false,
+   739→    };
+   740→    return {
+   741→      key: monitor.key,
+   742→      ok: false,
+   743→      ranAt: new Date().toISOString(),
+   744→      durationMs,
+   745→      findingsCreated: 0,
+   746→      findingsDeduped: 0,
+   747→      error: err instanceof Error ? err.message : String(err),
+   748→    };
+   749→  }
+   750→}
+   751→
+   752→/**
+   753→ * Run ALL monitors in parallel. Returns a result for each. NEVER throws.
+   754→ */
+   755→export async function runAllMonitors(): Promise<MonitorRunResult[]> {
+   756→  const results = await Promise.all(monitors.map((m) => runMonitor(m.key)));
+   757→  return results;
+   758→}
+   759→
