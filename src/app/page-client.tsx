@@ -63,6 +63,8 @@ import GoalsTab from '@/components/tabs/GoalsTab';
 import DataManagementTab from '@/components/tabs/DataManagementTab';
 import AgentMonitorTab from '@/components/tabs/AgentMonitorTab';
 import AuditLogTab from '@/components/tabs/AuditLogTab';
+import TerminalTab from '@/components/tabs/TerminalTab';
+import FilesTab from '@/components/tabs/FilesTab';
 import CRMTab from '@/components/tabs/CRMTab';
 
 // ─── Merged tab components (combine related tabs with sub-view toggles) ───
@@ -274,8 +276,10 @@ const TABS: TabDef[] = [
   { key: 'analytics', label: 'Analytics & Reports', icon: BarChart3, group: 'Business', accent: JARVIS.colors.cyan },
   { key: 'services', label: 'Services Hub', icon: Briefcase, group: 'Business', accent: JARVIS.colors.amber },
 
-  // ─── System & Admin (3) ───
+  // ─── System & Admin (5) ───
   { key: 'data-mgmt', label: 'Data Management', icon: Database, group: 'System', accent: JARVIS.colors.amber },
+  { key: 'terminal', label: 'Terminal', icon: Terminal, group: 'System', accent: JARVIS.colors.green },
+  { key: 'files', label: 'File Explorer', icon: FolderArchive, group: 'System', accent: JARVIS.colors.amber },
   { key: 'branding', label: 'Branding', icon: Palette, group: 'System', accent: JARVIS.colors.violet },
   { key: 'apptree', label: 'App Tree', icon: FolderArchive, group: 'System', accent: JARVIS.colors.cyan },
 ];
@@ -330,6 +334,8 @@ const TAB_MAP: Record<TabKey, () => JSX.Element> = {
   services: ServicesHubTab,
   // System
   'data-mgmt': DataManagementTab,
+  terminal: TerminalTab,
+  files: FilesTab,
   branding: BrandingTab,
   apptree: AppTreeTab,
 };

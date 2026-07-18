@@ -5138,3 +5138,84 @@ Stage Summary:
 - ✅ README.md with quick start guide.
 - ✅ 0 lint errors, 0 page errors, all 24 endpoints pass.
 - ✅ 32 rules, 455 models, 69 agents, 33 cron jobs.
+
+---
+Task ID: FINAL-15PERCENT (Telegram + Terminal + Files + Email + Plans)
+Agent: main (Z.ai Code)
+Task: Implement the remaining 15% — Telegram bot, terminal tab, file editor tab, email egress, plan+PlanStep models.
+
+Work Log:
+
+**1. TELEGRAM BOT** (`src/lib/telegram-bot.ts` + 2 API routes):
+- Ported from jarvis zip's telegram-broadcaster.ts.
+- `sendToOwner(message)` — sends Markdown message to owner via Telegram Bot API.
+- `sendToOwnerWithButtons(message, buttons)` — sends message with inline keyboard buttons.
+- `sendApprovalRequest(title, description, approvalId)` — sends approval request with Approve/Reject buttons.
+- `sendPhotoToOwner()` / `sendDocumentToOwner()` — send media/files.
+- `handleTelegramUpdate(update)` — handles incoming webhook:
+  - Callback queries (approval button clicks) → resolves via /api/approvals.
+  - Text messages → forwards to /api/orion/command → sends response back.
+- API routes:
+  - `/api/telegram/webhook` POST (receive updates) + GET (set up webhook).
+  - `/api/telegram/send` POST (send message or approval request).
+- **Verified**: sent "🧪 JARVIS Telegram test" → ok=true. Owner will receive it on their Telegram.
+- Uses TELEGRAM_BOT_TOKEN + TELEGRAM_CHAT_ID from .env (auto-loaded).
+
+**2. EMAIL SENDER** (`src/lib/email-sender.ts` + 1 API route):
+- Ported from jarvis zip's email-native.ts (zero-dependency, uses native tls module).
+- `sendEmail(to, subject, body)` — sends email via SMTP (TLS port 465).
+- `sendToOwnerEmail(subject, body)` — sends to owner's email.
+- Uses SMTP_HOST, SMTP_PORT, SMTP_USER, SMTP_PASS from .env.
+- API: `/api/email/send` POST.
+- **Note**: SMTP_USER is empty in current .env — will work when user sets SMTP credentials.
+
+**3. PLAN + PLANSTEP MODELS** (2 Prisma models + 3 API routes):
+- `Plan` model: id, title, description, goal, status (draft→executing→completed→failed→paused), steps relation.
+- `PlanStep` model: id, planId, stepNumber, title, description, action (create-task/run-command/run-skill/send-comms/browse/read-file/write-file), params (JSON), status (pending→in_progress→completed→failed→skipped), result, dependsOn (JSON), assignee, requiresApproval, verifiedAt.
+- API routes:
+  - `/api/plans/create` POST — LLM decomposes goal into 3-7 steps, creates Plan + PlanStep records.
+  - `/api/plans/list` GET — list all plans with steps.
+  - `/api/plans/[id]/execute` POST — executes each step in order, respects dependencies, handles approval-required steps.
+- **Verified**: "Build a landing page for the AI chatbot service" → 6 steps created, plan stored.
+
+**4. TERMINAL TAB** (`src/components/tabs/TerminalTab.tsx` + 1 API route):
+- Interactive shell with command input, output display, history.
+- Shows stdout (green), stderr (red), blocked messages, exit codes.
+- Block-list enforced (rm -rf /, sudo, mkfs, etc.).
+- Approval required for git push, npm publish, etc.
+- API: `/api/terminal/exec` POST.
+- **Verified**: "echo hello terminal" → success, stdout="hello terminal".
+
+**5. FILE EXPLORER TAB** (`src/components/tabs/FilesTab.tsx` + 1 API route):
+- Two-panel layout: file tree (left) + editor (right).
+- Browse workspace directories, click files to open.
+- Edit file content in textarea, save button writes back.
+- Path navigation (up button, directory click).
+- API: `/api/workspace/list` POST + existing /api/file/read + /api/file/write.
+- **Verified**: workspace shows hello.txt (16B) + test.txt. Click file → content loads → edit → save.
+
+**Verification**:
+- Terminal: ✅ "echo hello terminal" → success.
+- Telegram: ✅ Message sent (ok=true).
+- Email: ✅ Correct error when SMTP not configured (will work when SMTP_USER set).
+- Plan: ✅ 6 steps created for "Build a landing page".
+- Files: ✅ Workspace browsable, files editable + saveable.
+- Lint: clean (0 errors, 0 warnings).
+- Dev server: HTTP 200.
+
+Stage Summary:
+- ✅ Telegram bot: send messages + approvals + webhook command intake.
+- ✅ Email sender: SMTP via native TLS (zero-dependency).
+- ✅ Plan + PlanStep: formal decomposition with dependencies + execution.
+- ✅ Terminal tab: interactive shell with block-list.
+- ✅ File Explorer tab: browse + edit + save workspace files.
+- ✅ 29 tabs (was 27), 145 API routes (was 137), 44 Prisma models (was 42).
+- ✅ 0 lint errors, 0 page errors.
+
+## App is now 100% feature-complete for the remaining 15%:
+What was missing → What's now implemented:
+1. ❌ Telegram bot → ✅ Full bot with webhook + approvals + command intake.
+2. ❌ Visual terminal → ✅ Terminal tab with interactive shell.
+3. ❌ Visual file editor → ✅ File Explorer tab with browse + edit + save.
+4. ❌ Email egress → ✅ SMTP sender (native TLS, zero-dependency).
+5. ❌ Formal plan execution → ✅ Plan + PlanStep models + execution engine.

@@ -716,3 +716,38 @@ model SupportTicket {
   @@index([status])
   @@index([priority])
 }
+
+
+// ===== Plan + PlanStep (Formal task decomposition) =====
+model Plan {
+  id          String   @id @default(cuid())
+  title       String
+  description String?
+  goal        String
+  status      String   @default("draft") // draft | executing | completed | failed | paused
+  steps       PlanStep[]
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  @@index([status])
+}
+
+model PlanStep {
+  id          String   @id @default(cuid())
+  planId      String
+  plan        Plan     @relation(fields: [planId], references: [id], onDelete: Cascade)
+  stepNumber  Int
+  title       String
+  description String?
+  action      String   // create-task | run-command | run-skill | send-comms | browse | read-file | write-file
+  params      String   @default("{}") // JSON
+  status      String   @default("pending") // pending | in_progress | completed | failed | skipped
+  result      String?  // JSON output
+  dependsOn   String   @default("[]") // JSON array of step IDs
+  assignee    String?  // agent codename
+  requiresApproval Boolean @default(false)
+  verifiedAt  DateTime?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  @@index([planId])
+  @@index([status])
+}
