@@ -334,3 +334,26 @@ These rules are enforced by:
 - Rules should be specific enough to be actionable, general enough to cover edge cases.
 - The CEO agent proposes new rules during its sweep — they go to the owner for approval.
 - This rule itself is the meta-rule that ensures the rule set evolves.
+
+## Rule 29: No Touching Personal Accounts (MANDATORY — HIGHEST PRIORITY)
+- AI agents MUST NEVER access, touch, or interact with:
+  - Logged-in social media accounts (Facebook, Twitter/X, Instagram, LinkedIn, etc.)
+  - Personal email accounts (Gmail, Outlook, etc.)
+  - Personal banking/financial accounts
+  - Any personal login session in the browser
+- This rule OVERRIDES all other rules. No agent, no cron job, no autonomous action can bypass this.
+- If an agent needs to post to social media or send email, it MUST:
+  1. Create a new dedicated account for that purpose (never use owner's personal account).
+  2. Get explicit owner approval via Telegram before creating the account.
+  3. Use the dedicated account only — never the owner's personal one.
+- Violation of this rule is a critical security incident and should trigger immediate shutdown of the offending agent.
+- This rule is PERMANENT and CANNOT be removed or modified.
+
+## Rule 30: Tool Monitoring (Installed Software Tracking)
+- Agents can monitor available tools/software installed on the laptop.
+- A tool inventory is maintained and checked periodically for changes.
+- When new tools are detected, agents note them and assess if they can be used for future tasks.
+- When tools are removed/updated, agents update the inventory.
+- Tool inventory is stored in memory (not in personal files).
+- Agents CANNOT install new software without owner approval via Telegram.
+- This helps agents know what capabilities are available on the host system.

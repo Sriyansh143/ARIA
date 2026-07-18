@@ -48,6 +48,13 @@ export const EXTRA_CRON_ROSTER: Array<{
     description: 'Check for idle agents and assign them pending tasks. Rule 23: no idle agents.',
     enabled: true,
   },
+  {
+    key: 'tool-scan',
+    name: 'Tool Inventory Scan',
+    schedule: '0 */6 * * *', // every 6 hours
+    description: 'Scan host for installed tools/software, update inventory in memory. Rule 30.',
+    enabled: true,
+  },
 ];
 
 async function main() {

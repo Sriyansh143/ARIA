@@ -399,4 +399,19 @@ const dispatchers: Record<string, CronDispatcher> = {
       return { ok: false, detail: `idle-agent-check failed: ${err instanceof Error ? err.message : String(err)}` };
     }
   },
+
+  // ── Tool Scan: monitor installed software on the host (Rule 30) ──
+  'tool-scan': async () => {
+    try {
+      const { runToolScan } = await import('@/lib/tool-monitor');
+      const result = await runToolScan();
+      return {
+        ok: true,
+        detail: `Tool scan: ${result.found} tools found, ${result.newTools} new, ${result.removedTools} removed`,
+        recordsAffected: result.newTools,
+      };
+    } catch (err) {
+      return { ok: false, detail: `tool-scan failed: ${err instanceof Error ? err.message : String(err)}` };
+    }
+  },
 };
