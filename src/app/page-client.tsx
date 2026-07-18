@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   Activity, LayoutDashboard, Bot, MessageSquare, Sparkles, Database, Gauge,
@@ -876,6 +876,58 @@ function NotificationsBell({ open, setOpen }: { open: boolean; setOpen: (o: bool
     await patchNotif(id, read);
     refresh();
   };
+
+  // Track previous unread count to detect new notifications arriving.
+  const prevUnreadRef = useRef(0);
+  useEffect(() => {
+    const currentUnread = visibleUnread;
+    const prevUnread = prevUnreadRef.current;
+    // Only trigger if unread count INCREASED (new notification arrived) and settings allow it.
+    if (currentUnread > prevUnread && prevUnread > 0) {
+      const newCount = currentUnread - prevUnread;
+      // Find the newest unread notification for the alert.
+      const newest = visibleNotifications.find((n) => !n.read);
+      if (newest) {
+        // Sound alert: play a short beep using Web Audio API (no asset needed).
+        if (settings.sound && !settings.mutedTypes.includes(newest.type)) {
+          try {
+            const ctx = new (window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext)();
+            const osc = ctx.createOscillator();
+            const gain = ctx.createGain();
+            osc.connect(gain);
+            gain.connect(ctx.destination);
+            osc.frequency.value = newest.type === 'error' ? 220 : newest.type === 'warn' ? 440 : 660;
+            osc.type = 'sine';
+            gain.gain.setValueAtTime(0.3, ctx.currentTime);
+            gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.5);
+            osc.start(ctx.currentTime);
+            osc.stop(ctx.currentTime + 0.5);
+          } catch { /* AudioContext not available */ }
+        }
+        // Desktop notification: use the Notification API if permission granted.
+        if (settings.desktop && !settings.mutedTypes.includes(newest.type) && 'Notification' in window) {
+          try {
+            if (Notification.permission === 'granted') {
+              new Notification(newest.title, {
+                body: newest.message.slice(0, 200),
+                icon: '/favicon.ico',
+                tag: newest.id,
+              });
+            }
+          } catch { /* Notification API not available */ }
+        }
+      }
+      void newCount;
+    }
+    prevUnreadRef.current = currentUnread;
+  }, [visibleUnread, visibleNotifications, settings.sound, settings.desktop, settings.mutedTypes]);
+
+  // Request Notification permission when desktop setting is toggled on.
+  useEffect(() => {
+    if (settings.desktop && 'Notification' in window && Notification.permission === 'default') {
+      Notification.requestPermission().catch(() => {});
+    }
+  }, [settings.desktop]);
 
   const formatTime = (ts: string) => {
     const diff = Date.now() - new Date(ts).getTime();
