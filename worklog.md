@@ -2795,3 +2795,72 @@ Stage Summary:
 6. Add more agent comparison dimensions (charts, radar, timeline).
 7. Add notifications settings (per-type enable/disable, sound, desktop notifications).
 8. Add tab pinning from command palette (quick-pin frequent tabs).
+
+---
+Task ID: CRON-WEBDEVREVIEW-8
+Agent: main (Z.ai Code) — webDevReview cron run #8
+Task: Assess project status, perform QA via agent-browser, fix bugs, add features, improve styling.
+
+Work Log:
+- Read worklog tail (CRON-WEBDEVREVIEW-7) — prior session added Command Palette recent/frequent tabs + Enhanced Notifications Panel.
+- **QA Assessment**:
+  - Dev server was down (OOM) — restarted via double-fork daemon pattern. HTTP 200.
+  - Lint: clean (0 errors, 0 warnings).
+  - agent-browser sweep of 8 tabs (Overview, Fleet, Tasks, Health, Models, Agent Monitor, Analytics, Payments): ALL 0 errors, 0 console errors.
+  - No bugs found — app is stable.
+
+**FEATURE 1: Tab Pinning from Command Palette** (`src/app/page-client.tsx`):
+- CommandPalette now accepts `pinned` + `onTogglePin` props.
+- Each result item now has a **pin/unpin button** (Pin icon):
+  - **Pinned tabs**: amber filled pin icon, always visible.
+  - **Unpinned tabs**: outline pin icon, appears on hover (opacity-0 → group-hover:opacity-100).
+  - Click toggles pin state — calls `onTogglePin(key)` which updates `tabPrefs.pinned` in localStorage.
+  - `stopPropagation` on pin click — doesn't trigger navigation.
+  - Tooltip: "Pin to sidebar" / "Unpin from sidebar".
+- Changed result container from `<button>` to `<div>` (to avoid nested button — pin is a button inside the div).
+- Verified: pinned "Agent Fleet" → "PINNED" section appeared at top of sidebar with the tab.
+
+**FEATURE 2: Agent Comparison Radar Chart** (`src/components/tabs/FleetTab.tsx`):
+- Added **Capability Radar** chart to the CompareModal — appears after the Metrics Comparison table.
+- Uses recharts `RadarChart` with 6 normalized dimensions (0-100):
+  - **Health**: agent.healthScore (already 0-100).
+  - **Success**: agent.successRate (already 0-100).
+  - **Tasks**: normalized — (tasks.total / maxTasksAcrossAgents) * 100.
+  - **Activity**: normalized — (logs.total / maxLogsAcrossAgents) * 100.
+  - **Comms**: normalized — (comms.total / maxCommsAcrossAgents) * 100.
+  - **Skills**: normalized — (skillRuns / maxSkillRunsAcrossAgents) * 100.
+- Each agent gets a colored radar layer (cyan, green, amber, violet, red — cycled by index).
+- 0.1 fill opacity + 1.5 stroke width for layered visibility.
+- PolarGrid (dark stroke), PolarAngleAxis (dimension labels), PolarRadiusAxis (0-100 scale), Tooltip, Legend.
+- Height: 256px (h-64), ResponsiveContainer.
+- Verified: selected 3 agents (AEGIS, ANDROMEDA, ANTARES) → radar shows all 6 dimensions with 3 colored layers + legend.
+
+**Verification (agent-browser)**:
+- App loads HTTP 200, 0 page errors, 0 console errors.
+- Command Palette: Ctrl+K opens, 43 items each with a pin button. Clicked pin on "Agent Fleet" → "PINNED" section appeared in sidebar.
+- Compare modal: selected 3 agents → "CAPABILITY RADAR (NORMALIZED 0-100)" chart rendered with Health/Success/Tasks/Activity/Comms/Skills dimensions + 3 agent legend.
+- Sticky footer: reachable on short content (top:880 after minor scroll, vh:900).
+- Lint: clean (0 errors, 0 warnings).
+
+Stage Summary:
+- ✅ QA: app stable, 0 bugs, all endpoints 200, lint clean.
+- ✅ FEATURE 1: Tab Pinning from Command Palette — pin/unpin buttons on each result, localStorage persistence, sidebar PINNED section.
+- ✅ FEATURE 2: Agent Comparison Radar Chart — 6 normalized dimensions, colored layers, legend, tooltip.
+- ✅ Dev server restarted (was OOM-killed), now stable HTTP 200.
+- ✅ Lint clean. 0 page errors. All features verified via agent-browser.
+
+## Updated App Stats
+- **41 tabs** across 8 intelligent groups
+- **Command Palette**: recent + frequent + pin/unpin from palette
+- **Agent Comparison**: side-by-side table + health scores + radar chart (6 dimensions)
+- **0 lint errors, 0 page errors, 0 console errors**
+
+## Pending Works (for next cron run)
+1. Add WebSocket mini-service for true real-time updates (currently polling 10-30s).
+2. Wire skill execution to actually invoke web-search/web-reader skills.
+3. Add PDF export for reports (currently CSV only).
+4. Add scheduled email reports.
+5. Add drag-and-drop task reordering within Kanban columns.
+6. Add notifications settings (per-type enable/disable, sound, desktop notifications).
+7. Add tab hiding from command palette (quick-hide less-used tabs).
+8. Add agent comparison timeline (performance over time chart).

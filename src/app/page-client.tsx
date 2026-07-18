@@ -609,7 +609,19 @@ export default function MissionControlDashboard() {
       </footer>
 
       {/* Command palette — keyed so it remounts fresh (reset query) each time it opens */}
-      <CommandPalette key={paletteKey} open={paletteOpen} onClose={() => setPaletteOpen(false)} onNavigate={navigate} />
+      <CommandPalette
+        key={paletteKey}
+        open={paletteOpen}
+        onClose={() => setPaletteOpen(false)}
+        onNavigate={navigate}
+        pinned={tabPrefs.pinned}
+        onTogglePin={(key) => updateTabPrefs((prev) => ({
+          ...prev,
+          pinned: prev.pinned.includes(key)
+            ? prev.pinned.filter((k) => k !== key)
+            : [...prev.pinned, key],
+        }))}
+      />
 
       {/* Global search overlay (Cmd+Shift+F) */}
       <GlobalSearch open={globalSearchOpen} onClose={() => setGlobalSearchOpen(false)} onNavigate={navigate} />
@@ -999,7 +1011,13 @@ async function patchNotif(id: string, read: boolean) {
 }
 
 /* ---------- Command palette ---------- */
-function CommandPalette({ open, onClose, onNavigate }: { open: boolean; onClose: () => void; onNavigate: (t: TabKey) => void }) {
+function CommandPalette({ open, onClose, onNavigate, pinned = [], onTogglePin }: {
+  open: boolean;
+  onClose: () => void;
+  onNavigate: (t: TabKey) => void;
+  pinned?: TabKey[];
+  onTogglePin?: (key: TabKey) => void;
+}) {
   // Fresh mount (via key in parent) ensures q/sel start empty each open.
   const [q, setQ] = useState('');
   const [sel, setSel] = useState(0);
@@ -1130,12 +1148,13 @@ function CommandPalette({ open, onClose, onNavigate }: { open: boolean; onClose:
                         const i = runningIdx;
                         const Icon = t.icon;
                         const active = i === sel;
+                        const isPinned = pinned.includes(t.key);
                         return (
-                          <button
+                          <div
                             key={`${section.label}-${t.key}`}
                             onMouseEnter={() => setSel(i)}
+                            className={cn('group w-full flex items-center gap-3 px-3 py-2 rounded-md text-sm transition-colors cursor-pointer', active ? 'bg-[var(--j-panel-soft)] text-[var(--j-text)]' : 'text-[var(--j-text-dim)] hover:bg-[var(--j-panel-soft)]/40')}
                             onClick={() => navigateAndTrack(t.key)}
-                            className={cn('w-full flex items-center gap-3 px-3 py-2 rounded-md text-sm transition-colors', active ? 'bg-[var(--j-panel-soft)] text-[var(--j-text)]' : 'text-[var(--j-text-dim)]')}
                           >
                             <Icon className="h-4 w-4 shrink-0" style={{ color: active ? t.accent : undefined }} />
                             <span className="flex-1 text-left truncate">{t.label}</span>
@@ -1145,7 +1164,21 @@ function CommandPalette({ open, onClose, onNavigate }: { open: boolean; onClose:
                               </span>
                             )}
                             <span className="jarvis-mono text-[9px] uppercase text-[var(--j-text-mute)]">{t.group}</span>
-                          </button>
+                            {/* Pin/unpin button — quick-pin from palette */}
+                            {onTogglePin && (
+                              <button
+                                onClick={(e) => { e.stopPropagation(); onTogglePin(t.key); }}
+                                className={`shrink-0 h-5 w-5 flex items-center justify-center rounded transition-all ${
+                                  isPinned
+                                    ? 'text-[var(--j-amber)] opacity-100'
+                                    : 'text-[var(--j-text-mute)] opacity-0 group-hover:opacity-100 hover:text-[var(--j-amber)]'
+                                }`}
+                                title={isPinned ? 'Unpin from sidebar' : 'Pin to sidebar'}
+                              >
+                                <Pin className={cn('h-3 w-3', isPinned && 'fill-current')} />
+                              </button>
+                            )}
+                          </div>
                         );
                       })}
                     </div>

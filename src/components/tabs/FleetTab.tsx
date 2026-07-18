@@ -7,6 +7,7 @@ import {
   Activity, Settings, Send, Loader2, ChevronRight, Clock, Cpu,
   Download, Upload, FileJson, Sparkles, Search, Zap, GitCompare, Trophy, Check,
 } from 'lucide-react';
+import { RadarChart, PolarGrid, PolarAngleAxis, PolarRadiusAxis, Radar, ResponsiveContainer, Legend, Tooltip } from 'recharts';
 import { useApi, postJson, patchJson } from '@/lib/hooks/use-api';
 import { JARVIS, STATUS_COLORS } from '@/lib/config';
 import { SectionTitle, StatusDot, Pill, EmptyState } from '@/components/jarvis/shared';
@@ -1271,6 +1272,62 @@ function CompareModal({ agents, onClose }: { agents: Agent[]; onClose: () => voi
                       <CompareRow label="Skill Success" agents={comparison} winners={[]} winnerKey="" getValue={(a) => `${a.metrics.skills.successRate}%`} getNum={(a) => a.metrics.skills.successRate} higherBetter />
                     </tbody>
                   </table>
+                </div>
+
+                {/* Radar chart — normalized 0-100 comparison across 6 dimensions */}
+                <div className="jarvis-panel p-3">
+                  <div className="jarvis-mono text-[9px] uppercase text-[var(--j-text-mute)] mb-2 flex items-center gap-1.5">
+                    <Activity className="h-3 w-3" /> Capability Radar (normalized 0-100)
+                  </div>
+                  <div className="h-64">
+                    <ResponsiveContainer width="100%" height="100%">
+                      <RadarChart data={(() => {
+                        // Normalize each metric to 0-100 for the radar.
+                        const maxTasks = Math.max(1, ...comparison.map((a) => a.metrics.tasks.total));
+                        const maxLogs = Math.max(1, ...comparison.map((a) => a.metrics.logs.total));
+                        const maxComms = Math.max(1, ...comparison.map((a) => a.metrics.comms.total));
+                        const maxSkills = Math.max(1, ...comparison.map((a) => a.metrics.skills.totalRuns));
+                        const dims = ['Health', 'Success', 'Tasks', 'Activity', 'Comms', 'Skills'];
+                        return dims.map((dim) => {
+                          const row: Record<string, string | number> = { dim };
+                          for (const a of comparison) {
+                            let val = 0;
+                            switch (dim) {
+                              case 'Health': val = a.healthScore; break;
+                              case 'Success': val = a.successRate; break;
+                              case 'Tasks': val = (a.metrics.tasks.total / maxTasks) * 100; break;
+                              case 'Activity': val = (a.metrics.logs.total / maxLogs) * 100; break;
+                              case 'Comms': val = (a.metrics.comms.total / maxComms) * 100; break;
+                              case 'Skills': val = (a.metrics.skills.totalRuns / maxSkills) * 100; break;
+                            }
+                            row[a.codename] = Math.round(val);
+                          }
+                          return row;
+                        });
+                      })()} outerRadius="70%">
+                        <PolarGrid stroke="#1B2330" />
+                        <PolarAngleAxis dataKey="dim" tick={{ fill: '#94A3B8', fontSize: 10 }} />
+                        <PolarRadiusAxis tick={{ fill: '#64748B', fontSize: 9 }} angle={90} domain={[0, 100]} />
+                        <Tooltip contentStyle={{ background: '#0E1218', border: '1px solid #1B2330', borderRadius: 8, fontSize: 12 }} />
+                        <Legend wrapperStyle={{ fontSize: 10 }} />
+                        {comparison.map((a, i) => {
+                          const colors = [JARVIS.colors.cyan, JARVIS.colors.green, JARVIS.colors.amber, JARVIS.colors.violet, JARVIS.colors.red];
+                          const color = colors[i % colors.length];
+                          return (
+                            <Radar
+                              key={a.id}
+                              name={a.codename}
+                              dataKey={a.codename}
+                              stroke={color}
+                              fill={color}
+                              fillOpacity={0.1}
+                              strokeWidth={1.5}
+                            />
+                          );
+                        })}
+                      </RadarChart>
+                    </ResponsiveContainer>
+                  </div>
                 </div>
               </div>
             ) : null}
