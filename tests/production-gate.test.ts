@@ -9,7 +9,7 @@
 import { verifyProductionReadiness } from "../src/lib/production-gate";
 import { describe, it, expect, mock, beforeEach, afterEach } from "bun:test";
 import { db } from "../src/lib/db";
-import { verifyProductionReadiness } from "../src/lib/production-gate";
+
 
 // ─── Mock the LLM client so runStepDebate can be tested without network ───
 // The mock uses a mutable flag `refinerAlwaysFails` to switch between:
