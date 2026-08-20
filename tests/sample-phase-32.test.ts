@@ -20,6 +20,10 @@ mock.module("server-only", () => ({}));
 
 import { db } from "../src/lib/db";
 import { sendAgentMessage, broadcastToAgents } from "../src/lib/swarm/agent-bus";
+import { buildCompactConstitution, ALL_CONSTITUTION_RULES } from "../src/lib/constitution";
+import { callLLM } from "../src/lib/llm-client";
+import { escalateToolFailure, checkUnresolvedEscalations } from "../src/lib/tool-failure-escalation";
+import { webSearchWithFallback } from "../src/lib/utils/web-search-fallback";
 import fs from "fs";
 import path from "path";
 
@@ -136,20 +140,13 @@ describe("Phase 32 — UI Component File Existence", () => {
   });
 
   it("AppSidebar exports SIDEBAR_TABS with 15 tabs in 4 sections", async () => {
-    // We can't import a .tsx file with "use client" in bun:test without
-    // a build step. Read the source + verify the constants.
     const p = path.resolve(__dirname, "../src/components/dashboard/app-sidebar.tsx");
     const content = fs.readFileSync(p, "utf8");
 
-    // Count the tab definitions (lines with `id:` AND `section: "..."`).
-    // The type definition line has `section: "command" | "operations" | ...`
-    // which we need to exclude. We match only lines that look like:
-    //   { id: "...", label: "...", icon: ..., section: "command" },
     const tabMatches = content.match(/^\s*\{\s*id:\s*"[^"]+",\s*label:\s*"[^"]+",.*section:\s*"(command|operations|intelligence|system)"/gm);
     expect(tabMatches).not.toBeNull();
     expect(tabMatches!.length).toBe(15); // 15 tabs total
 
-    // Verify all 4 sections are present.
     const sections = new Set<string>();
     for (const m of tabMatches!) {
       const sectionMatch = m.match(/section:\s*"(\w+)"/);
@@ -178,7 +175,7 @@ describe("Phase 32 — Dashboard Route Existence", () => {
     const p = path.resolve(__dirname, "../src/app/dashboard/chat/page.tsx");
     expect(fs.existsSync(p)).toBe(true);
     const stat = fs.statSync(p);
-    expect(stat.size).toBeGreaterThan(5000); // substantial page
+    expect(stat.size).toBeGreaterThan(5000);
   });
 
   it("/dashboard/vision route exists", () => {
@@ -203,7 +200,6 @@ describe("Phase 32 — Dashboard Route Existence", () => {
     const p = path.resolve(__dirname, "../src/components/mission/approval-brief-panel.tsx");
     const content = fs.readFileSync(p, "utf8");
 
-    // Phase 32 added a fetch to /api/approvals/[id]/conversation
     expect(content).toContain("/conversation");
     expect(content).toContain("ConversationBubble");
     expect(content).toContain("Telegram Conversation");
@@ -262,7 +258,6 @@ describe("Phase 32 — Approval Conversation Panel Wiring", () => {
 describe("Phase 32 — Constitution + Feature Verification", () => {
 
   it("constitution has 80 rules total", async () => {
-    const { ALL_CONSTITUTION_RULES } = await import("../src/lib/constitution");
     expect(ALL_CONSTITUTION_RULES.length).toBe(80);
   });
 
@@ -288,8 +283,6 @@ describe("Phase 32 Remediation — Tool-Failure Escalation", () => {
   });
 
   it("escalateToolFailure creates an Approval row when search fails", async () => {
-    const { escalateToolFailure } = await import("../src/lib/tool-failure-escalation");
-
     const result = await escalateToolFailure({
       tool: "web_search",
       error: "Function invoke failed with status 404",
@@ -299,16 +292,12 @@ describe("Phase 32 Remediation — Tool-Failure Escalation", () => {
       lastTriedAt: new Date(),
     });
 
-    // The council debate may or may not reach consensus (depends on LLM availability).
-    // Either way, the function should return a valid result.
     expect(result).toHaveProperty("escalated");
     expect(result).toHaveProperty("reason");
 
-    // If escalated (no consensus), an Approval row should exist.
     if (result.escalated) {
       expect(result.approvalId).toBeDefined();
 
-      // Verify the Approval row in the DB.
       const approval = await db.approval.findUnique({
         where: { id: result.approvalId! },
       });
@@ -323,9 +312,6 @@ describe("Phase 32 Remediation — Tool-Failure Escalation", () => {
   });
 
   it("escalateToolFailure deduplicates within 1 hour", async () => {
-    const { escalateToolFailure } = await import("../src/lib/tool-failure-escalation");
-
-    // First call — this triggers a debate + creates an Approval row.
     const result1 = await escalateToolFailure({
       tool: "web_search",
       error: "404 error",
@@ -335,10 +321,8 @@ describe("Phase 32 Remediation — Tool-Failure Escalation", () => {
       lastTriedAt: new Date(),
     });
 
-    // Wait a moment to ensure the DB write from the first call is committed.
     await new Promise((r) => setTimeout(r, 100));
 
-    // Second call (same tool+module, within 1 hour) — should be deduped.
     const result2 = await escalateToolFailure({
       tool: "web_search",
       error: "404 error again",
@@ -348,28 +332,19 @@ describe("Phase 32 Remediation — Tool-Failure Escalation", () => {
       lastTriedAt: new Date(),
     });
 
-    // The second call should be deduped (either "already pending" or the same approvalId).
-    // If the first call escalated, the second should be deduped.
     if (result1.escalated && result1.approvalId) {
       expect(result2.reason).toContain("already pending");
     }
-    // If the first call reached consensus (no escalation), the second call
-    // may or may not escalate — that's OK, we just verify no crash.
 
-    // Only ONE Approval row should exist for this tool+module (if first escalated).
     const count = await db.approval.count({
       where: { action: "tool-failure-decision" },
     });
-    // May be 1 (if first call escalated) or 0 (if first call reached consensus).
-    // The key is that the second call didn't create a NEW approval.
     if (result1.escalated) {
       expect(count).toBe(1);
     }
   });
 
   it("checkUnresolvedEscalations returns {paused, alerted} shape", async () => {
-    const { checkUnresolvedEscalations } = await import("../src/lib/tool-failure-escalation");
-
     const result = await checkUnresolvedEscalations();
     expect(result).toHaveProperty("paused");
     expect(result).toHaveProperty("alerted");
@@ -378,17 +353,9 @@ describe("Phase 32 Remediation — Tool-Failure Escalation", () => {
   });
 
   it("webSearchWithFallback returns results after the parsing fix", async () => {
-    // This test verifies the Phase 32 fix: the result-parsing bug that was
-    // silently dropping ALL search results since Phase 27.
-    const { webSearchWithFallback } = await import("../src/lib/utils/web-search-fallback");
-
     const results = await webSearchWithFallback("hello world", 3);
 
-    // Z-AI should be working (verified by the live probe).
-    // If Z-AI is down, this will return [] — that's OK, the test just
-    // verifies the function doesn't crash.
     expect(Array.isArray(results)).toBe(true);
-    // If results > 0, verify the shape.
     for (const r of results) {
       expect(r).toHaveProperty("title");
       expect(r).toHaveProperty("url");
@@ -402,45 +369,31 @@ describe("Phase 32 Remediation — Tool-Failure Escalation", () => {
 describe("Phase 32 Critical Fix — Constitution Injection into ALL LLM Calls", () => {
 
   it("buildCompactConstitution() returns all 80 rules", () => {
-    const { buildCompactConstitution, ALL_CONSTITUTION_RULES } = require("../src/lib/constitution");
     const constitution = buildCompactConstitution();
 
-    // Verify all 80 rules are present
     const ruleMatches = constitution.match(/RULE-\d+/g) || [];
     expect(ruleMatches.length).toBe(80);
-
-    // Verify ALL_CONSTITUTION_RULES has 80 entries
     expect(ALL_CONSTITUTION_RULES.length).toBe(80);
 
-    // Verify the constitution starts with the header
     expect(constitution).toContain("ARIA MISSION CONTROL — THE CONSTITUTION");
     expect(constitution).toContain("ALL 80 rules");
 
-    // Verify first and last rules are present
     expect(constitution).toContain("RULE-01");
     expect(constitution).toContain("RULE-80");
   });
 
   it("callLLM() now accepts skipConstitution option", async () => {
-    // This test verifies the option exists in the function signature.
-    // We don't call the LLM (it needs network access) — we just verify
-    // the function accepts the new parameter.
-    const { callLLM } = await import("../src/lib/llm-client");
     expect(typeof callLLM).toBe("function");
-    // The function should accept 4 arguments: agentName, agentRole, prompt, options
-    // where options includes skipConstitution: boolean
   });
 
   it("constitution mentions all critical rule categories", () => {
-    const { buildCompactConstitution } = require("../src/lib/constitution");
     const constitution = buildCompactConstitution();
 
-    // Verify critical rules from each phase are present
-    expect(constitution).toContain("NO-ENV-COMMIT");      // Phase 1
-    expect(constitution).toContain("AI-CALLER-GATE");     // Phase 1
-    expect(constitution).toContain("ZERO-ASSUMPTIONS");  // Phase 3
-    expect(constitution).toContain("WORK-LOG");           // Phase 9
-    expect(constitution).toContain("SELF-EVOLVING");      // Phase 23
-    expect(constitution).toContain("NEVER-SHIP-WITHOUT"); // Phase 25
+    expect(constitution).toContain("NO-ENV-COMMIT");      
+    expect(constitution).toContain("AI-CALLER-GATE");     
+    expect(constitution).toContain("ZERO-ASSUMPTIONS");  
+    expect(constitution).toContain("WORK-LOG");           
+    expect(constitution).toContain("SELF-EVOLVING");      
+    expect(constitution).toContain("NEVER-SHIP-WITHOUT"); 
   });
 });
