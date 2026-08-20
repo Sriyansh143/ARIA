@@ -298,9 +298,57 @@ model WorkflowDefinition {
   createdAt    DateTime     @default(now())
   updatedAt    DateTime     @updatedAt
 
+  // Phase 34: State-graph workflow engine relations
+  states       WorkflowState[]
+
   @@index([autonomyTag])
   @@index([status])
   @@index([trigger])
+}
+
+// ─── Phase 34: State-Graph Workflow Engine ──────────────────────────
+// Persistent workflow state for checkpointing and resume functionality.
+// Tracks execution progress through a directed graph of nodes.
+model WorkflowState {
+  id              String   @id @default(cuid())
+  workflowId      String   // References WorkflowDefinition.slug
+  workflowName    String
+  status          String   @default("running") // running | completed | failed | awaiting_approval | paused
+  currentNodeId   String?  // Current node being executed
+  visitedNodesJson String  @default("[]") // JSON array of visited node IDs
+  stateJson       String   @default("{}") // JSON blob of current state variables
+  startedAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  completedAt     DateTime?
+  error           String?
+
+  // Relations
+  workflow        WorkflowDefinition @relation(fields: [workflowId], references: [slug], onDelete: Cascade)
+  checkpoints     WorkflowCheckpoint[]
+
+  @@index([workflowId])
+  @@index([status])
+}
+
+// Checkpoints capture state at each node execution for debugging/resume
+model WorkflowCheckpoint {
+  id              String   @id @default(cuid())
+  workflowStateId String
+  nodeId          String
+  nodeName        String
+  nodeType        String   // task | decision | approval | agent | end
+  stateBeforeJson String   // State before node execution
+  stateAfterJson  String   // State after node execution
+  resultJson      String?  // Node execution result (JSON)
+  error           String?  // Error message if execution failed
+  timestamp       DateTime @default(now())
+  canResume       Boolean  @default(true)
+
+  // Relations
+  workflowState   WorkflowState @relation(fields: [workflowStateId], references: [id], onDelete: Cascade)
+
+  @@index([workflowStateId])
+  @@index([timestamp])
 }
 
 // ─── Sub-Agent Tasks (agent-to-agent delegation) ─────────────────────
