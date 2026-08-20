@@ -1,0 +1,53 @@
+# koyeb.yaml — ARIA Mission Control on Koyeb (free tier).
+#
+# Koyeb free tier: 1 free Eco instance (512MB RAM, 0.1 vCPU) + 1 free
+# managed database (PostgreSQL, 1GB). Good for 24/7 — no sleep.
+#
+# Quick start:
+#   1. Go to https://app.koyeb.com → Create Service → GitHub.
+#   2. Select your repo.
+#   3. Set the build command:  bun install && bun run db:generate
+#   4. Set the run command:    bun .next/standalone/server.js
+#   5. Add env vars (below).
+#   6. Deploy.
+#
+# Or use this config file:
+#   koyeb service create --docker dockerfile --ports 3000 --routes /:3000
+
+services:
+  - name: aria-mission-control
+    instance_type: eco        # free tier (512MB RAM)
+    regions:
+      - fra                   # Frankfurt (closest to most users)
+    docker:
+      dockerfile: ./Dockerfile
+    ports:
+      - port: 3000
+        protocol: http
+    routes:
+      - path: /
+        port: 3000
+    health_check:
+      path: /api/health
+      interval: 30
+      timeout: 5
+    env:
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        value: "3000"
+      # v40: JARVIS_DEV_BYPASS_AUTH removed — auth always enforced.
+      - key: ARIA_OWNER_EMAIL
+        value: "owner@aria.local"
+      - key: ARIA_PREFER_LOCAL_LLM
+        value: "1"
+      - key: OLLAMA_HOST
+        value: http://127.0.0.1:11434
+      - key: ARIA_PLAYGROUND_ENABLED
+        value: "1"
+      - key: DATABASE_URL
+        value: file:/app/db/custom.db
+    volumes:
+      - name: aria-data
+        mount_path: /app/db
+        size: 1

@@ -1,0 +1,51 @@
+# docker-compose.free.yml — ARIA Mission Control on any free VPS.
+#
+# Designed for Oracle Cloud Always Free (4 ARM cores + 24GB RAM),
+# Google Cloud e2-micro free tier, or AWS t2.micro free tier.
+#
+# Quick start (on a free VPS with Docker installed):
+#   1. Clone the repo to the VPS.
+#   2. cp .env.example .env && fill in real values.
+#   3. docker compose -f docker-compose.free.yml up -d
+#   4. curl http://localhost:3000/api/health
+#
+# This config runs ONLY the app (no Postgres, no Caddy) — perfect for
+# the SQLite default. Use docker-compose.yml (full stack) for production
+# multi-user deployments.
+
+services:
+  aria:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: aria-free
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    env_file:
+      - .env
+    environment:
+      - NODE_ENV=production
+      - DATABASE_URL=file:/app/db/custom.db
+      # v40: JARVIS_DEV_BYPASS_AUTH removed — auth is always enforced.
+      # Set ARIA_OWNER_EMAIL to bootstrap the first owner without lockout.
+      - ARIA_OWNER_EMAIL=owner@aria.local
+      - ARIA_PREFER_LOCAL_LLM=1
+      - OLLAMA_HOST=http://127.0.0.1:11434
+      - ARIA_PLAYGROUND_ENABLED=1
+    volumes:
+      - aria-free-data:/app/db
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3000/api/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+volumes:
+  aria-free-data:

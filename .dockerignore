@@ -1,0 +1,29 @@
+# .dockerignore — exclude files from Docker build context.
+# Reduces build context size + cache invalidation.
+
+node_modules
+.next
+.git
+.gitignore
+upload
+download
+*.md
+!APP_OVERVIEW.md
+!BUILD_RULES.md
+!AUDIT_REPORT.md
+*.log
+dev.log
+server.log
+realtime.log
+*.db
+*.db-journal
+db/*
+.env
+.env.local
+agent-ctx
+.zscripts
+tests
+examples
+skills
+preview-final.png
+tsconfig.tsbuildinfo

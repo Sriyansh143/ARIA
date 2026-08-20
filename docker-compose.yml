@@ -1,0 +1,79 @@
+# docker-compose.yml — ARIA Mission Control v66 Phase 16
+# Oracle Free Tier: 24GB RAM ARM (Ampere A1) · 4 vCPU · NO GPU
+#
+# Runs on the Oracle VM alongside the Next.js app + Ollama.
+# Total memory: ~1.5GB for all 3 containers (fits comfortably in 24GB).
+
+version: '3.8'
+
+services:
+  # ─── FreeSWITCH: SIP/RTP phone call routing ───
+  freeswitch:
+    image: bettervoice/freeswitch-container:latest
+    container_name: aria-freeswitch
+    restart: unless-stopped
+    ports:
+      - "5060:5060/udp"   # SIP signaling
+      - "5060:5060/tcp"   # SIP signaling (TCP)
+      - "8021:8021"       # ESL (Event Socket Library) — Pipecat connects here
+      - "7443:7443"       # WSS (WebSocket Secure for WebRTC)
+    volumes:
+      - ./freeswitch/conf:/etc/freeswitch
+      - freeswitch-logs:/var/log/freeswitch
+    environment:
+      - EXT_IP=${EXT_IP:-127.0.0.1}
+      - SIP_DOMAIN=${SIP_DOMAIN:-localhost}
+    networks:
+      - aria-net
+
+  # ─── Pipecat: Voice conversation orchestration ───
+  # Handles: VAD (Voice Activity Detection), Barge-in, LLM integration, Dual-TTS
+  pipecat:
+    build: ./services/pipecat
+    container_name: aria-pipecat
+    restart: unless-stopped
+    ports:
+      - "8080:8080"
+    environment:
+      - OLLAMA_URL=http://host.docker.internal:11434
+      - FREESWITCH_HOST=freeswitch
+      - FREESWITCH_ESL_PORT=8021
+      - FREESWITCH_ESL_PASSWORD=ClueCon
+      - PIPER_URL=http://piper-tts:5000
+      - FISH_AUDIO_API_KEY=${FISH_AUDIO_API_KEY:-}
+      - FISH_AUDIO_MODE=${FISH_AUDIO_MODE:-api}  # api | local | cosyvoice
+      - LLM_MODEL=${LLM_MODEL:-llama3.2:3b}
+      - LATENCY_THRESHOLD=800  # ms — degrade to Piper if Fish Audio exceeds this
+    depends_on:
+      - freeswitch
+      - piper-tts
+    volumes:
+      - ./voices:/voices  # Voice models + cloned voices
+      - pipecat-logs:/var/log/pipecat
+    networks:
+      - aria-net
+
+  # ─── Piper TTS: Fast filler voice (instant, <100ms) ───
+  # RULE-59: Used for conversational fillers to eliminate dead air
+  piper-tts:
+    image: rhasspy/piper:latest
+    container_name: aria-piper-tts
+    restart: unless-stopped
+    ports:
+      - "5000:5000"
+    volumes:
+      - piper-voices:/voices
+      - piper-cache:/cache
+    command: --voice en_US-lessac-medium --length-scale 1.0
+    networks:
+      - aria-net
+
+networks:
+  aria-net:
+    driver: bridge
+
+volumes:
+  freeswitch-logs:
+  pipecat-logs:
+  piper-voices:
+  piper-cache:

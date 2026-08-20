@@ -1,0 +1,2104 @@
+{
+  "src/instrumentation.ts": [
+    "./instrumentation-node"
+  ],
+  "src/lib/brand-extractor.ts": [
+    "./logger",
+    "z-ai-web-dev-sdk"
+  ],
+  "src/lib/workflow-templates.ts": [
+    "./workflow-engine"
+  ],
+  "src/lib/freeswitch-esl.ts": [
+    "net",
+    "./logger",
+    "./event-bus"
+  ],
+  "src/lib/context-manager.ts": [
+    "./logger",
+    "./llm-client",
+    "./constitution"
+  ],
+  "src/lib/goals.ts": [
+    "./db",
+    "./logger"
+  ],
+  "src/lib/self-heal.ts": [
+    "./logger",
+    "./db",
+    "./env-loader",
+    "./approval-decision",
+    "./monitor",
+    "fs",
+    "path",
+    "child_process",
+    "./simulation",
+    "./skill-loader",
+    "./ollama-client"
+  ],
+  "src/lib/multimodal-fallback.ts": [
+    "./logger",
+    "./telegram-notifier",
+    "./whatsapp/business"
+  ],
+  "src/lib/screen-context.ts": [],
+  "src/lib/upi-payments.ts": [
+    "./db",
+    "./logger",
+    "./event-bus",
+    "./services/catalog",
+    "./email-service",
+    "./services/crypto-checkout"
+  ],
+  "src/lib/cash-claw.ts": [
+    "@prisma/client",
+    "./db",
+    "./logger",
+    "./event-bus",
+    "./types"
+  ],
+  "src/lib/global-logics.ts": [
+    "server-only"
+  ],
+  "src/lib/db-write-queue.ts": [
+    "@/lib/db-write-queue",
+    "./logger"
+  ],
+  "src/lib/two-factor.ts": [
+    "node:crypto",
+    "./logger",
+    "@/lib/two-factor",
+    "bcryptjs"
+  ],
+  "src/lib/autonomous-business-engine.ts": [
+    "./db",
+    "./logger",
+    "./event-bus",
+    "./llm-router",
+    "./industry-playbooks",
+    "./milestones"
+  ],
+  "src/lib/support-agent.ts": [
+    "./db",
+    "./logger",
+    "./event-bus",
+    "./llm-client",
+    "./email-service"
+  ],
+  "src/lib/llm-router.ts": [
+    "./logger",
+    "./ollama-client",
+    "./db",
+    "./event-bus",
+    "z-ai-web-dev-sdk",
+    "playwright",
+    "./environment-detector"
+  ],
+  "src/lib/industry-playbooks.ts": [],
+  "src/lib/telegram-bot.ts": [
+    "./logger",
+    "./autonomy-control",
+    "./telegram-notifier",
+    "./db",
+    "./event-bus",
+    "./approval-brief",
+    "./approval-executor"
+  ],
+  "src/lib/simulation.ts": [],
+  "src/lib/intelligence/prompt-improver.ts": [
+    "../db",
+    "../logger",
+    "../event-bus",
+    "../llm-client",
+    "../supervisors"
+  ],
+  "src/lib/intelligence/ab-testing.ts": [
+    "crypto",
+    "../db",
+    "../logger"
+  ],
+  "src/lib/intelligence/sandbox.ts": [
+    "fs",
+    "path",
+    "child_process",
+    "os",
+    "../logger"
+  ],
+  "src/lib/intelligence/competitor-analyzer.ts": [
+    "../db",
+    "../logger",
+    "../event-bus",
+    "z-ai-web-dev-sdk",
+    "../llm-client"
+  ],
+  "src/lib/intelligence/feedback-loop.ts": [
+    "../db",
+    "../logger",
+    "../event-bus",
+    "../email-service",
+    "../llm-client"
+  ],
+  "src/lib/outreach-coordinator/index.ts": [
+    "../db",
+    "../logger",
+    "../event-bus",
+    "../approval-patterns",
+    "../lead-hunter/free-offer-engine",
+    "../whatsapp/business",
+    "../email-service",
+    "../telephony"
+  ],
+  "src/lib/pulse-history.ts": [
+    "@/lib/types"
+  ],
+  "src/lib/crypto-verifier.ts": [
+    "./db",
+    "./logger",
+    "./event-bus",
+    "./services/crypto-checkout",
+    "./email-service"
+  ],
+  "src/lib/live-screen-session.ts": [
+    "./db",
+    "./logger",
+    "./event-bus",
+    "crypto",
+    "sharp",
+    "z-ai-web-dev-sdk"
+  ],
+  "src/lib/rate-limiter.ts": [],
+  "src/lib/revenue-engine.ts": [
+    "./db",
+    "./logger",
+    "./feasibility",
+    "./services/crypto-checkout"
+  ],
+  "src/lib/backup-service.ts": [
+    "fs",
+    "path",
+    "child_process",
+    "./db",
+    "./logger",
+    "./event-bus"
+  ],
+  "src/lib/lead-finder.ts": [
+    "./db",
+    "./logger",
+    "./event-bus",
+    "./services/catalog",
+    "z-ai-web-dev-sdk",
+    "./llm-client"
+  ],
+  "src/lib/business-hours.ts": [
+    "server-only"
+  ],
+  "src/lib/embedded-skills.ts": [
+    "./embedded-skills",
+    "z-ai-web-dev-sdk",
+    "fs",
+    "path",
+    "express",
+    "multer",
+    "next/server",
+    ",\n    systemPrompt: ",
+    "@/lib/db",
+    "crypto",
+    "ws",
+    "node-cron"
+  ],
+  "src/lib/auth-options.ts": [
+    "next-auth",
+    "next-auth/providers/credentials",
+    "@/lib/db",
+    "@/lib/logger",
+    "bcryptjs",
+    "crypto",
+    "./two-factor"
+  ],
+  "src/lib/auto-bootstrap.ts": [
+    "fs",
+    "path",
+    "crypto",
+    "./logger",
+    "./db"
+  ],
+  "src/lib/agent-bus.ts": [
+    "@prisma/client",
+    "./db",
+    "./logger",
+    "./event-bus",
+    "./types"
+  ],
+  "src/lib/approval-decision.ts": [
+    "@/lib/db",
+    "@/lib/logger",
+    "@/lib/event-bus",
+    "@/lib/llm-client"
+  ],
+  "src/lib/feasibility.ts": [
+    "./db",
+    "./logger"
+  ],
+  "src/lib/skill-loader.ts": [
+    "fs",
+    "path",
+    "./db",
+    "./logger"
+  ],
+  "src/lib/health-sim.ts": [
+    "./db",
+    "./logger",
+    "./event-bus",
+    "z-ai-web-dev-sdk"
+  ],
+  "src/lib/approval-patterns/index.ts": [
+    "../db",
+    "../logger",
+    "../event-bus",
+    "../telegram-notifier"
+  ],
+  "src/lib/screen-vision.ts": [
+    "@/lib/db",
+    "@/lib/logger",
+    "@/lib/hermes/memory",
+    "z-ai-web-dev-sdk",
+    "@/lib/planner"
+  ],
+  "src/lib/multi-company.ts": [
+    "next/headers",
+    "./db",
+    "./types"
+  ],
+  "src/lib/whatsapp/business.ts": [
+    "crypto",
+    "../logger",
+    "../event-bus",
+    "@whiskeysockets/baileys",
+    "@hapi/boom",
+    "qrcode",
+    "fs",
+    "path",
+    "../telegram-notifier"
+  ],
+  "src/lib/funnel-decay.ts": [
+    "@/lib/types"
+  ],
+  "src/lib/invoice-generator.ts": [
+    "./db",
+    "./logger"
+  ],
+  "src/lib/outreach-executor.ts": [
+    "./db",
+    "./logger",
+    "./event-bus",
+    "./llm-client",
+    "./email-service",
+    "./health-sim",
+    "./autonomy-control",
+    "./business-hours",
+    "./agent-blackboard",
+    "./conductor/dispatcher",
+    "./brand-extractor",
+    "./preview-generator"
+  ],
+  "src/lib/email.ts": [
+    "./db",
+    "./logger",
+    "./event-bus",
+    "nodemailer"
+  ],
+  "src/lib/db-schema-ensure.ts": [
+    "fs",
+    "path",
+    "child_process",
+    "./db"
+  ],
+  "src/lib/agent-costs.ts": [
+    "@/lib/types"
+  ],
+  "src/lib/ollama-client.ts": [
+    "./logger",
+    "child_process",
+    "util"
+  ],
+  "src/lib/approval-executor.ts": [
+    "@/lib/db",
+    "@/lib/event-bus",
+    "@/lib/types",
+    "@/lib/logger",
+    "@/lib/email-service"
+  ],
+  "src/lib/pre-publish-gate.ts": [
+    "./db",
+    "./logger",
+    "./event-bus",
+    "./expansion/service-simulator",
+    "./telegram-notifier"
+  ],
+  "src/lib/hermes/memory.ts": [
+    "@/lib/db",
+    "@/lib/logger",
+    "@/lib/llm-client"
+  ],
+  "src/lib/hermes/learning.ts": [
+    "@/lib/db",
+    "@/lib/logger",
+    "./memory",
+    "./skills",
+    "z-ai-web-dev-sdk",
+    "@/lib/llm-client"
+  ],
+  "src/lib/hermes/skills.ts": [
+    "@/lib/db",
+    "@/lib/logger",
+    "@/lib/conductor/router",
+    "@/lib/skill-patterns",
+    "@/lib/llm-client"
+  ],
+  "src/lib/hermes/earning-researcher.ts": [
+    "@/lib/db",
+    "@/lib/logger",
+    "@/lib/event-bus",
+    "z-ai-web-dev-sdk",
+    "@/lib/llm-client"
+  ],
+  "src/lib/hermes/toolsets.ts": [
+    "node:vm",
+    "@/lib/db",
+    "@/lib/event-bus",
+    "@/lib/llm-client",
+    "@/lib/types",
+    "@/lib/hermes/memory",
+    "@/lib/hermes/skills",
+    "z-ai-web-dev-sdk"
+  ],
+  "src/lib/error-tracking.ts": [
+    "./db",
+    "./logger"
+  ],
+  "src/lib/vector-memory.ts": [
+    "./db",
+    "./logger",
+    "./ollama-client"
+  ],
+  "src/lib/simulator.ts": [
+    "./db",
+    "./logger",
+    "./llm-client"
+  ],
+  "src/lib/monitor.ts": [
+    "./db",
+    "./event-bus",
+    "./logger"
+  ],
+  "src/lib/preview-generator.ts": [
+    "./logger",
+    "./brand-extractor"
+  ],
+  "src/lib/simulation-engine.ts": [
+    "./db",
+    "./logger",
+    "./event-bus",
+    "./simulation-scenarios"
+  ],
+  "src/lib/telegram-notifier.ts": [
+    "./logger"
+  ],
+  "src/lib/cost-dashboard.ts": [
+    "./db",
+    "./logger"
+  ],
+  "src/lib/llm-client.ts": [
+    "z-ai-web-dev-sdk",
+    "./db",
+    "./types",
+    "./llm-router"
+  ],
+  "src/lib/env-loader.ts": [
+    "fs",
+    "path",
+    "crypto",
+    "./logger"
+  ],
+  "src/lib/utils.ts": [
+    "clsx",
+    "tailwind-merge"
+  ],
+  "src/lib/agent-training.ts": [
+    "@/lib/llm-client",
+    "@/lib/db",
+    "@/lib/logger",
+    "@/lib/event-bus",
+    "@/lib/blackbox"
+  ],
+  "src/lib/cron-scheduler.ts": [
+    "./db",
+    "./event-bus",
+    "./types",
+    "./logger",
+    "./cron-handlers",
+    "./autonomy-control"
+  ],
+  "src/lib/auth.ts": [
+    "next-auth",
+    "next/server",
+    "@/lib/auth-options",
+    "@/lib/db",
+    "@/lib/rbac"
+  ],
+  "src/lib/cache.ts": [
+    "@/lib/logger",
+    "@/lib/cache"
+  ],
+  "src/lib/finance/ledger.ts": [
+    "../db",
+    "../logger",
+    "../event-bus"
+  ],
+  "src/lib/debate.ts": [
+    "@prisma/client",
+    "./db",
+    "./logger",
+    "./llm-router"
+  ],
+  "src/lib/zero-assumption-guard.ts": [
+    "./skill-patterns"
+  ],
+  "src/lib/workflow-engine.ts": [
+    "./db",
+    "./event-bus",
+    "./types",
+    "./logger",
+    "./conductor/router",
+    "./autonomy-control",
+    "./execution-trace",
+    "./llm-client",
+    "./context-manager",
+    "./constitution",
+    "./global-logics",
+    "./step-debate",
+    "./production-gate",
+    "./telegram-notifier",
+    "./zero-assumption-guard"
+  ],
+  "src/lib/computer-use.ts": [
+    "./logger",
+    "z-ai-web-dev-sdk"
+  ],
+  "src/lib/step-debate.ts": [
+    "./llm-client",
+    "./logger",
+    "./global-logics",
+    "./constitution",
+    "./internet-research",
+    "./production-gate",
+    "./context-manager"
+  ],
+  "src/lib/expansion/workflow-simulator.ts": [
+    "../db",
+    "../logger",
+    "../event-bus",
+    "../llm-client"
+  ],
+  "src/lib/expansion/service-researcher.ts": [
+    "../db",
+    "../logger",
+    "../event-bus",
+    "z-ai-web-dev-sdk",
+    "../llm-client"
+  ],
+  "src/lib/expansion/earning-method-researcher.ts": [
+    "../db",
+    "../logger",
+    "../event-bus",
+    "z-ai-web-dev-sdk",
+    "../llm-client"
+  ],
+  "src/lib/expansion/service-designer.ts": [
+    "../db",
+    "../logger",
+    "../event-bus",
+    "../llm-client",
+    "./service-simulator"
+  ],
+  "src/lib/expansion/service-simulator.ts": [
+    "../db",
+    "../logger",
+    "../llm-router",
+    "../services/builder"
+  ],
+  "src/lib/services/builder.ts": [
+    "fs",
+    "path",
+    "child_process",
+    "@/lib/db",
+    "@/lib/llm-router",
+    "./catalog",
+    "@/lib/logger",
+    "@/lib/supervisors/quality-supervisor"
+  ],
+  "src/lib/services/catalog.ts": [],
+  "src/lib/services/crypto-checkout.ts": [
+    "@/lib/db",
+    "@/lib/logger",
+    "./catalog",
+    "./builder",
+    "@/lib/email-service"
+  ],
+  "src/lib/logger.ts": [],
+  "src/lib/failure-alchemy.ts": [
+    "@prisma/client",
+    "./db",
+    "./logger",
+    "./llm-router"
+  ],
+  "src/lib/compliance-auditor.ts": [
+    "./db",
+    "./logger",
+    "./event-bus",
+    "child_process",
+    "fs",
+    "path",
+    "./telegram-notifier"
+  ],
+  "src/lib/types.ts": [
+    "zod"
+  ],
+  "src/lib/hook-engine.ts": [
+    "./logger",
+    "./brand-extractor"
+  ],
+  "src/lib/execution-trace.ts": [
+    "./db",
+    "./logger"
+  ],
+  "src/lib/planner.ts": [
+    "./llm-client",
+    "./logger"
+  ],
+  "src/lib/milestones.ts": [
+    "@prisma/client",
+    "./db",
+    "./logger",
+    "./event-bus"
+  ],
+  "src/lib/internet-research.ts": [
+    "./logger",
+    "z-ai-web-dev-sdk",
+    "./skill-patterns"
+  ],
+  "src/lib/tts.ts": [
+    "z-ai-web-dev-sdk"
+  ],
+  "src/lib/notifications.ts": [
+    "./db",
+    "./logger",
+    "web-push",
+    "playwright"
+  ],
+  "src/lib/agent-blackboard.ts": [
+    "./db",
+    "./logger",
+    "./event-bus"
+  ],
+  "src/lib/computer-use-accounts/index.ts": [
+    "../db",
+    "../logger",
+    "../event-bus",
+    "../approval-patterns",
+    "fs",
+    "path",
+    "../credential-vault",
+    "playwright",
+    "z-ai-web-dev-sdk"
+  ],
+  "src/lib/oral-confirmation.ts": [
+    "./db",
+    "./logger",
+    "./event-bus"
+  ],
+  "src/lib/social-media-manager/index.ts": [
+    "../db",
+    "../logger",
+    "../event-bus",
+    "../llm-client",
+    "../approval-patterns",
+    "./platforms/instagram",
+    "../credential-vault"
+  ],
+  "src/lib/founder-briefing.ts": [
+    "./db",
+    "./logger",
+    "./event-bus",
+    "./email-service",
+    "./outreach-executor",
+    "./self-heal"
+  ],
+  "src/lib/constitution.ts": [
+    "./global-logics"
+  ],
+  "src/lib/protected-preview.ts": [
+    "./db",
+    "./logger",
+    "./event-bus",
+    "crypto"
+  ],
+  "src/lib/production-gate.ts": [
+    "./logger"
+  ],
+  "src/lib/ai-insights.ts": [
+    "./db",
+    "./central-registry",
+    "./llm-router",
+    "./logger"
+  ],
+  "src/lib/mcp-client.ts": [
+    "./db",
+    "./logger"
+  ],
+  "src/lib/openapi.ts": [
+    "@/lib/central-registry"
+  ],
+  "src/lib/crm.ts": [
+    "./db",
+    "./logger",
+    "./event-bus",
+    "./types"
+  ],
+  "src/lib/cron-handlers.ts": [
+    "./db",
+    "./event-bus",
+    "./types",
+    "./logger",
+    "./backup-service",
+    "./hermes/learning",
+    "./hermes/earning-researcher",
+    "./business-hours",
+    "./lead-finder",
+    "./outreach-executor",
+    "./crypto-verifier",
+    "./founder-briefing",
+    "./health-sim",
+    "./environment-detector",
+    "@/lib/telegram-notifier",
+    "@/lib/self-heal",
+    "./hermes/memory",
+    "./execution-trace",
+    "./vector-memory",
+    "./llm-client"
+  ],
+  "src/lib/embedded-projects.ts": [],
+  "src/lib/environment-detector.ts": [
+    "os"
+  ],
+  "src/lib/central-registry.ts": [
+    "@/lib/db",
+    "@/lib/logger",
+    "@/lib/cache",
+    "@/lib/tracing"
+  ],
+  "src/lib/stripe-checkout/index.ts": [
+    "../db",
+    "../logger",
+    "../event-bus",
+    "stripe",
+    "../services/crypto-checkout"
+  ],
+  "src/lib/notes.ts": [
+    "@prisma/client",
+    "./db",
+    "./logger"
+  ],
+  "src/lib/state-bus.ts": [],
+  "src/lib/multi-owner/workspace-manager.ts": [
+    "../db",
+    "../logger",
+    "fs",
+    "path"
+  ],
+  "src/lib/legal/contract-generator.ts": [
+    "../db",
+    "../logger",
+    "../event-bus",
+    "pdfkit",
+    "fs",
+    "path",
+    "../email-service",
+    "../finance/ledger"
+  ],
+  "src/lib/self-evolution/refactor-engine.ts": [
+    "../db",
+    "../logger",
+    "../event-bus",
+    "../llm-client",
+    "../context-manager",
+    "../constitution",
+    "fs",
+    "path",
+    "child_process",
+    "../telegram-notifier"
+  ],
+  "src/lib/pagination.ts": [
+    "next/server"
+  ],
+  "src/lib/conductor/dispatcher.ts": [
+    "@/lib/db",
+    "@/lib/logger",
+    "@/lib/event-bus",
+    "@/lib/llm-client",
+    "@/lib/hermes/skills",
+    "@/lib/hermes/toolsets",
+    "@/lib/hermes/memory",
+    "@/lib/types",
+    "../agent-blackboard"
+  ],
+  "src/lib/conductor/council.ts": [
+    "@/lib/db",
+    "@/lib/logger",
+    "@/lib/event-bus",
+    "@/lib/llm-client"
+  ],
+  "src/lib/conductor/router.ts": [
+    "@/lib/db",
+    "@/lib/logger",
+    "@/lib/event-bus",
+    "@prisma/client",
+    "@/lib/telegram-notifier",
+    "./council",
+    "@/lib/approval-brief"
+  ],
+  "src/lib/event-bus.ts": [
+    "./types"
+  ],
+  "src/lib/connector-marketplace.ts": [
+    "./db",
+    "./logger"
+  ],
+  "src/lib/secure-crypto.ts": [
+    "node:crypto",
+    "./logger"
+  ],
+  "src/lib/lead-hunter/index.ts": [
+    "../db",
+    "../logger",
+    "../event-bus",
+    "./social-scout",
+    "./service-matcher",
+    "./profile-extractor",
+    "./qualification-debate",
+    "../preview-generator"
+  ],
+  "src/lib/lead-hunter/qualification-debate.ts": [
+    "../logger",
+    "../llm-client",
+    "../context-manager",
+    "../constitution",
+    "./social-scout",
+    "./service-matcher",
+    "./profile-extractor"
+  ],
+  "src/lib/lead-hunter/excel-importer.ts": [
+    "../db",
+    "../logger",
+    "../event-bus",
+    "xlsx"
+  ],
+  "src/lib/lead-hunter/free-offer-engine.ts": [
+    "../db",
+    "../logger",
+    "../event-bus"
+  ],
+  "src/lib/lead-hunter/social-scout.ts": [
+    "../db",
+    "../logger",
+    "../event-bus",
+    "z-ai-web-dev-sdk"
+  ],
+  "src/lib/lead-hunter/contact-finder.ts": [
+    "../logger",
+    "z-ai-web-dev-sdk"
+  ],
+  "src/lib/lead-hunter/service-matcher.ts": [
+    "../db",
+    "../logger",
+    "../llm-client",
+    "./social-scout"
+  ],
+  "src/lib/lead-hunter/google-maps-scout.ts": [
+    "../db",
+    "../logger",
+    "../event-bus",
+    "z-ai-web-dev-sdk"
+  ],
+  "src/lib/lead-hunter/profile-extractor.ts": [
+    "../logger",
+    "./social-scout",
+    "z-ai-web-dev-sdk"
+  ],
+  "src/lib/tracing.ts": [
+    "./logger"
+  ],
+  "src/lib/email-service.ts": [
+    "./db",
+    "./logger",
+    "resend"
+  ],
+  "src/lib/autonomy-control.ts": [
+    "./db",
+    "./logger",
+    "./event-bus"
+  ],
+  "src/lib/telephony.ts": [
+    "net",
+    "./logger",
+    "./event-bus"
+  ],
+  "src/lib/approval-brief.ts": [
+    "./db",
+    "./llm-client",
+    "./logger",
+    "./telegram-notifier",
+    "./types",
+    "./event-bus"
+  ],
+  "src/lib/simulation-scenarios/index.ts": [
+    "./customer-purchase",
+    "./owner-commands",
+    "./edge-cases",
+    "./tough-questions",
+    "./comm-quality",
+    "./revenue-interaction"
+  ],
+  "src/lib/simulation-scenarios/tough-questions.ts": [
+    "./index",
+    "../constitution",
+    "../kpi-engine",
+    "../execution-trace",
+    "../simulation-engine",
+    "../conductor/router",
+    "../autonomy-control",
+    "../simulation/fleet",
+    "../agent-blackboard"
+  ],
+  "src/lib/simulation-scenarios/owner-commands.ts": [
+    "./index",
+    "../conductor/council",
+    "../constitution",
+    "../execution-trace",
+    "../db",
+    "../kpi-engine",
+    "../autonomy-control",
+    "../conductor/router",
+    "../simulation/fleet",
+    "../cron-scheduler",
+    "../credential-vault",
+    "../failure-alchemy",
+    "../cash-claw",
+    "fs",
+    "path",
+    "../simulation-engine"
+  ],
+  "src/lib/simulation-scenarios/comm-quality.ts": [
+    "./index",
+    "../constitution",
+    "../db",
+    "../context-manager",
+    "../approval-brief",
+    "../telegram-notifier",
+    "../kpi-engine",
+    "../simulation-engine",
+    "../expansion/service-researcher",
+    "../oral-confirmation",
+    "../simulation/fleet"
+  ],
+  "src/lib/simulation-scenarios/customer-purchase.ts": [
+    "./index",
+    "../db",
+    "../crypto-verifier",
+    "../upi-payments",
+    "../services/catalog",
+    "../notifications",
+    "../business-hours",
+    "../services/builder"
+  ],
+  "src/lib/simulation-scenarios/revenue-interaction.ts": [
+    "./index",
+    "../hook-engine",
+    "../preview-generator",
+    "../protected-preview"
+  ],
+  "src/lib/simulation-scenarios/edge-cases.ts": [
+    "./index",
+    "../agent-blackboard",
+    "../production-gate",
+    "../zero-assumption-guard",
+    "../autonomy-control",
+    "../conductor/router",
+    "../business-hours",
+    "../vector-memory",
+    "../skill-patterns",
+    "../cron-scheduler",
+    "../conductor/council"
+  ],
+  "src/lib/simulation/seed.ts": [
+    "../db",
+    "../types",
+    "./fleet",
+    "./seed-templates"
+  ],
+  "src/lib/simulation/engine.ts": [
+    "../db",
+    "../event-bus",
+    "../types",
+    "./fleet",
+    "./seed-templates",
+    "./seed",
+    "../llm-client",
+    "../telegram-notifier",
+    "../autonomy-control"
+  ],
+  "src/lib/simulation/seed-templates.ts": [],
+  "src/lib/simulation/fleet.ts": [
+    "../types"
+  ],
+  "src/lib/rbac.ts": [
+    "server-only"
+  ],
+  "src/lib/capability-registry.ts": [
+    "./db",
+    "./logger",
+    "./event-bus",
+    "./llm-client",
+    "fs",
+    "path",
+    "./constitution"
+  ],
+  "src/lib/kpi-engine.ts": [
+    "@prisma/client",
+    "./db",
+    "./logger"
+  ],
+  "src/lib/multi-company-cycles.ts": [
+    "./db",
+    "./logger",
+    "./event-bus",
+    "./multi-company",
+    "./autonomous-business-engine"
+  ],
+  "src/lib/skill-patterns.ts": [
+    "server-only",
+    "./embedded-skills",
+    "./db"
+  ],
+  "src/lib/credential-vault.ts": [
+    "@prisma/client",
+    "./db",
+    "./logger",
+    "./secure-crypto"
+  ],
+  "src/lib/blackbox.ts": [
+    "@/lib/db",
+    "@/lib/logger"
+  ],
+  "src/lib/smart-routing.ts": [
+    "./llm-client"
+  ],
+  "src/lib/db.ts": [
+    "@prisma/client"
+  ],
+  "src/lib/creds.ts": [
+    "node:fs",
+    "node:os",
+    "node:path"
+  ],
+  "src/lib/supervisors/index.ts": [
+    "../db",
+    "../logger",
+    "../email-service",
+    "../services/builder",
+    "../intelligence/sandbox",
+    "../outreach-executor"
+  ],
+  "src/lib/supervisors/quality-supervisor.ts": [
+    "child_process",
+    "fs",
+    "os",
+    "path",
+    "../logger",
+    "../db",
+    "../event-bus",
+    "./index"
+  ],
+  "src/lib/knowledge-base.ts": [],
+  "src/styles/theme.ts": [
+    "@/styles/theme"
+  ],
+  "src/components/ui/index.ts": [
+    "@/components/ui"
+  ],
+  "src/proxy.ts": [
+    "next/server",
+    "next-auth/jwt",
+    "@/lib/rate-limiter"
+  ],
+  "src/app/api/auth/signup/route.ts": [
+    "next/server",
+    "bcryptjs",
+    "@/lib/db"
+  ],
+  "src/app/api/auth/[...nextauth]/route.ts": [
+    "next-auth",
+    "@/lib/auth-options"
+  ],
+  "src/app/api/simulator/[id]/result/route.ts": [
+    "next/server",
+    "@/lib/simulator",
+    "@/lib/db",
+    "@/lib/logger"
+  ],
+  "src/app/api/simulator/[id]/route.ts": [
+    "next/server",
+    "@/lib/simulator",
+    "@/lib/db",
+    "@/lib/logger"
+  ],
+  "src/app/api/simulator/route.ts": [
+    "next/server",
+    "@/lib/simulator",
+    "@/lib/logger"
+  ],
+  "src/app/api/compliance/scorecard/route.ts": [
+    "next/server",
+    "@/lib/auth",
+    "@/lib/compliance-auditor",
+    "@/lib/db",
+    "@/lib/logger"
+  ],
+  "src/app/api/credential-vault/[key]/route.ts": [
+    "next/server",
+    "@/lib/logger",
+    "@/lib/credential-vault",
+    "@/lib/auth"
+  ],
+  "src/app/api/credential-vault/route.ts": [
+    "next/server",
+    "@/lib/logger",
+    "@/lib/credential-vault"
+  ],
+  "src/app/api/monitor/heal/route.ts": [
+    "next/server",
+    "@/lib/monitor",
+    "@/lib/logger"
+  ],
+  "src/app/api/monitor/route.ts": [
+    "next/server",
+    "@/lib/monitor",
+    "@/lib/logger"
+  ],
+  "src/app/api/browser-sessions/route.ts": [
+    "next/server",
+    "@/lib/auth",
+    "@/lib/computer-use-accounts",
+    "@/lib/db",
+    "@/lib/logger"
+  ],
+  "src/app/api/goals/route.ts": [
+    "next/server",
+    "@/lib/goals",
+    "@/lib/logger"
+  ],
+  "src/app/api/multi-company-cycles/route.ts": [
+    "next/server",
+    "@/lib/multi-company-cycles",
+    "@/lib/logger"
+  ],
+  "src/app/api/costs/route.ts": [
+    "next/server",
+    "@/lib/db",
+    "@/lib/types",
+    "@/lib/agent-costs"
+  ],
+  "src/app/api/contact-finder/route.ts": [
+    "next/server",
+    "@/lib/auth",
+    "@/lib/lead-hunter/contact-finder",
+    "@/lib/logger"
+  ],
+  "src/app/api/kpis/route.ts": [
+    "next/server",
+    "@/lib/logger",
+    "@/lib/kpi-engine"
+  ],
+  "src/app/api/cash-claw/route.ts": [
+    "next/server",
+    "@/lib/logger",
+    "@/lib/cash-claw"
+  ],
+  "src/app/api/errors/route.ts": [
+    "next/server",
+    "@/lib/logger",
+    "@/lib/error-tracking",
+    "@/lib/auth"
+  ],
+  "src/app/api/portal/access/route.ts": [
+    "next/server",
+    "@/lib/db",
+    "@/lib/logger",
+    "crypto",
+    "@/lib/auth"
+  ],
+  "src/app/api/connectors/route.ts": [
+    "next/server",
+    "@/lib/connector-marketplace",
+    "@/lib/logger"
+  ],
+  "src/app/api/milestones/[id]/viewed/route.ts": [
+    "next/server",
+    "@/lib/logger",
+    "@/lib/milestones"
+  ],
+  "src/app/api/milestones/route.ts": [
+    "next/server",
+    "@/lib/logger",
+    "@/lib/milestones"
+  ],
+  "src/app/api/telegram/webhook/route.ts": [
+    "next/server",
+    "@/lib/telegram-bot",
+    "@/lib/logger"
+  ],
+  "src/app/api/settings/upi/route.ts": [
+    "next/server",
+    "@/lib/upi-payments",
+    "@/lib/auth"
+  ],
+  "src/app/api/settings/env/route.ts": [
+    "next/server",
+    "fs",
+    "path",
+    "@/lib/logger",
+    "@/lib/auth"
+  ],
+  "src/app/api/settings/payment-qr/route.ts": [
+    "next/server",
+    "@/lib/upi-payments",
+    "@/lib/auth"
+  ],
+  "src/app/api/settings/route.ts": [
+    "next/server",
+    "@/lib/freeswitch-esl",
+    "@/lib/ollama-client",
+    "@/lib/db"
+  ],
+  "src/app/api/computer-use/route.ts": [
+    "next/server",
+    "@/lib/logger",
+    "@/lib/computer-use"
+  ],
+  "src/app/api/alerts/ack-all/route.ts": [
+    "next/server",
+    "@/lib/db",
+    "@/lib/event-bus",
+    "@/lib/logger",
+    "@/lib/types"
+  ],
+  "src/app/api/alerts/[id]/ack/route.ts": [
+    "next/server",
+    "@/lib/db",
+    "@/lib/logger",
+    "@/lib/event-bus",
+    "@/lib/types"
+  ],
+  "src/app/api/alerts/route.ts": [
+    "next/server",
+    "@/lib/db",
+    "@/lib/logger",
+    "@/lib/types",
+    "@/lib/pagination"
+  ],
+  "src/app/api/chat/route.ts": [
+    "next/server",
+    "@/lib/db",
+    "@/lib/logger"
+  ],
+  "src/app/api/workflow-templates/route.ts": [
+    "next/server",
+    "@/lib/workflow-templates",
+    "@/lib/logger"
+  ],
+  "src/app/api/social-accounts/route.ts": [
+    "next/server",
+    "@/lib/auth",
+    "@/lib/social-media-manager",
+    "@/lib/logger"
+  ],
+  "src/app/api/mcp-client/route.ts": [
+    "next/server",
+    "@/lib/logger",
+    "@/lib/mcp-client"
+  ],
+  "src/app/api/proactive-promo/run/route.ts": [
+    "next/server",
+    "@/lib/auth",
+    "@/lib/logger",
+    "@/lib/lead-hunter/google-maps-scout",
+    "@/lib/outreach-coordinator",
+    "@/lib/db"
+  ],
+  "src/app/api/stripe/checkout/route.ts": [
+    "next/server",
+    "@/lib/stripe-checkout",
+    "@/lib/services/catalog",
+    "@/lib/db"
+  ],
+  "src/app/api/failure-alchemy/route.ts": [
+    "next/server",
+    "@/lib/logger",
+    "@/lib/failure-alchemy"
+  ],
+  "src/app/api/approvals/[id]/discuss/route.ts": [
+    "next/server",
+    "@/lib/db",
+    "@/lib/approval-brief",
+    "@/lib/logger"
+  ],
+  "src/app/api/approvals/[id]/oral-confirm/route.ts": [
+    "next/server",
+    "@/lib/db",
+    "@/lib/approval-brief",
+    "@/lib/logger"
+  ],
+  "src/app/api/approvals/[id]/decision/route.ts": [
+    "next/server",
+    "@/lib/approval-decision"
+  ],
+  "src/app/api/approvals/[id]/route.ts": [
+    "next/server",
+    "@/lib/db",
+    "@/lib/event-bus",
+    "@/lib/types",
+    "@/lib/approval-brief",
+    "@/lib/approval-executor"
+  ],
+  "src/app/api/approvals/route.ts": [
+    "next/server",
+    "@/lib/db",
+    "@/lib/event-bus",
+    "@/lib/types",
+    "@/lib/approval-brief",
+    "@/lib/logger",
+    "@/lib/pagination"
+  ],
+  "src/app/api/workflows/route.ts": [
+    "next/server",
+    "@/lib/workflow-engine",
+    "@/lib/event-bus",
+    "@/lib/types"
+  ],
+  "src/app/api/approval-patterns/route.ts": [
+    "next/server",
+    "@/lib/auth",
+    "@/lib/approval-patterns",
+    "@/lib/logger"
+  ],
+  "src/app/api/system-metrics/route.ts": [
+    "next/server",
+    "@/lib/logger",
+    "node:os",
+    "systeminformation"
+  ],
+  "src/app/api/whatsapp/webhook/route.ts": [
+    "next/server",
+    "@/lib/whatsapp/business",
+    "@/lib/logger",
+    "@/lib/support-agent"
+  ],
+  "src/app/api/whatsapp/qr/route.ts": [
+    "next/server",
+    "@/lib/auth",
+    "@/lib/whatsapp/business",
+    "@/lib/logger"
+  ],
+  "src/app/api/whatsapp/send/route.ts": [
+    "next/server",
+    "@/lib/whatsapp/business",
+    "@/lib/auth"
+  ],
+  "src/app/api/business-lifecycle/find/route.ts": [
+    "next/server",
+    "@/lib/logger",
+    "@/lib/autonomous-business-engine"
+  ],
+  "src/app/api/business-lifecycle/plan/route.ts": [
+    "next/server",
+    "@/lib/logger",
+    "@/lib/autonomous-business-engine"
+  ],
+  "src/app/api/business-lifecycle/qualify/route.ts": [
+    "next/server",
+    "@/lib/logger",
+    "@/lib/autonomous-business-engine"
+  ],
+  "src/app/api/business-lifecycle/status/route.ts": [
+    "next/server",
+    "@/lib/logger",
+    "@/lib/db"
+  ],
+  "src/app/api/business-lifecycle/route.ts": [
+    "next/server",
+    "@/lib/logger",
+    "@/lib/autonomous-business-engine"
+  ],
+  "src/app/api/earning/research/route.ts": [
+    "next/server",
+    "@/lib/hermes/earning-researcher"
+  ],
+  "src/app/api/leads/[id]/discard/route.ts": [
+    "next/server",
+    "@/lib/db",
+    "@/lib/logger",
+    "@/lib/auth"
+  ],
+  "src/app/api/leads/[id]/approve/route.ts": [
+    "next/server",
+    "@/lib/db",
+    "@/lib/logger",
+    "@/lib/auth"
+  ],
+  "src/app/api/leads/route.ts": [
+    "next/server",
+    "@/lib/db",
+    "@/lib/auth"
+  ],
+  "src/app/api/lead-hunt/run/route.ts": [
+    "next/server",
+    "@/lib/auth",
+    "@/lib/lead-hunter",
+    "@/lib/logger",
+    "@/lib/db"
+  ],
+  "src/app/api/free-offers/route.ts": [
+    "next/server",
+    "@/lib/auth",
+    "@/lib/lead-hunter/free-offer-engine",
+    "@/lib/logger",
+    "@/lib/db"
+  ],
+  "src/app/api/hermes/memory/route.ts": [
+    "next/server",
+    "@/lib/hermes/memory"
+  ],
+  "src/app/api/hermes/execute/route.ts": [
+    "next/server",
+    "@/lib/hermes/toolsets"
+  ],
+  "src/app/api/industry-playbooks/route.ts": [
+    "next/server",
+    "@/lib/logger",
+    "@/lib/industry-playbooks"
+  ],
+  "src/app/api/unsubscribe/[token]/route.ts": [
+    "next/server",
+    "@/lib/db"
+  ],
+  "src/app/api/seed/route.ts": [
+    "next/server",
+    "@/lib/db",
+    "@/lib/logger",
+    "@/lib/simulation",
+    "@/lib/approval-decision",
+    "@/lib/monitor",
+    "@/lib/env-loader",
+    "@/lib/auth",
+    "@/lib/types"
+  ],
+  "src/app/api/contacts/import/route.ts": [
+    "next/server",
+    "@/lib/auth",
+    "@/lib/lead-hunter/excel-importer",
+    "@/lib/logger",
+    "@/lib/db"
+  ],
+  "src/app/api/crm/leads/[id]/stage/route.ts": [
+    "next/server",
+    "@/lib/crm",
+    "@/lib/logger",
+    "zod"
+  ],
+  "src/app/api/crm/leads/route.ts": [
+    "next/server",
+    "@/lib/crm",
+    "@/lib/logger",
+    "zod"
+  ],
+  "src/app/api/crm/pipeline/route.ts": [
+    "next/server",
+    "@/lib/crm",
+    "@/lib/logger"
+  ],
+  "src/app/api/screen-vision/route.ts": [
+    "next/server",
+    "@/lib/screen-vision"
+  ],
+  "src/app/api/competitors/route.ts": [
+    "next/server",
+    "@/lib/db",
+    "@/lib/auth"
+  ],
+  "src/app/api/learn/route.ts": [
+    "next/server",
+    "@/lib/db",
+    "@/lib/logger",
+    "@/lib/hermes/learning",
+    "@/lib/vector-memory",
+    "z-ai-web-dev-sdk"
+  ],
+  "src/app/api/playground/chat/route.ts": [
+    "next/server",
+    "@/lib/llm-router",
+    "@/lib/db",
+    "@/lib/logger",
+    "@/lib/multimodal-fallback"
+  ],
+  "src/app/api/autonomy/resume/route.ts": [
+    "next/server",
+    "@/lib/autonomy-control",
+    "@/lib/auth",
+    "@/lib/logger"
+  ],
+  "src/app/api/autonomy/pause/route.ts": [
+    "next/server",
+    "@/lib/autonomy-control",
+    "@/lib/auth",
+    "@/lib/logger"
+  ],
+  "src/app/api/autonomy/status/route.ts": [
+    "next/server",
+    "@/lib/autonomy-control"
+  ],
+  "src/app/api/finance/pnl/route.ts": [
+    "next/server",
+    "@/lib/auth",
+    "@/lib/finance/ledger",
+    "@/lib/logger"
+  ],
+  "src/app/api/invoices/[orderId]/route.ts": [
+    "next/server",
+    "@/lib/invoice-generator",
+    "@/lib/auth"
+  ],
+  "src/app/api/simulations/run/route.ts": [
+    "next/server",
+    "@/lib/simulation-engine",
+    "@/lib/logger"
+  ],
+  "src/app/api/simulations/report/route.ts": [
+    "next/server",
+    "@/lib/db",
+    "@/lib/logger"
+  ],
+  "src/app/api/simulations/metrics/route.ts": [
+    "next/server",
+    "@/lib/simulation-engine",
+    "@/lib/logger"
+  ],
+  "src/app/api/openapi/route.ts": [
+    "next/server",
+    "@/lib/openapi",
+    "@/lib/logger"
+  ],
+  "src/app/api/revenue-engine/route.ts": [
+    "next/server",
+    "@/lib/logger",
+    "@/lib/revenue-engine"
+  ],
+  "src/app/api/image-gen/route.ts": [
+    "next/server",
+    "@/lib/logger",
+    "z-ai-web-dev-sdk"
+  ],
+  "src/app/api/debate/[id]/route.ts": [
+    "next/server",
+    "@/lib/logger",
+    "@/lib/debate"
+  ],
+  "src/app/api/debate/route.ts": [
+    "next/server",
+    "@/lib/logger",
+    "@/lib/debate"
+  ],
+  "src/app/api/expansion/service-opportunities/route.ts": [
+    "next/server",
+    "@/lib/db",
+    "@/lib/auth",
+    "@/lib/pre-publish-gate"
+  ],
+  "src/app/api/expansion/earning-methods/route.ts": [
+    "next/server",
+    "@/lib/db",
+    "@/lib/auth"
+  ],
+  "src/app/api/2fa/verify/route.ts": [
+    "next/server",
+    "@/lib/db",
+    "@/lib/logger",
+    "@/lib/two-factor",
+    "@/lib/auth"
+  ],
+  "src/app/api/2fa/setup/route.ts": [
+    "next/server",
+    "@/lib/db",
+    "@/lib/logger",
+    "@/lib/two-factor",
+    "@/lib/auth"
+  ],
+  "src/app/api/2fa/status/route.ts": [
+    "next/server",
+    "@/lib/db",
+    "@/lib/auth"
+  ],
+  "src/app/api/2fa/disable/route.ts": [
+    "next/server",
+    "@/lib/db",
+    "@/lib/logger",
+    "@/lib/two-factor",
+    "@/lib/auth"
+  ],
+  "src/app/api/services/refund/route.ts": [
+    "next/server",
+    "@/lib/db",
+    "@/lib/logger",
+    "@/lib/auth",
+    "@/lib/email-service",
+    "@/lib/services/builder",
+    "fs"
+  ],
+  "src/app/api/services/catalog/route.ts": [
+    "next/server",
+    "@/lib/services/catalog",
+    "@/lib/stripe-checkout",
+    "@/lib/db"
+  ],
+  "src/app/api/services/pending/route.ts": [
+    "next/server",
+    "@/lib/services/crypto-checkout"
+  ],
+  "src/app/api/services/upi/pending/route.ts": [
+    "next/server",
+    "@/lib/upi-payments",
+    "@/lib/auth"
+  ],
+  "src/app/api/services/upi/checkout/route.ts": [
+    "next/server",
+    "@/lib/upi-payments"
+  ],
+  "src/app/api/services/upi/claim/route.ts": [
+    "next/server",
+    "@/lib/upi-payments"
+  ],
+  "src/app/api/services/upi/approve/route.ts": [
+    "next/server",
+    "@/lib/upi-payments",
+    "@/lib/auth"
+  ],
+  "src/app/api/services/orders/[id]/route.ts": [
+    "next/server",
+    "@/lib/db"
+  ],
+  "src/app/api/services/orders/[id]/deliverable/route.ts": [
+    "next/server",
+    "@/lib/db",
+    "fs"
+  ],
+  "src/app/api/services/orders/route.ts": [
+    "next/server",
+    "@/lib/db"
+  ],
+  "src/app/api/services/checkout/route.ts": [
+    "next/server",
+    "@/lib/logger",
+    "@/lib/services/crypto-checkout"
+  ],
+  "src/app/api/services/preview/route.ts": [
+    "next/server",
+    "@/lib/llm-router",
+    "@/lib/services/catalog",
+    "@/lib/services/builder",
+    "@/lib/logger"
+  ],
+  "src/app/api/services/approve/route.ts": [
+    "next/server",
+    "@/lib/logger",
+    "@/lib/services/crypto-checkout",
+    "@/lib/auth"
+  ],
+  "src/app/api/health/route.ts": [
+    "next/server",
+    "@/lib/db",
+    "@/lib/logger",
+    "@/lib/self-heal",
+    "@/lib/llm-router",
+    "@/lib/email-service",
+    "@/lib/error-tracking"
+  ],
+  "src/app/api/notes/[id]/route.ts": [
+    "next/server",
+    "@/lib/logger",
+    "@/lib/notes"
+  ],
+  "src/app/api/notes/route.ts": [
+    "next/server",
+    "@/lib/logger",
+    "@/lib/notes"
+  ],
+  "src/app/api/audit-log/route.ts": [
+    "next/server",
+    "@/lib/db",
+    "@/lib/logger",
+    "@/lib/pagination"
+  ],
+  "src/app/api/tasks/route.ts": [
+    "next/server",
+    "@/lib/db",
+    "@/lib/event-bus",
+    "@/lib/simulation",
+    "@/lib/types",
+    "@/lib/pagination",
+    "zod"
+  ],
+  "src/app/api/deals/[id]/stage/route.ts": [
+    "next/server",
+    "@/lib/db",
+    "@/lib/logger",
+    "@/lib/event-bus",
+    "@/lib/types"
+  ],
+  "src/app/api/users/[id]/role/route.ts": [
+    "next/server",
+    "@/lib/db",
+    "@/lib/logger",
+    "@/lib/auth",
+    "@/lib/rbac"
+  ],
+  "src/app/api/users/route.ts": [
+    "next/server",
+    "@/lib/db",
+    "@/lib/logger",
+    "@/lib/auth"
+  ],
+  "src/app/api/cron/[id]/run/route.ts": [
+    "next/server",
+    "@/lib/db",
+    "@/lib/logger",
+    "@/lib/event-bus",
+    "@/lib/types",
+    "@/lib/cron-scheduler"
+  ],
+  "src/app/api/cron/route.ts": [
+    "next/server",
+    "@/lib/db",
+    "@/lib/logger",
+    "@/lib/types"
+  ],
+  "src/app/api/capabilities/route.ts": [
+    "next/server",
+    "@/lib/auth",
+    "@/lib/capability-registry",
+    "@/lib/db",
+    "@/lib/logger"
+  ],
+  "src/app/api/llm-router/status/route.ts": [
+    "next/server",
+    "@/lib/llm-router",
+    "@/lib/ollama-client",
+    "@/lib/freeswitch-esl"
+  ],
+  "src/app/api/feedback/route.ts": [
+    "next/server",
+    "@/lib/db",
+    "@/lib/intelligence/feedback-loop",
+    "@/lib/auth"
+  ],
+  "src/app/api/tracing/route.ts": [
+    "next/server",
+    "@/lib/logger",
+    "@/lib/tracing"
+  ],
+  "src/app/api/telephony/sms/route.ts": [
+    "next/server",
+    "@/lib/telephony",
+    "@/lib/logger",
+    "zod"
+  ],
+  "src/app/api/telephony/call/route.ts": [
+    "next/server",
+    "@/lib/telephony",
+    "@/lib/logger",
+    "zod"
+  ],
+  "src/app/api/telephony/status/route.ts": [
+    "next/server",
+    "@/lib/telephony",
+    "@/lib/ollama-client",
+    "@/lib/env-loader"
+  ],
+  "src/app/api/companies/[id]/route.ts": [
+    "next/server",
+    "@/lib/multi-company",
+    "@/lib/logger"
+  ],
+  "src/app/api/companies/route.ts": [
+    "next/server",
+    "@/lib/multi-company",
+    "@/lib/logger"
+  ],
+  "src/app/api/export/route.ts": [
+    "next/server",
+    "@/lib/db",
+    "@/lib/logger"
+  ],
+  "src/app/api/sample-data/route.ts": [
+    "next/server",
+    "@/lib/db",
+    "@/lib/logger",
+    "@/lib/simulation"
+  ],
+  "src/app/api/training/inject/route.ts": [
+    "next/server",
+    "zod",
+    "@/lib/db",
+    "@/lib/logger",
+    "@/lib/auth",
+    "@/lib/blackbox",
+    "@/lib/hermes/memory",
+    "@/lib/event-bus",
+    "@/lib/hermes/skills"
+  ],
+  "src/app/api/training/teach/route.ts": [
+    "next/server",
+    "zod",
+    "@/lib/agent-training",
+    "@/lib/logger",
+    "@/lib/auth"
+  ],
+  "src/app/api/training/feedback/route.ts": [
+    "next/server",
+    "zod",
+    "@/lib/blackbox",
+    "@/lib/logger",
+    "@/lib/auth"
+  ],
+  "src/app/api/training/route.ts": [
+    "next/server",
+    "@/lib/agent-training",
+    "@/lib/logger",
+    "@/lib/auth"
+  ],
+  "src/app/api/learning/ingest/route.ts": [
+    "next/server",
+    "@/lib/hermes/learning"
+  ],
+  "src/app/api/conductor/route.ts": [
+    "next/server",
+    "@/lib/db",
+    "@/lib/llm-client",
+    "@/lib/smart-routing",
+    "@/lib/event-bus",
+    "@/lib/types",
+    "@/lib/auth"
+  ],
+  "src/app/api/webhooks/stripe/route.ts": [
+    "next/server",
+    "@/lib/stripe-checkout"
+  ],
+  "src/app/api/webhooks/resend/route.ts": [
+    "next/server",
+    "crypto",
+    "@/lib/db",
+    "@/lib/logger",
+    "@/lib/llm-client",
+    "@/lib/email-service"
+  ],
+  "src/app/api/webhooks/inbound-email/route.ts": [
+    "next/server",
+    "@/lib/legal/contract-generator",
+    "@/lib/logger"
+  ],
+  "src/app/api/planner/route.ts": [
+    "next/server",
+    "@/lib/planner",
+    "@/lib/logger"
+  ],
+  "src/app/api/cost-dashboard/route.ts": [
+    "next/server",
+    "@/lib/cost-dashboard",
+    "@/lib/logger"
+  ],
+  "src/app/api/onboarding/route.ts": [
+    "next/server",
+    "@/lib/db",
+    "@/lib/logger"
+  ],
+  "src/app/api/contracts/route.ts": [
+    "next/server",
+    "@/lib/auth",
+    "@/lib/db",
+    "@/lib/legal/contract-generator",
+    "@/lib/logger"
+  ],
+  "src/app/api/revenue-loop/route.ts": [
+    "next/server",
+    "@/lib/db",
+    "@/lib/auth",
+    "@/lib/outreach-executor"
+  ],
+  "src/app/api/refactor-proposals/[id]/suggest/route.ts": [
+    "next/server",
+    "@/lib/auth",
+    "@/lib/self-evolution/refactor-engine",
+    "@/lib/logger"
+  ],
+  "src/app/api/refactor-proposals/[id]/merge/route.ts": [
+    "next/server",
+    "@/lib/auth",
+    "@/lib/self-evolution/refactor-engine",
+    "@/lib/logger"
+  ],
+  "src/app/api/refactor-proposals/[id]/review/route.ts": [
+    "next/server",
+    "@/lib/auth",
+    "@/lib/self-evolution/refactor-engine",
+    "@/lib/logger"
+  ],
+  "src/app/api/refactor-proposals/route.ts": [
+    "next/server",
+    "@/lib/auth",
+    "@/lib/db",
+    "@/lib/self-evolution/refactor-engine",
+    "@/lib/logger"
+  ],
+  "src/app/api/tts/route.ts": [
+    "next/server",
+    "@/lib/tts"
+  ],
+  "src/app/api/insights/route.ts": [
+    "next/server",
+    "@/lib/ai-insights",
+    "@/lib/logger"
+  ],
+  "src/app/api/events/route.ts": [
+    "@/lib/event-bus",
+    "@/lib/logger",
+    "@/lib/simulation",
+    "next/server",
+    "@/lib/types"
+  ],
+  "src/app/api/funnel/route.ts": [
+    "next/server",
+    "@/lib/db",
+    "@/lib/types",
+    "@/lib/funnel-decay"
+  ],
+  "src/app/api/system-access/session/[id]/revoke/route.ts": [
+    "next/server",
+    "@/lib/db",
+    "@/lib/logger",
+    "@/lib/event-bus"
+  ],
+  "src/app/api/system-access/session/route.ts": [
+    "next/server",
+    "@/lib/db",
+    "@/lib/logger"
+  ],
+  "src/app/api/system-access/approvals/[id]/decide/route.ts": [
+    "next/server",
+    "@/lib/db",
+    "@/lib/logger",
+    "@/lib/event-bus"
+  ],
+  "src/app/api/system-access/approvals/route.ts": [
+    "next/server",
+    "@/lib/db",
+    "@/lib/logger"
+  ],
+  "src/app/api/system-access/request/route.ts": [
+    "next/server",
+    "@/lib/db",
+    "@/lib/logger",
+    "@/lib/event-bus"
+  ],
+  "src/app/api/blackbox/route.ts": [
+    "next/server",
+    "@/lib/blackbox",
+    "@/lib/logger"
+  ],
+  "src/app/api/knowledge-base/route.ts": [
+    "next/server",
+    "@/lib/knowledge-base",
+    "@/lib/logger"
+  ],
+  "src/app/api/system/route.ts": [
+    "next/server",
+    "@/lib/db",
+    "@/lib/central-registry",
+    "@/lib/pagination"
+  ],
+  "src/app/api/outreach/status/route.ts": [
+    "next/server",
+    "@/lib/health-sim",
+    "@/lib/auth"
+  ],
+  "src/app/api/outreach/suppression/route.ts": [
+    "next/server",
+    "@/lib/db",
+    "@/lib/auth"
+  ],
+  "src/app/api/route.ts": [
+    "next/server",
+    "@/lib/db"
+  ],
+  "src/app/api/notifications/subscribe/route.ts": [
+    "next/server",
+    "@/lib/db",
+    "@/lib/auth"
+  ],
+  "src/app/api/notifications/vapid-key/route.ts": [
+    "next/server",
+    "@/lib/db",
+    "@/lib/auth"
+  ],
+  "src/app/api/notifications/route.ts": [
+    "next/server",
+    "@/lib/db",
+    "@/lib/auth"
+  ],
+  "src/app/api/supervisors/reviews/route.ts": [
+    "next/server",
+    "@/lib/db",
+    "@/lib/auth"
+  ],
+  "src/stores/mission-store.ts": [
+    "zustand",
+    "@/lib/types"
+  ],
+  "src/hooks/use-toast.ts": [
+    "react",
+    "@/components/ui/toast"
+  ],
+  "src/hooks/use-onboarding.ts": [
+    "react"
+  ],
+  "src/hooks/use-mobile.ts": [
+    "react"
+  ],
+  "src/hooks/use-mission-control.ts": [
+    "react",
+    "@/stores/mission-store",
+    "./use-sse-stream",
+    "@/lib/types"
+  ],
+  "src/hooks/use-alert-notifications.ts": [
+    "react",
+    "@/stores/mission-store",
+    "@/lib/types"
+  ],
+  "src/hooks/use-clock.ts": [
+    "react"
+  ],
+  "src/hooks/use-realtime-sync.ts": [
+    "react",
+    "socket.io-client"
+  ],
+  "src/hooks/use-sse-stream.ts": [
+    "react",
+    "@/lib/types"
+  ],
+  "src/instrumentation-node.ts": [
+    "./lib/auto-bootstrap",
+    "./lib/error-tracking",
+    "./lib/self-heal",
+    "./lib/db-write-queue",
+    "./lib/db-schema-ensure",
+    "./lib/db",
+    "./lib/simulation/seed",
+    "./lib/simulation/engine"
+  ],
+  "scripts/sample-proactive-promo.ts": [
+    "bun:test",
+    "fs",
+    "../src/lib/lead-hunter/excel-importer",
+    "../src/lib/lead-hunter/contact-finder",
+    "../src/lib/lead-hunter/free-offer-engine",
+    "../src/lib/lead-hunter/google-maps-scout",
+    "../src/lib/approval-patterns",
+    "../src/lib/social-media-manager"
+  ],
+  "scripts/generate-embedded-skills.ts": [
+    "fs",
+    "path",
+    "./embedded-skills"
+  ],
+  "scripts/check-resource-usage.ts": [
+    "os"
+  ],
+  "scripts/verify-all-phases.ts": [
+    "fs",
+    "path"
+  ],
+  "scripts/sample-lead-hunt.ts": [
+    "bun:test",
+    "../src/lib/lead-hunter/service-matcher",
+    "../src/lib/lead-hunter/social-scout",
+    "../src/lib/lead-hunter/profile-extractor"
+  ],
+  "scripts/seed-from-embedded.ts": [
+    "../src/lib/db",
+    "../src/lib/embedded-skills",
+    "../src/lib/embedded-projects"
+  ],
+  "scripts/check-env.ts": [],
+  "scripts/daily-knowledge-refresh.ts": [
+    "../src/lib/db",
+    "../src/lib/logger",
+    "../src/lib/event-bus",
+    "fs",
+    "path",
+    "z-ai-web-dev-sdk"
+  ],
+  "scripts/chaos-test.ts": [
+    "../src/lib/db",
+    "../src/lib/llm-router",
+    "../src/lib/autonomy-control",
+    "../src/lib/db-write-queue",
+    "fs",
+    "path"
+  ],
+  "scripts/generate-code-index.ts": [
+    "fs",
+    "path",
+    "..."
+  ],
+  "scripts/generate-embedded-projects.ts": [
+    "fs",
+    "path"
+  ],
+  "scripts/ingest-500-projects.ts": [
+    "../src/lib/db",
+    "../src/lib/logger"
+  ],
+  "scripts/simulate-full-loop.ts": [
+    "fs",
+    "path",
+    "child_process",
+    "z-ai-web-dev-sdk"
+  ],
+  "mini-services/lib/auth-middleware.ts": [
+    "../lib/auth-middleware",
+    "http"
+  ],
+  "mini-services/realtime/index.ts": [
+    "http",
+    "engine.io",
+    "socket.io"
+  ]
+}

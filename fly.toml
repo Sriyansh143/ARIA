@@ -1,0 +1,66 @@
+# fly.toml — ARIA Mission Control on Fly.io (free tier).
+#
+# Fly.io free tier: 3 shared-cpu-1x VMs (256MB RAM each) + 3GB storage.
+# This config fits ARIA in a single VM (app + realtime sidecar) with
+# a 1GB persistent volume for the SQLite database.
+#
+# Quick start:
+#   1. Install flyctl:  curl -L https://fly.io/install.sh | sh
+#   2. Login:            flyctl auth login
+#   3. Launch:           flyctl launch --no-deploy (answer "No" to "Would you like to set up a Postgresql cluster?")
+#   4. Set secrets:      flyctl secrets set NEXTAUTH_SECRET=$(openssl rand -base64 32)
+#                        flyctl secrets set ENCRYPTION_MASTER_KEY=$(openssl rand -hex 32)
+#                        flyctl secrets set JARVIS_DEV_BYPASS_AUTH=1
+#                        flyctl secrets set ARIA_PREFER_LOCAL_LLM=1
+#                        flyctl secrets set OLLAMA_HOST=http://127.0.0.1:11434
+#   5. Deploy:           flyctl deploy
+#   6. Open:             flyctl open
+#
+# The app will be available at https://<your-app>.fly.dev.
+
+app = "aria-mission-control"
+primary_region = "iad"
+
+[build]
+  dockerfile = "Dockerfile"
+
+[env]
+  NODE_ENV = "production"
+  PORT = "3000"
+  # v40: JARVIS_DEV_BYPASS_AUTH removed — auth always enforced.
+  ARIA_OWNER_EMAIL = "owner@aria.local"
+  ARIA_PREFER_LOCAL_LLM = "1"
+  OLLAMA_HOST = "http://127.0.0.1:11434"
+  ARIA_PLAYGROUND_ENABLED = "1"
+
+# Persistent volume for SQLite DB — survives VM restarts.
+[[mounts]]
+  source = "aria_data"
+  destination = "/app/db"
+
+# HTTP service — Fly.io free tier gives 3 shared-cpu-1x VMs (256MB).
+[http_service]
+  internal_port = 3000
+  force_https = true
+  auto_stop_machines = false   # keep running 24/7 (free tier allows this)
+  auto_start_machines = true
+  min_machines_running = 1     # always have at least 1 VM alive
+
+  [http_service.concurrency]
+    type = "requests"
+    hard_limit = 100
+    soft_limit = 50
+
+# Health check — Fly will restart the VM if this fails 3x.
+[[http_service.checks]]
+  interval = "30s"
+  timeout = "5s"
+  grace_period = "10s"
+  method = "GET"
+  path = "/api/health"
+
+# VM config — free tier: shared-cpu-1x + 256MB RAM.
+[[vm]]
+  cpu_kind = "shared"
+  cpus = 1
+  memory_mb = 256

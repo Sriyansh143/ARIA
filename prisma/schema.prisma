@@ -1,0 +1,1905 @@
+// ARIA Mission Control — hardened production schema (v28.0-hermes-autonomous)
+// Dual-database: SQLite for dev, PostgreSQL for production.
+// The provider is selected at runtime by src/lib/db.ts based on DATABASE_URL:
+//   - file:./... or file:/... → sqlite
+//   - postgresql://...       → postgresql
+// All field types are compatible with both providers (no JSON column type,
+// no native arrays — everything is String with JSON.stringify at the app layer).
+//
+// String fields carry doc-comments enumerating the allowed union values;
+// runtime contracts are enforced via zod in src/lib/types.ts.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  // This is the dev default. In production, src/lib/db.ts dynamically
+  // selects postgresql when DATABASE_URL starts with "postgresql://".
+  // For prisma CLI commands (db:push, migrate), set DATABASE_URL in .env
+  // to the target database — the CLI reads this provider value.
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+// ─── Autonomy Tags (Notion "AI Company Map" integration, v59) ─────────
+// Every workflow + skill carries an autonomyTag that the conductor-router
+// enforces BEFORE execution:
+//   HUMAN_LED          → never runs without owner triggering it
+//   HUMAN_ASSISTED     → routes to the Telegram approval queue before exec
+//   FULLY_AUTONOMOUS   → runs without human gating (cron + supervisor only)
+enum AutonomyTag {
+  HUMAN_LED
+  HUMAN_ASSISTED
+  FULLY_AUTONOMOUS
+}
+
+// ─── Agents ──────────────────────────────────────────────────────────
+model Agent {
+  id           String   @id @default(cuid())
+  name         String   @unique
+  role         String // CEO | COO | CFO | CTO | Engineering | DevOps | QA | Architect | Research | DataAnalyst | DataScientist | Ops | ProjectManager | Compliance | Finance | Accountant | PaymentsProcessor | Sales | SalesDevelopment | AccountExecutive | CRM | Support | SuccessManager | Marketer | SocialMedia | ContentCreator | AdCreative | LegalAnalyst | Ethicist | CommsAgent | EmailWorker | VoiceAgent | CommunityManager | Linguist | ClientOnboarding | ClientSuccess | Conductor
+  tier         String   @default("balanced") // strong | balanced | fast
+  status       String   @default("idle") // idle | thinking | executing | streaming | waiting | error | offline
+  model        String?
+  department   String?
+  capabilities String   @default("[]") // JSON array of capability strings
+  currentTask  String?
+  tokensUsed   Int      @default(0)
+  tasksDone    Int      @default(0)
+  errorCount   Int      @default(0)
+  lastBeatAt   DateTime?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  tasks        Task[]
+  logs         AgentLog[]
+  metrics      MetricPoint[]
+
+  @@index([status])
+  @@index([department])
+  @@index([role])
+}
+
+// ─── Tasks ───────────────────────────────────────────────────────────
+model Task {
+  id           String   @id @default(cuid())
+  title        String
+  description  String?
+  status       String   @default("pending") // pending | running | completed | failed | blocked
+  priority     String   @default("medium") // low | medium | high | critical
+  assignedToId String?
+  dependsOn    String   @default("[]") // JSON array of task ids (DAG)
+  result       String?
+  progress     Int      @default(0) // 0-100
+  kind         String   @default("work") // work | tool_call | research | review | decision
+  createdAt    DateTime @default(now())
+  startedAt    DateTime?
+  completedAt  DateTime?
+  updatedAt    DateTime @updatedAt
+
+  assignedTo   Agent?   @relation(fields: [assignedToId], references: [id], onDelete: SetNull)
+  logs         AgentLog[]
+
+  @@index([status])
+  @@index([assignedToId])
+  @@index([priority])
+}
+
+// ─── Agent Logs ──────────────────────────────────────────────────────
+model AgentLog {
+  id        String   @id @default(cuid())
+  agentId   String?
+  taskId    String?
+  level     String   @default("info") // debug | info | warn | error | success
+  message   String
+  meta      String? // JSON blob
+  createdAt DateTime @default(now())
+
+  agent     Agent?   @relation(fields: [agentId], references: [id], onDelete: SetNull)
+  task      Task?    @relation(fields: [taskId], references: [id], onDelete: SetNull)
+
+  @@index([agentId])
+  @@index([taskId])
+  @@index([createdAt])
+  @@index([level])
+}
+
+// ─── Events (SSE backbone) ───────────────────────────────────────────
+model Event {
+  id        String   @id @default(cuid())
+  type      String // agent.status | task.update | log | metric | approval | llm | system | alert
+  channel   String   @default("global")
+  payload   String // JSON blob
+  createdAt DateTime @default(now())
+
+  @@index([type])
+  @@index([channel])
+  @@index([createdAt])
+}
+
+// ─── Metrics ─────────────────────────────────────────────────────────
+model MetricPoint {
+  id        String   @id @default(cuid())
+  agentId   String?
+  name      String // tokens | latency_ms | tasks_done | revenue | errors | throughput
+  value     Float
+  unit      String?
+  createdAt DateTime @default(now())
+
+  agent     Agent?   @relation(fields: [agentId], references: [id], onDelete: SetNull)
+
+  @@index([agentId])
+  @@index([name])
+  @@index([createdAt])
+}
+
+// ─── Approvals (autonomous approval gate) ────────────────────────────
+// Enhanced (Task 23): every approval carries an LLM-generated owner brief
+// (why/risks/ifApproved/ifNotApproved/clarifications) plus a discussion log
+// so the owner can ask questions before deciding. Oral confirmation via
+// voice call is supported — `oralConfirmed` flips to true when a transcript
+// is analyzed and an affirmative phrase is found; the PATCH handler then
+// auto-approves without a button press.
+model Approval {
+  id        String   @id @default(cuid())
+  title     String
+  summary   String?
+  risk      String   @default("medium") // low | medium | high | critical
+  status    String   @default("pending") // pending | approved | denied | expired
+  requester String?
+  agentId   String?
+  action    String? // e.g. deploy | spend | send_email | sign_contract
+  amount    Float?
+  payload   String? // JSON action payload
+  // ── Owner brief (Task 23) ──
+  // JSON blob: { why, risks: string[], ifApproved, ifNotApproved, clarifications: { q, a }[] }
+  // Generated by src/lib/approval-brief.ts:generateApprovalBrief().
+  brief          String?
+  // JSON array of { role: "owner"|"agent"|"system", message, timestamp } —
+  // the conversation history between owner and the approval-discussion LLM.
+  discussionLog   String?
+  // True if the owner orally approved via a voice-call transcript
+  // (src/lib/approval-brief.ts:oralConfirm()).
+  oralConfirmed   Boolean  @default(false)
+  // Linked voice call record (free-form string; future VoiceCall model id).
+  voiceCallId     String?
+  // v61 Phase 2 (Owner Rule: 2-Hour Deferral) — when set, the approval has
+  // been deferred (owner hasn't responded in 2h). The system pivots agents
+  // to other work + sends reminders. Cleared when the owner decides.
+  deferredUntil    DateTime?
+  createdAt DateTime @default(now())
+  decidedAt DateTime?
+
+  @@index([status])
+  @@index([risk])
+  @@index([oralConfirmed])
+  @@index([deferredUntil])
+}
+
+// ─── Cron Jobs (background daemon registry) ──────────────────────────
+model CronJob {
+  id          String   @id @default(cuid())
+  name        String   @unique
+  schedule    String // cron expression or interval label
+  description String?
+  status      String   @default("active") // active | paused | error
+  lastRunAt   DateTime?
+  nextRunAt   DateTime?
+  lastResult  String?
+  runCount    Int      @default(0)
+  failCount   Int      @default(0)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([status])
+}
+
+// ─── Cron Run History ────────────────────────────────────────────────
+model CronRun {
+  id        String   @id @default(cuid())
+  cronJobId String
+  jobName   String
+  ok        Boolean
+  result    String?
+  latencyMs Int      @default(0)
+  createdAt DateTime @default(now())
+
+  @@index([cronJobId])
+  @@index([createdAt])
+  @@index([ok])
+}
+
+// ─── LLM Calls (gateway audit log) ───────────────────────────────────
+model LlmCall {
+  id         String   @id @default(cuid())
+  agentId    String?                    // owning agent (nullable for system/Conductor calls)
+  provider   String // zai | ollama | openai | anthropic | gemini | groq | deepseek
+  model      String
+  prompt     String
+  completion String?
+  tokensIn   Int      @default(0)
+  tokensOut  Int      @default(0)
+  latencyMs  Int      @default(0)
+  status     String   @default("ok") // ok | rate_limited | error | fallback
+  fallback   Boolean  @default(false)
+  error      String?
+  createdAt  DateTime @default(now())
+
+  @@index([provider])
+  @@index([status])
+  @@index([createdAt])
+  @@index([agentId])
+}
+
+// ─── System Alerts ───────────────────────────────────────────────────
+model SystemAlert {
+  id        String   @id @default(cuid())
+  severity  String // info | warn | error | critical
+  source    String // llm | cron | agent | healer | system
+  message   String
+  ack       Boolean  @default(false)
+  createdAt DateTime @default(now())
+
+  @@index([severity])
+  @@index([ack])
+  @@index([createdAt])
+}
+
+// ─── Skills Registry ─────────────────────────────────────────────────
+// Hermes core engine: progressive-disclosure skills. Lightweight rows
+// carry only name/description for the system prompt; `instructions` +
+// `script` are lazy-loaded only when a skill is actually invoked.
+model Skill {
+  id           String   @id @default(cuid())
+  slug         String   @unique
+  name         String
+  category     String // llm | media | doc | data | web
+  description  String?
+  instructions String? // full prompt instructions (progressive disclosure — only loaded on invoke)
+  script       String? // executable script template (for createSkillFromExecution)
+  source       String   @default("builtin") // builtin | community | custom | learned
+  status       String   @default("active") // active | deprecated | disabled
+  // v59 (Notion "AI Company Map" Autonomy Tags): the conductor-router enforces
+  // this before invoking the skill. HUMAN_ASSISTED → Telegram approval queue.
+  autonomyTag  AutonomyTag @default(HUMAN_ASSISTED)
+  invocations  Int      @default(0)
+  successRate  Float    @default(1.0)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  @@index([category])
+  @@index([status])
+  @@index([source])
+  @@index([autonomyTag])
+}
+
+// ─── Workflow Definitions (v59 — persisted workflows + autonomy tags) ──
+// The in-memory `Workflow` interface in src/lib/workflow-engine.ts is the
+// execution shape; this model persists workflow templates so the conductor
+// can look up autonomy policy + approval state across restarts. The
+// conductor-router (src/lib/conductor/router.ts) reads `autonomyTag` before
+// dispatch: HUMAN_ASSISTED workflows are blocked + routed to the Telegram
+// approval queue; FULLY_AUTONOMOUS workflows run directly.
+model WorkflowDefinition {
+  id           String       @id @default(cuid())
+  slug         String       @unique
+  name         String
+  description  String?
+  // JSON-serialized WorkflowStep[] (the in-memory interface from workflow-engine.ts).
+  stepsJson    String
+  trigger      String       @default("manual") // manual | schedule | event | approval
+  status       String       @default("draft")  // draft | active | running | completed | failed
+  // v59 (Notion "AI Company Map" Autonomy Tags):
+  autonomyTag  AutonomyTag  @default(HUMAN_ASSISTED)
+  // If autonomyTag = HUMAN_ASSISTED, the conductor creates an Approval row +
+  // sends a Telegram brief. When the owner approves, the workflow runs.
+  pendingApprovalId String? // FK to Approval.id (nullable when autonomous or already approved)
+  createdAt    DateTime     @default(now())
+  updatedAt    DateTime     @updatedAt
+
+  @@index([autonomyTag])
+  @@index([status])
+  @@index([trigger])
+}
+
+// ─── Sub-Agent Tasks (agent-to-agent delegation) ─────────────────────
+// When an agent uses the spawn_subagent tool, a SubAgentTask row records
+// the parent→child delegation, status, and result. Mirrors Hermes'
+// orchestration graph so the conductor can audit delegation chains.
+model SubAgentTask {
+  id           String    @id @default(cuid())
+  parentId     String                      // delegating (parent) agent id
+  childAgentId String?                     // assigned sub-agent (nullable if not yet picked up)
+  task         String                      // natural-language task description
+  status       String    @default("pending") // pending | running | completed | failed | cancelled
+  result       String?                     // JSON blob — final result payload
+  summary      String?                     // human-readable summary
+  createdAt    DateTime  @default(now())
+  completedAt  DateTime?
+
+  @@index([parentId])
+  @@index([childAgentId])
+  @@index([status])
+  @@index([createdAt])
+}
+
+// ─── Earning Opportunities (autonomous income pipeline) ─────────────
+// Revenue opportunities discovered by autonomous agents (scans, outreach,
+// inbound, referrals). Tracked from discovery through qualification,
+// pipeline, execution, and closure. Linked to a Deal once qualified.
+model EarningOpportunity {
+  id                    String   @id @default(cuid())
+  title                 String
+  description           String?
+  source                String // autonomous-scan | outreach | inbound | referral | partnership | marketplace
+  estimatedRevenue      Float   @default(0)
+  timeToExecuteHours    Float   @default(0)
+  department            String // Sales | Engineering | Marketing | Support | etc.
+  feasibilityScore      Float   @default(0.5) // 0-1 — agent's estimated likelihood of success
+  status                String   @default("discovered") // discovered | qualified | pipeline | executing | closed
+  dealId                String? // linked Deal (once qualified → pipeline)
+  taskId                String? // linked Task (if execution is in-flight)
+  discoveredAt          DateTime @default(now())
+  createdAt             DateTime @default(now())
+  updatedAt             DateTime @updatedAt
+
+  @@index([status])
+  @@index([source])
+  @@index([department])
+  @@index([discoveredAt])
+}
+
+// ─── Learned Insights (autonomous daily learning pipeline) ──────────
+// Output of the multimodal learning engine — one row per ingested
+// insight from videos, social feeds, or web URLs. Linked to the
+// MemoryItem (if stored as knowledge) and Skill (if actionable).
+model LearnedInsight {
+  id            String   @id @default(cuid())
+  source        String // original URL or platform handle
+  sourceType    String // video | social | web
+  content       String // the raw extracted content / transcript slice
+  insights      String // JSON array of insight strings
+  memoryItemId  String? // linked MemoryItem (if stored as knowledge)
+  skillId       String? // linked Skill (if insight was turned into a skill)
+  agentId       String? // owning agent
+  createdAt     DateTime @default(now())
+
+  @@index([sourceType])
+  @@index([agentId])
+  @@index([createdAt])
+}
+
+// ─── Revenue Events (autonomous income tracking) ────────────────────
+model RevenueEvent {
+  id          String   @id @default(cuid())
+  source      String                     // subscription | services | api_usage | affiliate | marketplace
+  amount      Float
+  currency    String   @default("USD")
+  agentId     String?                    // which agent closed it
+  dealId      String?                    // linked deal (optional)
+  description String?
+  createdAt   DateTime @default(now())
+
+  @@index([source])
+  @@index([createdAt])
+  @@index([agentId])
+}
+
+// ─── Deals (pipeline: lead → won/lost) ──────────────────────────────
+model Deal {
+  id           String   @id @default(cuid())
+  title        String
+  value        Float   @default(0)
+  currency     String   @default("USD")
+  stage        String   @default("lead") // lead | qualified | proposal | negotiation | won | lost
+  probability  Int      @default(20)     // 0-100 win probability
+  source       String   @default("autonomous-scan") // autonomous-scan | outreach | inbound | referral
+  agentId      String?                    // owning agent
+  counterparty String?                    // client/company name
+  expectedClose DateTime?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  @@index([stage])
+  @@index([source])
+  @@index([agentId])
+}
+
+// ─── Agent Messages (inter-agent communication log) ─────────────────
+model AgentMessage {
+  id          String   @id @default(cuid())
+  fromAgentId String?
+  toAgentId   String?
+  channel     String   @default("task")  // task | approval | alert | coordination | broadcast
+  messageType String                     // request | response | delegate | inform | escalate
+  subject     String
+  body        String?
+  taskId      String?
+  createdAt   DateTime @default(now())
+
+  @@index([fromAgentId])
+  @@index([toAgentId])
+  @@index([createdAt])
+  @@index([channel])
+}
+
+// ─── Memory Items (connected knowledge graph) ───────────────────────
+model MemoryItem {
+  id          String   @id @default(cuid())
+  key         String   @unique
+  scope       String   @default("general") // config | branding | agent | system | strategy | knowledge | failure | success | optimization
+  value       String                       // JSON blob
+  tags        String   @default("[]")      // JSON array of tags
+  pinned      Boolean  @default(false)
+  linkedTo    String   @default("[]")      // JSON array of memory IDs (graph edges)
+  strength    Float    @default(0.5)       // 0-1 connection strength
+  agentId     String?                      // which agent created/owns this
+  // v61.4 Phase 9 (REAL Vector Memory): 768-dim embedding from nomic-embed-text,
+  // stored as JSON array. Used by vector-memory.ts for cosine similarity search.
+  // Null when Ollama is unavailable (keyword-searchable only).
+  embeddingJson String?                    // JSON array of 768 floats (nomic-embed-text)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([scope])
+  @@index([pinned])
+  @@index([agentId])
+}
+
+// ─── Users (auth + ownership) ────────────────────────────────────────
+model User {
+  id            String    @id @default(cuid())
+  email         String    @unique
+  name          String?
+  image         String?
+  passwordHash  String?
+  role          String    @default("owner") // owner | admin | viewer
+  emailVerified DateTime?
+  // ── 2FA (v40: enforced at login) ──
+  twoFactorSecret       String?  // base32-encoded TOTP secret
+  twoFactorEnabled      Boolean  @default(false)
+  twoFactorBackupCodes  String   @default("[]") // JSON array of bcrypt-hashed one-time codes
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  accounts      Account[]
+  sessions      Session[]
+
+  @@index([email])
+}
+
+// ─── OAuth Accounts (NextAuth adapter) ───────────────────────────────
+model Account {
+  id                String  @id @default(cuid())
+  userId            String
+  type              String
+  provider          String
+  providerAccountId String
+  refresh_token     String?
+  access_token      String?
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String?
+  session_state     String?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+  @@index([userId])
+}
+
+// ─── Sessions (NextAuth adapter) ─────────────────────────────────────
+model Session {
+  id           String   @id @default(cuid())
+  sessionToken String   @unique
+  userId       String
+  expires      DateTime
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+}
+
+// ─── Verification Tokens (NextAuth adapter) ──────────────────────────
+model VerificationToken {
+  identifier String
+  token      String   @unique
+  expires    DateTime
+
+  @@unique([identifier, token])
+}
+
+// ─── Personnel (human staff alongside agents) ───────────────────────
+// Mirrors the FounderOS human roster (Marco, Nadia, Mia). Each row is
+// a real person with their toolbelt — `tools` is a JSON array of tool
+// slugs the human is proficient with. `departmentId` matches the same
+// Department union used by agents (e.g. "Sales", "Marketing",
+// "Communications") so humans + agents cluster together in the network
+// graph.
+model Personnel {
+  id           String   @id @default(cuid())
+  name         String
+  role         String  // e.g. "Head of Sales", "Executive Assistant"
+  departmentId String  // FK-equivalent to Department union (string for SQLite)
+  tools        String   @default("[]")  // JSON array of tool names
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  @@index([departmentId])
+}
+
+// ─── Hermes: SubAgent Tasks (subagent delegation protocol) ─────────
+
+// ─── Company Profiles (multi-company under one ARIA account) ────────
+// Task 23 — Multi-company support. An ARIA master account (`parentAccountId`)
+// can own multiple CompanyProfile rows, each representing an independent
+// company the autonomous fleet operates. Only `isActive=true` companies
+// are surfaced in the switcher; deactivating is soft-delete.
+model CompanyProfile {
+  id              String   @id @default(cuid())
+  name            String
+  tagline         String?
+  industry        String?
+  website         String?
+  email           String?
+  currency        String   @default("USD")
+  timezone        String   @default("UTC")
+  // The ARIA master account that owns this company. NULL = standalone
+  // (single-company accounts preserve prior behavior). Multiple rows
+  // sharing the same parentAccountId form a multi-company fleet.
+  parentAccountId String?
+  isActive        Boolean  @default(true)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@index([parentAccountId])
+  @@index([isActive])
+}
+
+// ─── Company ↔ Earning-Opportunity assignments ──────────────────────
+// Many-to-many join: an EarningOpportunity discovered by an agent can be
+// assigned to one or more companies (e.g. an enterprise SaaS deal that
+// applies to two of the owner's brands). Lightweight link table — no
+// relation constraints (Prisma SQLite FKs are advisory) but indexed
+// both ways for fast lookups.
+model CompanyEarningOpportunity {
+  id            String   @id @default(cuid())
+  companyId     String
+  opportunityId String
+  assignedAt    DateTime @default(now())
+
+  @@index([companyId])
+  @@index([opportunityId])
+}
+
+// ─── Simulation Runs (100x Simulator with result injection) ────────
+// Task 24 — Each SimulationRun records one full N-iteration Monte-Carlo
+// pass over a scenario (product-launch, client-call, etc.). The best +
+// worst previous iterations are injected into each subsequent run as
+// context, so the LLM "learns" from its prior attempts within a single
+// run. Best/worst scores + the JSON-encoded results array make the run
+// fully replayable from the DB alone.
+model SimulationRun {
+  id              String   @id @default(cuid())
+  scenario        String                          // "product-launch" | "client-call" | "investor-meeting" | "marketing-campaign" | "owner-meeting"
+  title           String
+  description     String
+  iterations      Int      @default(100)
+  completedIters  Int      @default(0)
+  status          String   @default("pending")   // pending | running | completed | failed
+  inputs          String   @default("{}")        // JSON: initial scenario inputs
+  bestScore       Float    @default(0)
+  bestResult      String?                          // JSON: the best iteration's result
+  worstScore      Float    @default(1)
+  results         String   @default("[]")        // JSON array of all iteration results
+  improvementNotes String  @default("[]")        // JSON array of notes from previous runs injected
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@index([scenario])
+  @@index([status])
+}
+
+// ─── Simulation Iterations (per-iteration result records) ──────────
+// One row per iteration within a SimulationRun. Carries the score,
+// outcome description, analysis (what went well/wrong), and the
+// improvement notes the LLM generated for the NEXT iteration. Indexed
+// on (simulationRunId, iteration) for fast replay + injection queries.
+model SimulationIteration {
+  id              String   @id @default(cuid())
+  simulationRunId String
+  iteration       Int
+  score           Float                          // 0-1
+  outcome         String                          // description of what happened
+  analysis        String                          // what went well / wrong
+  improvements    String?                         // suggestions for next iteration
+  createdAt       DateTime @default(now())
+
+  @@index([simulationRunId])
+  @@index([iteration])
+}
+
+// ════════════════════════════════════════════════════════════════════
+// v25.9.7 MERGED CAPABILITIES — ported from aria-mission-control-v25.9.7-final
+// These models extend the v28 Hermes-native base with the autonomous
+// revenue, security, system-access, and intelligence layers without
+// breaking any existing route or type definition.
+// ════════════════════════════════════════════════════════════════════
+
+// ─── Credential Vault (AES-256-GCM encrypted platform credentials) ──
+model Credential {
+  id          String   @id @default(cuid())
+  key         String   @unique                       // e.g. "openai_api_key"
+  label       String                                  // human label
+  category    String   @default("llm")               // llm | payment | crm | email | telephony | custom
+  ciphertext  String                                  // AES-256-GCM base64
+  iv          String                                  // initialization vector base64
+  authTag     String                                  // GCM auth tag base64
+  metadata    String   @default("{}")                // JSON: { masked, hint, rotationDue }
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  @@index([category])
+}
+
+// ─── System Access Layer (thermal-guarded real system access) ──────
+model SystemAccessSession {
+  id          String   @id @default(cuid())
+  agentId     String?
+  requester   String                                   // agent name or "owner"
+  scope       String                                   // shell | browser | filesystem | computer-use
+  reason      String
+  status      String   @default("pending")             // pending | approved | denied | expired | revoked
+  expiresAt   DateTime
+  createdAt   DateTime @default(now())
+  revokedAt   DateTime?
+  @@index([status])
+  @@index([agentId])
+}
+
+model SystemAccessApproval {
+  id          String   @id @default(cuid())
+  sessionId   String
+  decision    String                                   // approve | deny
+  decider     String                                   // "owner" | monitoring-agent name
+  rationale   String   @default("")
+  createdAt   DateTime @default(now())
+  @@index([sessionId])
+}
+
+model SystemAccessAction {
+  id          String   @id @default(cuid())
+  sessionId   String
+  action      String                                   // e.g. "shell:ls -la", "browser:click", "fs:read"
+  result      String   @default("{}")                  // JSON result payload
+  ok          Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  @@index([sessionId])
+}
+
+// ─── Notes (owner + agent scratchpad) ───────────────────────────────
+model Note {
+  id          String   @id @default(cuid())
+  title       String
+  body        String   @default("")
+  tags        String   @default("[]")                  // JSON array
+  pinned      Boolean  @default(false)
+  authorAgent String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  @@index([pinned])
+}
+
+// ─── Milestone Events (animated celebration overlay) ───────────────
+model MilestoneEvent {
+  id          String   @id @default(cuid())
+  type        String                                   // 14 types: first-revenue, agent-online, deal-closed, etc.
+  title       String
+  description String   @default("")
+  intensity   String   @default("normal")              // subtle | normal | epic
+  viewed      Boolean  @default(false)
+  createdAt   DateTime @default(now())
+  @@index([viewed])
+  @@index([type])
+}
+
+// ─── KPI Snapshots (6h revenue/tasks/agents/payments/leads/customers) ─
+model KpiSnapshot {
+  id          String   @id @default(cuid())
+  revenue     Float    @default(0)
+  tasksDone   Int      @default(0)
+  agentsActive Int     @default(0)
+  payments    Int      @default(0)
+  leads       Int      @default(0)
+  customers   Int      @default(0)
+  payload     String   @default("{}")                  // JSON: extra metrics
+  createdAt   DateTime @default(now())
+  @@index([createdAt])
+}
+
+// ─── Agent Marketplace (publish/discover/install templates) ────────
+model AgentMarketplaceTemplate {
+  id            String   @id @default(cuid())
+  name          String
+  role          String
+  tier          String   @default("balanced")          // strong | balanced | fast
+  model         String
+  capabilities  String   @default("[]")                // JSON array
+  systemPrompt  String   @default("")
+  industryTags  String   @default("[]")                // JSON array
+  rating        Float    @default(0)
+  installs      Int      @default(0)
+  author        String   @default("aria-community")
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+  @@index([role])
+  @@index([rating])
+}
+
+// ─── Research Log + Ecosystem Radar ────────────────────────────────
+model ResearchLog {
+  id          String   @id @default(cuid())
+  topic       String
+  source      String                                   // web | video | social | api
+  url         String?
+  summary     String   @default("")
+  insights    String   @default("[]")                  // JSON array
+  agentId     String?
+  createdAt   DateTime @default(now())
+  @@index([topic])
+  @@index([createdAt])
+}
+
+model EcosystemRepo {
+  id          String   @id @default(cuid())
+  name        String   @unique
+  url         String
+  description String   @default("")
+  stars       Int      @default(0)
+  starVelocity Float   @default(0)                     // stars gained per week
+  language    String?
+  topics      String   @default("[]")                  // JSON array
+  lastScannedAt DateTime?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  @@index([starVelocity])
+}
+
+// ─── Voicemail (FreeSWITCH voicemail drop) ─────────────────────────
+model Voicemail {
+  id          String   @id @default(cuid())
+  fromNumber  String
+  toNumber    String
+  duration    Int      @default(0)
+  transcript  String   @default("")
+  audioUrl    String?
+  handled     Boolean  @default(false)
+  createdAt   DateTime @default(now())
+  @@index([handled])
+}
+
+// ─── Support Tickets ───────────────────────────────────────────────
+model SupportTicket {
+  id          String   @id @default(cuid())
+  subject     String
+  body        String   @default("")
+  channel     String   @default("internal")            // internal | email | chatwoot | telegram | whatsapp
+  priority    String   @default("normal")              // low | normal | high | urgent
+  status      String   @default("open")                // open | pending | escalated | resolved | closed
+  assigneeAgent String?
+  customerId  String?
+  customerEmail String?
+  customerPhone String?
+  metadata    String   @default("{}")
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  @@index([status])
+  @@index([priority])
+  @@index([channel])
+}
+
+// ─── Multi-Model Debate Sessions ───────────────────────────────────
+model DebateSession {
+  id          String   @id @default(cuid())
+  topic       String
+  participants String  @default("[]")                  // JSON: model names
+  rounds      Int      @default(3)
+  transcript  String   @default("[]")                  // JSON: [{round, model, argument, confidence}]
+  consensus   String   @default("")                    // final weighted answer
+  confidence  Float    @default(0)
+  status      String   @default("pending")             // pending | running | completed | failed
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  @@index([status])
+}
+
+// ─── Failure Alchemy (Antibody/Vaccine/Catalyst artifacts) ─────────
+model FailureAlchemyArtifact {
+  id          String   @id @default(cuid())
+  type        String                                   // antibody | vaccine | catalyst
+  failureSignature String                              // hash of error pattern
+  rootCause   String
+  remedy      String                                   // action/patch description
+  sreActions  String   @default("[]")                  // JSON: action items
+  deployed    Boolean  @default(false)
+  createdAt   DateTime @default(now())
+  @@index([type])
+  @@index([failureSignature])
+}
+
+// ─── Fleet Forecast (predictive analytics) ─────────────────────────
+model FleetForecast {
+  id          String   @id @default(cuid())
+  metric      String                                   // revenue | tasks | agent-load | token-spend
+  horizon     String                                   // 1d | 7d | 30d
+  forecast    Float    @default(0)
+  confidence  Float    @default(0)                     // R² 0-1
+  lowerBound  Float    @default(0)                     // P10
+  upperBound  Float    @default(0)                     // P90
+  payload     String   @default("{}")                  // JSON: series + model info
+  createdAt   DateTime @default(now())
+  @@index([metric])
+  @@index([horizon])
+}
+
+// ─── Distributed Lock Manager ──────────────────────────────────────
+model LockRecord {
+  id          String   @id @default(cuid())
+  resource    String   @unique
+  holder      String                                   // agent or process id
+  ttlMs       Int      @default(30000)
+  acquiredAt  DateTime @default(now())
+  expiresAt   DateTime
+  @@index([resource])
+  @@index([expiresAt])
+}
+
+// ─── Runtime Settings (DB-hydrated, hot-reloadable) ────────────────
+model Setting {
+  id          String   @id @default(cuid())
+  key         String   @unique
+  value       String
+  category    String   @default("general")             // general | llm | security | branding
+  updatedAt   DateTime @updatedAt
+  @@index([category])
+}
+
+// ─── Service Orders (v32 — Crypto payments, owner approval) ────────
+model ServiceOrder {
+  id              String   @id @default(cuid())
+  serviceId       String                                    // catalog service ID
+  serviceName     String                                    // denormalized for audit
+  spec            String                                    // customer's free-text spec
+  priceCents      Int                                       // price at time of purchase
+  currency        String   @default("usd")
+  status          String   @default("pending_payment")      // pending_payment | owner_approved | building | delivered | failed | refunded
+  // ── Crypto payment fields (replaces Stripe) ──
+  cryptoNetwork   String   @default("BTC")                  // BTC | ETH | SOL | USDT | USDC | UPI | Stripe | PayPal | Razorpay | Bank
+  walletAddress   String?                                  // owner's wallet address for payment (or null for UPI/Stripe)
+  cryptoTxHash    String?                                  // customer-provided transaction hash (optional verification)
+  ownerApproved   Boolean  @default(false)                  // owner manually confirmed payment receipt
+  ownerApprovedAt DateTime?
+  // ── Customer info ──
+  customerEmail   String?
+  customerName    String?
+  // ── Build output ──
+  deliverablePath String?                                  // path to the zip file
+  fileCount       Int      @default(0)
+  files           String   @default("[]")                  // JSON array of filenames
+  buildLog        String?                                  // error/info from the builder
+  buildProvider   String?                                  // which LLM provider built it
+  buildModel      String?                                  // which model
+  buildLatencyMs  Int?
+  // ── Notification tracking ──
+  customerNotified Boolean @default(false)                  // web push / email sent
+  notificationLog  String?                                  // JSON log of notification attempts
+  // ── Metadata ──
+  createdAt       DateTime @default(now())
+  deliveredAt     DateTime?
+  updatedAt       DateTime @updatedAt
+  @@index([serviceId])
+  @@index([status])
+  @@index([customerEmail])
+  @@index([ownerApproved])
+  @@index([cryptoTxHash])
+
+  // ── v44 fixes: confirmation tracking + UPI support ──
+  cryptoConfirmations Int?                                     // on-chain confirmations counted
+  paymentDetectedAt   DateTime?                                // first time we saw the tx
+  paymentConfirmedAt  DateTime?                                // when MIN_CONFIRMATIONS reached
+  paymentCheckCount   Int      @default(0)                     // how many cron ticks we've checked
+  // ── UPI payment fields (v44 — Indian UPI/QR support) ──
+  upiVpa              String?                                  // owner VPA (e.g. owner@upi)
+  upiUtr              String?                                  // customer-provided UTR (transaction ref)
+  upiAmountInr        Float?                                   // INR amount expected
+  upiQrImageB64       String?                                  // base64 QR image (stored at checkout time)
+  upiApprovedAt       DateTime?                                // when owner approved the UPI payment
+  upiRejectedReason   String?                                  // if rejected, why
+}
+
+// ─── Notification Log (v40 — fallback when email/push fails) ────────
+// Every notification attempt (email, push, refund notice) is recorded
+// here so the owner can see delivery status in the dashboard even if
+// the external provider is down. The `status` field tracks the outcome:
+//   sent | failed | pending
+// `channel` tracks the mechanism: email | push | internal
+model NotificationLog {
+  id          String   @id @default(cuid())
+  channel     String   // email | push | internal
+  recipient   String   // email address or push endpoint
+  subject     String
+  body        String   // full message body (for audit)
+  status      String   @default("pending") // sent | failed | pending
+  provider    String?  // resend | web-push | gmail-vision | internal
+  error       String?  // error message if failed
+  metadata    String   @default("{}") // JSON: { orderId, userId, ... }
+  createdAt   DateTime @default(now())
+
+  @@index([channel])
+  @@index([status])
+  @@index([recipient])
+  @@index([createdAt])
+}
+
+// ─── Web Push Subscriptions (v45 — persistent push notification endpoints) ──
+// Stores browser push subscription endpoints so notifications survive server restarts.
+// The owner's browser subscribes via /api/notifications/subscribe (POST with subscription JSON).
+// sendWebPush() in notifications.ts reads from this table.
+model WebPushSubscription {
+  id          String   @id @default(cuid())
+  endpoint    String   @unique              // the browser's push endpoint URL
+  p256dh      String                        // client public key
+  auth        String                        // client auth secret
+  userId      String?                       // optional: linked user
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([userId])
+}
+
+// ─── Error Log (v42 — $0 error tracking, Sentry-ready) ─────────────
+// Captures unhandled promise rejections, uncaught exceptions, and
+// error.tsx boundary errors. If SENTRY_DSN is set, also forwards to Sentry.
+model ErrorLog {
+  id          String   @id @default(cuid())
+  message     String   // error message
+  stack       String?  // stack trace
+  digest      String?  // Next.js error digest (from error.tsx)
+  url         String?  // request URL (if available)
+  userAgent   String?  // browser UA (for client errors)
+  severity    String   @default("error") // error | warning | fatal
+  context     String   @default("{}") // JSON: { userId, route, ... }
+  resolved    Boolean  @default(false)
+  createdAt   DateTime @default(now())
+
+  @@index([severity])
+  @@index([resolved])
+  @@index([createdAt])
+}
+
+// v56: PromptVersion — tracks prompt improvements over time
+model PromptVersion {
+  id          String   @id @default(cuid())
+  serviceType String
+  version     Int
+  content     String
+  source      String   @default("manual")
+  successRate Float?
+  isActive    Boolean  @default(false)
+  createdAt   DateTime @default(now())
+  createdBy   String?
+  @@unique([serviceType, version])
+  @@index([serviceType])
+  @@index([isActive])
+}
+
+// ─── v50-v55: Intelligence Layer ────────────────────────────────────
+
+model SupervisorReview {
+  id          String   @id @default(cuid())
+  supervisor  String   // sales | quality | finance | compliance | executive
+  workerAgent String
+  action      String
+  content     String
+  approved    Boolean
+  feedback    String?
+  reviewTime  Int      @default(0)
+  createdAt   DateTime @default(now())
+
+  @@index([supervisor])
+  @@index([approved])
+  @@index([createdAt])
+}
+
+model Escalation {
+  id        String   @id @default(cuid())
+  source    String
+  supervisor String
+  issue     String
+  context   String   @default("{}")
+  severity  String   @default("medium") // low | medium | high | critical
+  status    String   @default("escalated_to_owner") // escalated_to_owner | acknowledged | resolved
+  createdAt DateTime @default(now())
+  resolvedAt DateTime?
+
+  @@index([severity])
+  @@index([status])
+  @@index([createdAt])
+}
+
+model ABTest {
+  id         String   @id @default(cuid())
+  name       String
+  category   String
+  variant    String   // "A" | "B"
+  content    String
+  sampleSize Int      @default(0)
+  successes  Int      @default(0)
+  status     String   @default("running") // running | completed | winner
+  completedAt DateTime?
+  createdAt  DateTime @default(now())
+
+  @@unique([name, variant])
+  @@index([category, status])
+}
+
+model CustomerFeedback {
+  id           String   @id @default(cuid())
+  orderId      String
+  customerEmail String
+  rating       Int      // 1-5
+  comment      String   @default("")
+  category     String   @default("general") // code_quality | documentation | delivery_speed | expectation_mismatch | other
+  createdAt    DateTime @default(now())
+
+  @@index([orderId])
+  @@index([rating])
+  @@index([category])
+}
+
+model KnowledgeBaseEntry {
+  id          String   @id @default(cuid())
+  category    String   // failure_pattern | code_pattern | faq | best_practice | agent_pattern | skill_pattern
+  title       String
+  content     String
+  successRate Int      @default(0)
+  source      String   @default("manual") // customer_feedback | delivery_success | llm_analysis | manual | 500-projects | skills-folder
+  // v61.3 Phase 8 (True Knowledge Ingestion): structured fields for extracted
+  // patterns from the 500-AI-Agents-Projects repo + the skills/ folder.
+  tags        String   @default("[]") // JSON array of string tags (e.g. ["multi-agent-debate","code-review"])
+  coreLogic   String?  // the actual algorithmic approach extracted from the source
+  systemPromptTemplate String? // the actual prompt structure used in the source project
+  toolsRequired String  @default("[]") // JSON array of tool names (e.g. ["web_search","python_sandbox"])
+  repoUrl     String?  // source repo URL (for 500-projects entries)
+  filePath    String?  // source file path (for skills-folder entries)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([category])
+  @@index([successRate])
+  @@index([source])
+}
+
+model CompetitorAnalysis {
+  id            String   @id @default(cuid())
+  competitor    String
+  url           String   @default("")
+  pricing       String   @default("")
+  features      String   @default("")
+  strengths     String   @default("")
+  weaknesses    String   @default("")
+  ourAdvantage  String   @default("")
+  analyzedAt    DateTime @default(now())
+  createdAt     DateTime @default(now())
+
+  @@index([competitor])
+}
+
+model ServiceOpportunity {
+  id           String   @id @default(cuid())
+  title        String
+  name         String   @default("")
+  description   String   @default("")
+  category     String   @default("general")
+  targetAudience String @default("")
+  targetMarket String   @default("")
+  estimatedPrice String @default("")
+  difficulty   String   @default("medium") // low | medium | high
+  marketDemand String   @default("medium") // low | medium | high
+  demandScore  Int      @default(0)
+  feasibilityScore Int  @default(0)
+  competitionScore Int  @default(0)
+  compositeScore Int    @default(0)
+  research     String   @default("{}")
+  status       String   @default("discovered") // discovered | researched | designed | tested | launched | rejected
+  data         String   @default("{}")
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  @@index([status])
+  @@index([category])
+  @@index([compositeScore])
+}
+
+model EarningMethod {
+  id           String   @id @default(cuid())
+  title        String
+  name         String   @default("")
+  description  String   @default("")
+  category     String   // SaaS | content | services | affiliate | data | automation | marketplace | other
+  requirements String   @default("")
+  earningPotential String @default("")
+  startupCost  String   @default("")
+  difficulty   String   @default("medium")
+  timeToFirstRevenue String @default("")
+  demandScore  Int      @default(0)
+  feasibilityScore Int  @default(0)
+  competitionScore Int  @default(0)
+  compositeScore Int    @default(0)
+  status       String   @default("researched") // researched | validated | launched | archived
+  data         String   @default("{}")
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  @@index([category])
+  @@index([status])
+  @@index([compositeScore])
+}
+
+model SimulationReport {
+  id           String   @id @default(cuid())
+  type         String   // service | workflow | earning_method
+  targetId     String?
+  targetName   String
+  result       String   // pass | fail | partial
+  verdict      String   @default("pending") // pass | fail | needs_review | pending
+  summary      String   @default("")
+  issues       String   @default("[]") // JSON array
+  artifacts    String   @default("{}") // JSON object of file -> content
+  details      String   @default("{}")
+  stepsTotal   Int      @default(0)
+  stepsPassed  Int      @default(0)
+  stepsFailed  Int      @default(0)
+  avgScore     Float    @default(0)
+  duration     Int      @default(0)
+  createdAt    DateTime @default(now())
+
+  @@index([type])
+  @@index([result])
+  @@index([createdAt])
+}
+
+model BusinessReview {
+  id           String   @id @default(cuid())
+  type         String   // daily | weekly | monthly
+  period       String   @default("")
+  periodStart  DateTime
+  periodEnd    DateTime
+  startDate    DateTime?
+  endDate      DateTime?
+  revenue      Float    @default(0)
+  orders       Int      @default(0)
+  newCustomers Int      @default(0)
+  leads        Int      @default(0)
+  emails       Int      @default(0)
+  refunds      Int      @default(0)
+  summary      String   @default("")
+  issues       String   @default("[]")
+  recommendations String @default("[]")
+  createdAt    DateTime @default(now())
+
+  @@index([type])
+  @@index([periodStart])
+}
+
+// v71 Phase 21: Autonomous Lead Hunting — Lead model
+// Stores leads discovered by the social-scout module + their qualification
+// verdicts from the Scout/Risk/Sales multi-agent debate.
+model Lead {
+  id            String   @id @default(cuid())
+  // Source
+  source        String   @default("social-scout") // social-scout | manual | inbound | referral
+  platform      String   @default("") // twitter | linkedin | reddit | website | email
+  // Identity
+  username      String   @default("") // social handle or email
+  displayName   String   @default("")
+  profileUrl    String   @default("")
+  website       String?  // optional — only if the lead has one
+  // Buying signal
+  postContent   String   @default("") // the social post that triggered the match
+  postUrl       String   @default("")
+  postedAt      DateTime? // when the buying signal was posted
+  // Engagement metrics (indicates seriousness)
+  likes         Int      @default(0)
+  replies       Int      @default(0)
+  reposts       Int      @default(0)
+  followerCount Int      @default(0)
+  accountAgeDays Int     @default(0) // 0 = unknown; low values = suspicious
+  // Brand profile (extracted by profile-extractor.ts)
+  brandProfileJson String @default("{}") // LeadBrandProfile JSON
+  // Service matches (from service-matcher.ts)
+  serviceMatchesJson String @default("[]") // ServiceMatch[] JSON
+  topMatchedService String @default("") // denormalized for quick dashboard queries
+  // Qualification debate result (from qualification-debate.ts)
+  qualificationVerdict String @default("pending") // pending | pursue | investigate | skip
+  qualificationScore Int @default(0) // 0-100 confidence
+  qualificationReasoning String @default("")
+  // Outreach tracking
+  outreachStatus String @default("none") // none | sent | replied | converted | rejected
+  outreachSentAt DateTime?
+  outreachChannel String @default("") // whatsapp | email | social-reply
+  // Audit trail
+  discoveredAt  DateTime @default(now())
+  qualifiedAt   DateTime?
+  contactedAt   DateTime?
+  updatedAt     DateTime @updatedAt
+
+  @@index([source])
+  @@index([platform])
+  @@index([qualificationVerdict])
+  @@index([outreachStatus])
+  @@index([discoveredAt])
+}
+
+// v72 Phase 22 (RULE-70): Proactive Lead Generation — new models
+// Stores businesses without websites discovered on Google Maps, owner-uploaded
+// contact lists, free-offer redemptions, ARIA's own social media accounts +
+// posts, and per-category approval patterns.
+
+model GoogleMapsBusiness {
+  id              String   @id @default(cuid())
+  // Identity
+  businessName    String
+  address         String   @default("")
+  city            String   @default("")
+  region          String   @default("")
+  country         String   @default("")
+  latitude        Float?   @default(0)
+  longitude       Float?   @default(0)
+  // Contact (scraped from Google Maps)
+  phone           String?  // null = no phone listed
+  website         String?  // null = NO WEBSITE (this is the target!)
+  googleMapsUrl   String   @default("")
+  googlePlaceId   String?  @unique
+  // Classification
+  category        String   @default("") // e.g. "restaurant", "salon", "plumber"
+  rating          Float    @default(0)
+  reviewCount     Int      @default(0)
+  // Qualification
+  hasWebsite      Boolean  @default(false) // denormalized for fast filtering
+  matchedServiceCategory String @default("landing-page")
+  qualificationVerdict String @default("pending") // pending | pursue | investigate | skip
+  qualificationScore Int  @default(0)
+  // Outreach tracking
+  outreachStatus  String   @default("none") // none | sent | replied | converted | rejected
+  outreachChannel String   @default("") // whatsapp | email | call | social-reply
+  outreachSentAt  DateTime?
+  // Lead linkage (optional — link to Lead table when promoted)
+  leadId          String?  // FK to Lead.id (nullable for not-yet-promoted)
+  // Audit
+  discoveredAt    DateTime @default(now())
+  contactedAt     DateTime?
+  updatedAt       DateTime @updatedAt
+
+  @@index([hasWebsite])
+  @@index([category])
+  @@index([qualificationVerdict])
+  @@index([outreachStatus])
+  @@index([city])
+}
+
+model ImportedContact {
+  id              String   @id @default(cuid())
+  // Source
+  source          String   @default("excel") // excel | csv | manual | referral
+  sourceFile      String   @default("") // original filename
+  // Identity
+  name            String   @default("")
+  email           String?
+  phone           String?
+  company         String   @default("")
+  title           String   @default("") // e.g. "Founder", "CEO", "Marketing Director"
+  // Additional fields from the spreadsheet
+  notes           String   @default("")
+  tagsJson        String   @default("[]") // user-supplied tags
+  // Qualification (same flow as Google Maps + social scout)
+  qualificationVerdict String @default("pending")
+  qualificationScore Int  @default(0)
+  matchedServiceCategory String @default("")
+  // Outreach
+  outreachStatus  String   @default("none")
+  outreachChannel String   @default("")
+  outreachSentAt  DateTime?
+  // Lead linkage
+  leadId          String?
+  // Audit
+  importedAt      DateTime @default(now())
+  contactedAt     DateTime?
+  updatedAt       DateTime @updatedAt
+
+  @@index([source])
+  @@index([email])
+  @@index([phone])
+  @@index([qualificationVerdict])
+  @@index([outreachStatus])
+}
+
+model FreeOfferRedemption {
+  id              String   @id @default(cuid())
+  // The offer
+  offerType       String   @default("first-100-launch") // first-100-launch | seasonal | referral
+  serviceName     String   // "Landing Page" | "Static Website" | "3D Website"
+  serviceCategory String   @default("") // "landing-page" | "web" | "3d"
+  // The redeemer
+  customerName    String
+  customerEmail   String?
+  customerPhone   String?
+  customerCompany String   @default("")
+  // Tracking
+  redemptionCode  String   @unique // unique code per redemption
+  redemptionStatus String  @default("pending") // pending | claimed | delivered | rejected | expired
+  claimedAt       DateTime?
+  deliveredAt     DateTime?
+  rejectedAt      DateTime?
+  rejectionReason String   @default("")
+  // Cap enforcement (RULE-70: first 100 only)
+  sequenceNumber  Int      @default(0) // 1-100, the position in the first-100 queue
+  // Audit
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@index([offerType])
+  @@index([redemptionStatus])
+  @@index([serviceName])
+}
+
+model SocialMediaAccount {
+  id              String   @id @default(cuid())
+  // The platform
+  platform        String   @unique // instagram | facebook | x | linkedin
+  handle          String   @default("") // @aria_ai_company
+  displayName     String   @default("ARIA — Autonomous AI Company")
+  bio             String   @default("")
+  profilePictureUrl String @default("")
+  // Auth state (encrypted credentials stored in Credential Vault)
+  credentialVaultKey String @default("") // key into Credential table
+  isConnected    Boolean  @default(false)
+  lastSyncAt      DateTime?
+  // Stats
+  followerCount   Int      @default(0)
+  postCount       Int      @default(0)
+  // Audit
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+}
+
+model SocialMediaPost {
+  id              String   @id @default(cuid())
+  // Platform
+  platform        String   // instagram | facebook | x | linkedin
+  accountId       String   @default("")
+  // Content
+  content         String   // the post body (caption + hashtags)
+  mediaUrlsJson   String   @default("[]") // images/videos attached
+  postType        String   @default("awareness") // awareness | offer | testimonial | case-study | pattern
+  category        String   @default("") // e.g. "free-offer-100", "no-website-outreach"
+  // Approval (RULE-71: per-category pattern approval)
+  approvedPatternId String? // FK to ApprovedPattern.id (nullable if ad-hoc post)
+  approvalStatus  String   @default("pending") // pending | approved | rejected | expired
+  approvedAt      DateTime?
+  approvedBy      String   @default("")
+  // Publishing
+  publishedAt     DateTime?
+  platformPostId  String   @default("") // returned by the platform API after publish
+  publishedUrl    String   @default("")
+  // Engagement (returned by platform API)
+  likes           Int      @default(0)
+  comments        Int      @default(0)
+  shares          Int      @default(0)
+  reach           Int      @default(0)
+  // Audit
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@index([platform])
+  @@index([postType])
+  @@index([approvalStatus])
+  @@index([approvedPatternId])
+}
+
+model ApprovedPattern {
+  id              String   @id @default(cuid())
+  // The pattern
+  patternName     String   // human-readable name
+  channel         String   // instagram | facebook | x | linkedin | whatsapp-blast | email-blast | call
+  category        String   // e.g. "free-offer-100", "no-website-outreach", "imported-contact-blast"
+  // Content (the approved template — variables use {{var}} placeholders)
+  contentTemplate String   // the post text, message body, or call script template
+  variablesJson   String   @default("[]") // list of placeholder variable names: ["businessName", "city", ...]
+  targetAudienceDescription String @default("")
+  // Approval
+  status          String   @default("pending") // pending | approved | rejected | revoked | expired
+  approvedAt      DateTime?
+  approvedBy      String   @default("")
+  expiresAt       DateTime? // max 30 days after approval
+  revokedAt       DateTime?
+  revokeReason   String   @default("")
+  // Usage tracking
+  usageCount      Int      @default(0) // how many times this pattern has been used
+  maxUsage        Int      @default(1000) // safety cap
+  // Audit
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@index([channel])
+  @@index([category])
+  @@index([status])
+}
+
+model CallScript {
+  id              String   @id @default(cuid())
+  // The script
+  scriptName      String
+  category        String   // e.g. "no-website-outreach-call", "free-offer-call"
+  targetAudience  String   @default("")
+  // Content (the call script — what the AI voice agent will say)
+  openingHook     String   // first 5 seconds (RULE-56: no "I am an AI")
+  pitchBody       String   // main pitch
+  objectionHandlersJson String @default("[]") // array of {objection, response}
+  closingQuestion String   // e.g. "Can I send you a free preview?"
+  // Approval (RULE-71: per-category pattern approval)
+  approvedPatternId String?
+  approvalStatus  String   @default("pending") // pending | approved | rejected
+  approvedAt      DateTime?
+  // Usage
+  usageCount      Int      @default(0)
+  // Audit
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@index([category])
+  @@index([approvalStatus])
+}
+
+// v73 Phase 23 (RULE-72, 73, 74): Real-World MNC Operations
+// New models: RefactorProposal (self-evolution), Contract (legal), LedgerEntry (CFO),
+// ClientPortalAccess (client portal), BrowserSession (computer-use-accounts).
+
+model RefactorProposal {
+  id              String   @id @default(cuid())
+  // The failing module
+  targetFile      String   // e.g. "src/lib/whatsapp/business.ts"
+  failureRate     Float    @default(0) // 7-day failure rate %
+  failureCount    Int      @default(0)
+  // The detection
+  reason          String   // e.g. "Baileys timeout on connect — 18 failures in 7d"
+  errorSamplesJson String  @default("[]") // top 5 error messages from AgentLog
+  techDebtDeadline DateTime? // if a // TECH-DEBT deadline passed, this is set
+  // The proposed fix
+  originalCode    String   @default("") // current file contents at proposal time
+  proposedCode    String   @default("") // the new draft
+  // Sandbox test results
+  testResults     String   @default("{}") // JSON: { pass, fail, output }
+  buildSucceeded  Boolean  @default(false)
+  // Approval + execution
+  status          String   @default("pending") // pending | approved | rejected | merged | failed
+  approvedAt      DateTime?
+  approvedBy      String   @default("")
+  mergedAt        DateTime?
+  // Audit
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@index([status])
+  @@index([targetFile])
+  @@index([createdAt])
+}
+
+model Contract {
+  id              String   @id @default(cuid())
+  // Contract metadata
+  contractType    String   @default("SOW") // SOW | MSA | NDA | addendum
+  contractNumber  String   @unique // e.g. ARIA-SOW-2026-001
+  // Parties
+  clientName      String
+  clientEmail     String
+  clientCompany   String   @default("")
+  // Service details
+  serviceName     String
+  serviceDescription String  @default("")
+  amountCents     Int      @default(0) // total contract value in cents
+  currency        String   @default("USD")
+  milestonesJson  String   @default("[]") // [{name, deliverable, dueDate, amountCents}]
+  // The PDF
+  pdfUrl          String   @default("") // path to generated PDF
+  pdfBase64       String   @default("") // base64-encoded PDF (for email attachment)
+  // E-Signature flow
+  status          String   @default("draft") // draft | sent | signed | expired | rejected
+  sentAt          DateTime?
+  signedAt       DateTime?
+  signedByEmail   String   @default("")
+  signedByIp      String   @default("")
+  signaturePhrase String   @default("I AGREE TO THE TERMS") // the phrase the client must reply
+  // ─── Phase 30 — E-Signature Provider Integration ──────────────────
+  // When a contract is sent via DocuSign/HelloSign, the envelopeId is the
+  // provider's reference for tracking the signature lifecycle. The webhook
+  // at /api/webhooks/esign uses this id to match inbound events.
+  esignProvider   String   @default("") // "" | "docusign" | "hellosign" | "mock"
+  envelopeId      String   @default("") // provider's envelope ID (empty for email-reply signing)
+  esignStatus     String   @default("") // "" | "sent" | "delivered" | "completed" | "declined" | "voided"
+  esignSignedAt   DateTime? // when the provider confirmed signature
+  esignEventsJson String   @default("[]") // JSON array of webhook events received
+  // ─── Phase 30 — Tax Calculation ───────────────────────────────────
+  // Pre-tax amount in cents. amountCents = subtotalCents + taxAmountCents.
+  subtotalCents   Int      @default(0)
+  taxAmountCents  Int      @default(0) // calculated by Stripe Tax or 0 if tax not applicable
+  taxRate         Float    @default(0) // e.g. 0.0825 = 8.25%
+  taxJurisdiction String   @default("") // e.g. "US-CA" | "EU-DE" | "IN-MH"
+  // Linkage
+  serviceOrderId  String?  // FK to ServiceOrder.id (set when contract is signed → triggers fulfillment)
+  leadId          String?  // FK to Lead.id (the lead that became this contract)
+  // Audit
+  createdAt       DateTime @default(now())
+  expiresAt      DateTime? // contracts expire after 30 days if not signed
+  updatedAt       DateTime @updatedAt
+
+  @@index([status])
+  @@index([clientEmail])
+  @@index([serviceOrderId])
+  @@index([createdAt])
+  @@index([envelopeId])
+  @@index([esignProvider])
+}
+
+model LedgerEntry {
+  id              String   @id @default(cuid())
+  // Double-entry bookkeeping
+  entryDate       DateTime @default(now())
+  account         String   // Revenue | Cash | API Expense | Compute Expense | Contractor Expense | OpEx
+  subAccount      String   @default("") // e.g. "Revenue:SaaS-Scaffold", "API Expense:Z-AI"
+  debitCents     Int      @default(0) // what comes IN
+  creditCents    Int      @default(0) // what goes OUT
+  description     String   @default("") // human-readable
+  referenceType   String   @default("") // stripe-payment | api-call | ollama-compute | contractor-payout | manual
+  referenceId     String   @default("") // FK to the source record (Stripe ID, AgentLog ID, etc.)
+  // Audit
+  createdAt       DateTime @default(now())
+
+  @@index([account])
+  @@index([subAccount])
+  @@index([entryDate])
+  @@index([referenceType])
+  @@index([referenceId])
+}
+
+model ClientPortalAccess {
+  id              String   @id @default(cuid())
+  // The magic-link token
+  token           String   @unique
+  // The client
+  clientName      String
+  clientEmail     String
+  clientCompany   String   @default("")
+  // Linkage
+  serviceOrderId  String?  // FK to ServiceOrder.id
+  contractId      String?  // FK to Contract.id
+  // Access control
+  expiresAt      DateTime?
+  lastAccessedAt DateTime?
+  accessCount    Int      @default(0)
+  // Audit
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@index([clientEmail])
+  @@index([serviceOrderId])
+  @@index([expiresAt])
+}
+
+model BrowserSession {
+  id              String   @id @default(cuid())
+  // The platform + identity
+  platform        String   @unique // instagram | linkedin | gmail | facebook | x
+  accountHandle   String   @default("") // e.g. "@aria_ai_company"
+  // The session
+  sessionDir      String   @default("") // path to the persistent browser session (cookies, localStorage)
+  userDataDir     String   @default("") // Playwright userDataDir for persistent login
+  // State
+  isConnected    Boolean  @default(false)
+  lastLoginAt    DateTime?
+  lastActivityAt DateTime?
+  // Credentials (stored in Credential Vault, referenced by key)
+  credentialVaultKey String @default("")
+  // Audit
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+}
+
+// v74 Phase 24 (RULE-75, 76, 77, 78, 79): Enterprise Platform
+// New models: CodeArchive (refactor rollback), ComplianceFinding (audit results),
+// CapabilityManifest (live capability registry), OwnerWorkspace (multi-tenant).
+
+model CodeArchive {
+  id              String   @id @default(cuid())
+  // The archived file
+  targetFile      String   // e.g. "src/lib/whatsapp/business.ts"
+  originalCode    String   // the OLD code before refactor
+  proposedCode    String   // the proposed replacement (for diff)
+  // Linkage
+  refactorProposalId String? // FK to RefactorProposal.id
+  // Audit
+  archivedAt      DateTime @default(now())
+  restoredAt      DateTime? // set when this archive was restored (rollback)
+
+  @@index([targetFile])
+  @@index([archivedAt])
+}
+
+model ComplianceFinding {
+  id              String   @id @default(cuid())
+  ruleId          String   // e.g. "RULE-51-PRE-PUBLISH-QUALITY-GATE"
+  ruleName        String
+  status          String   @default("pass") // pass | fail | warning
+  evidence        String   // file:line reference or "NOT IMPLEMENTED"
+  checkType        String   @default("static-grep") // static-grep | runtime-log | manual
+  notes           String   @default("")
+  // Audit
+  checkedAt       DateTime @default(now())
+
+  @@index([ruleId])
+  @@index([status])
+  @@index([checkedAt])
+}
+
+model CapabilityManifest {
+  id              String   @id @default(cuid())
+  // The manifest
+  manifestJson    String   // full JSON of all capabilities
+  apiCount        Int      @default(0)
+  moduleCount     Int      @default(0)
+  cronCount       Int      @default(0)
+  ruleCount       Int      @default(0)
+  // Audit
+  generatedAt     DateTime @default(now())
+  version         String   @default("v74")
+
+  @@index([generatedAt])
+}
+
+model OwnerWorkspace {
+  id              String   @id @default(cuid())
+  ownerId         String   @unique // e.g. "default" | "franchisee-001" | "owner-abc123"
+  // The owner's isolated env + DB
+  envFilePath     String   @default("") // path to .env.owner_[id]
+  dbPath          String   @default("") // path to prisma/workspaces/owner_[id].db
+  // Identity
+  displayName     String   @default("")
+  telegramBotToken String  @default("") // identifies which owner a Telegram message belongs to
+  // Audit
+  createdAt       DateTime @default(now())
+  lastActiveAt    DateTime?
+  updatedAt       DateTime @updatedAt
+
+  @@index([ownerId])
+}
+
+// ─── Phase 29 — Telegram-First Owner Approval ────────────────────────
+// Stores the threaded conversation (questions + suggestions) between owner
+// and the agent for a single approval. Triggered by the "Ask Question" and
+// "Suggest Improvement" inline buttons on Telegram approval messages.
+// Each row lives until the approval is decided (approved/denied/expired),
+// then status flips to "resolved".
+model ApprovalConversation {
+  id            String   @id @default(cuid())
+  approvalId    String   // FK → Approval.id (logical, not enforced)
+  // JSON array of messages: { role: "owner"|"agent"|"system", content, ts, kind }
+  // kind: "question" | "suggestion" | "answer" | "revision" | "note"
+  messages      String   @default("[]") // JSON.stringify([{...}])
+  status        String   @default("open") // open | resolved | expired
+  // When the owner suggests an improvement, the agent may produce a new draft
+  // (revised summary / risks / action) — stored here for the owner to review
+  // before approving the revised version.
+  revisedBrief  String?  // JSON { why, risks, ifApproved, ifNotApproved }
+  // Inline-message id of the Telegram message carrying the keyboard — we
+  // edit this message to update button states after the owner decides.
+  telegramMessageId String?
+  // Audit
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@index([approvalId])
+  @@index([status])
+}
+
+// ─── Phase 29 — GDPR Data Subject Access / Erasure Requests ──────────
+// Owner-submitted or user-submitted GDPR requests (access / erasure /
+// portability / rectification). Auto-processed for erasure after a
+// configurable grace window; manual review for the others.
+model DataSubjectRequest {
+  id            String   @id @default(cuid())
+  // "access" | "erasure" | "portability" | "rectification"
+  type          String
+  // The user's email or telegram handle — whichever they used to identify
+  subject       String   @default("") // email | telegramHandle | phone
+  // "pending" | "verified" | "processing" | "completed" | "rejected"
+  status        String   @default("pending")
+  // JSON: which records will be / were affected, with counts + table names
+  affectedRecords  String  @default("{}") // JSON { table: count }
+  // Erasure only: ISO timestamp when the row can be auto-purged
+  scheduledPurgeAt  DateTime?
+  // Audit
+  createdAt     DateTime @default(now())
+  completedAt   DateTime?
+  updatedAt     DateTime @updatedAt
+
+  @@index([type])
+  @@index([status])
+  @@index([subject])
+}
+
+// ─── Phase 29 — Comprehensive Audit Log ──────────────────────────────
+// Append-only audit trail with user attribution. Every mutating API call
+// (POST / PATCH / DELETE) on a sensitive resource (Approval, Contract,
+// Payment, Personnel, Credential) writes one row here. Used by the
+// compliance auditor (RULE-51) + the new audit-log dashboard.
+model AuditLogEntry {
+  id            String   @id @default(cuid())
+  // Who performed the action: "owner" | agentId | userId | "system"
+  actor         String
+  actorRole     String   @default("user") // owner | admin | agent | system | user
+  // What they did: "create" | "update" | "delete" | "approve" | "deny" | "sign" | "send" | "export"
+  action        String
+  // Which resource: "Approval" | "Contract" | "Payment" | "Credential" | ...
+  resource      String
+  resourceId    String   @default("")
+  // JSON snapshot of the resource before / after (best-effort, redacted)
+  before        String?  // JSON
+  after         String?  // JSON
+  // Where it happened: HTTP route, Telegram command, cron job name
+  source        String   @default("api") // api | telegram | cron | system
+  // IP / user agent / chat id (whichever is applicable)
+  context       String   @default("{}") // JSON { ip?, userAgent?, chatId? }
+  // Audit
+  createdAt     DateTime @default(now())
+
+  @@index([actor])
+  @@index([resource])
+  @@index([action])
+  @@index([createdAt])
+}
+
+// ─── Phase 30 — E-Signature Event Log ────────────────────────────────
+// Append-only log of every webhook event received from an e-signature
+// provider (DocuSign / HelloSign / mock). Used for audit trail + for
+// re-driving missed events. One row per inbound webhook.
+model EsignEvent {
+  id              String   @id @default(cuid())
+  // Provider + envelope reference
+  provider        String   // "docusign" | "hellosign" | "mock"
+  envelopeId      String   // provider's envelope ID (matched to Contract.envelopeId)
+  eventType       String   // "envelope.sent" | "envelope.delivered" | "envelope.completed" | "envelope.declined" | "envelope.voided"
+  // Raw payload (redacted — provider tokens / PII are stripped)
+  payloadJson     String   // JSON.stringify(providerEvent)
+  // Verification
+  signatureValid  Boolean  @default(true) // false if webhook signature check failed
+  verificationError String @default("")
+  // Idempotency: providers send the same event multiple times. We dedupe
+  // by (provider, envelopeId, eventType, eventTimestamp).
+  eventTimestamp  DateTime // provider-reported timestamp
+  // Processing
+  processed       Boolean  @default(false) // true once we've updated Contract.esignStatus
+  processedAt     DateTime?
+  // Linkage
+  contractId      String?  // matched Contract.id (null if envelope not found)
+  // Audit
+  receivedAt      DateTime @default(now())
+
+  @@index([provider, envelopeId])
+  @@index([eventType])
+  @@index([contractId])
+  @@index([receivedAt])
+}
+
+// ─── Phase 30 — Stripe Reconciliation ───────────────────────────────
+// One row per Stripe Balance Transaction fetched by the daily
+// reconciliation cron. Matched against internal RevenueEvent + LedgerEntry
+// records. Discrepancies fire SystemAlert + Telegram owner notification.
+model StripeReconciliation {
+  id              String   @id @default(cuid())
+  // Stripe-side reference
+  balanceTransactionId String @unique // Stripe's `txn_xxx` ID
+  stripeCreatedAt DateTime // Stripe's created timestamp
+  amountCents     Int      // negative = refund, positive = charge
+  currency        String   @default("usd")
+  feeCents        Int      @default(0) // Stripe processing fee
+  netCents        Int      @default(0) // amount - fee
+  // Type: charge | refund | payout | adjustment | application_fee
+  type            String
+  description     String   @default("")
+  // Internal matching
+  matchedRevenueEventId  String?  // FK to RevenueEvent.id
+  matchedLedgerEntryId   String?  // FK to LedgerEntry.id
+  matchedServiceOrderId  String?  // FK to ServiceOrder.id
+  // Reconciliation status
+  status          String   @default("pending") // pending | matched | discrepancy | ignored
+  discrepancyReason String @default("") // "no-matching-revenue-event" | "amount-mismatch" | "duplicate"
+  // Audit
+  reconciledAt    DateTime?
+  createdAt       DateTime @default(now())
+
+  @@index([status])
+  @@index([stripeCreatedAt])
+  @@index([matchedServiceOrderId])
+}
+
+// ─── Phase 30 — Tax Calculation ─────────────────────────────────────
+// One row per tax calculation (from Stripe Tax API or our static
+// fallback). Linked to Contract + ServiceOrder. Stored separately so
+// we can re-calculate + audit past calculations.
+model TaxCalculation {
+  id              String   @id @default(cuid())
+  // Source: stripe-tax | static-fallback | manual
+  source          String   @default("static-fallback")
+  // Input
+  subtotalCents   Int      @default(0) // pre-tax amount
+  currency        String   @default("USD")
+  customerCountry String   @default("") // ISO country code
+  customerState   String   @default("") // ISO state/region code
+  customerZip     String   @default("")
+  // Output
+  taxAmountCents  Int      @default(0)
+  taxRate         Float    @default(0) // decimal, e.g. 0.0825
+  taxJurisdiction String   @default("") // "US-CA" | "EU-DE" | "IN-MH"
+  // Stripe-side reference (if source = stripe-tax)
+  stripeCalculationId String @default("") // Stripe's `taxcalc_xxx` ID
+  stripeTaxCode        String @default("") // e.g. "txcd_10000000" (general taxable)
+  // Linkage
+  contractId      String?  // FK to Contract.id
+  serviceOrderId  String?  // FK to ServiceOrder.id
+  // Audit
+  calculatedAt    DateTime @default(now())
+
+  @@index([source])
+  @@index([contractId])
+  @@index([serviceOrderId])
+  @@index([calculatedAt])
+}
+
+// ─── Phase 30 — Memory Watchdog Snapshot ───────────────────────────
+// One row per memory sample taken by the background watchdog. Used to
+// detect memory leaks over time (linear growth = leak) + trigger
+// alerts when thresholds are exceeded. The cron `memory-watchdog`
+// writes a row every 5 minutes; the cron `daily-soak-analysis`
+// analyzes the day's samples + alerts on leaks.
+//
+// NOTE: values are stored as MEGABYTES (Int) rather than BYTES because
+// SQLite's Int column is 32-bit signed (max ~2.1 GB). Storing in MB
+// lets us represent up to 2 TB of memory. The lib/memory-watchdog.ts
+// module converts bytes → MB before persisting.
+model MemorySnapshot {
+  id              String   @id @default(cuid())
+  // Process info
+  pid             Int
+  uptimeSeconds   Int
+  // Memory (in MEGABYTES — Int column is 32-bit, max 2 TB)
+  rssMB           Int      // resident set size
+  heapUsedMB      Int      // V8 heap used
+  heapTotalMB     Int      // V8 heap total
+  externalMB      Int      // C++ objects bound to V8
+  arrayBufferMB   Int      @default(0) // ArrayBuffers
+  // System info (in MEGABYTES)
+  systemTotalMB   Int
+  systemFreeMB    Int
+  // Computed
+  rssPercent      Float    // rssBytes / thresholdBytes * 100
+  // Alert level: "ok" | "warn" | "critical"
+  alertLevel      String   @default("ok")
+  // Optional: top 5 modules by memory (when leak detected)
+  topModulesJson  String   @default("[]") // [{name, sizeMB}]
+  // Audit
+  sampledAt       DateTime @default(now())
+
+  @@index([alertLevel])
+  @@index([sampledAt])
+}

@@ -1,0 +1,18 @@
+{
+  "name": "aria-realtime",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "ARIA Mission Control realtime WebSocket fan-out service (socket.io on port 3003)",
+  "scripts": {
+    "dev": "bun --hot index.ts",
+    "start": "bun index.ts"
+  },
+  "dependencies": {
+    "socket.io": "^4.8.3"
+  },
+  "devDependencies": {
+    "bun-types": "^1.1.0",
+    "typescript": "^5.6.0"
+  }
+}

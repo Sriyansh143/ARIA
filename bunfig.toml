@@ -1,0 +1,6 @@
+[test]
+preload = ["./tests/setup.ts"]
+# v42: Exclude Playwright E2E tests from `bun test` — they use a different runner
+# Run E2E separately via: bunx playwright test
+# Bun's exclude uses gitignore-style patterns
+exclude = ["tests/e2e/*", "node_modules/*", ".next/*"]

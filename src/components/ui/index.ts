@@ -1,0 +1,63 @@
+// Barrel export for shadcn/ui + custom ARIA UI primitives.
+// Usage: import { GlassCard, AnimatedCounter, StatusBadge } from "@/components/ui";
+
+// shadcn/ui primitives
+export * from "./accordion";
+export * from "./alert-dialog";
+export * from "./alert";
+export * from "./aspect-ratio";
+export * from "./avatar";
+export * from "./badge";
+export * from "./breadcrumb";
+export * from "./button";
+export * from "./calendar";
+export * from "./card";
+export * from "./carousel";
+export * from "./chart";
+export * from "./checkbox";
+export * from "./collapsible";
+export * from "./command";
+export * from "./context-menu";
+export * from "./dialog";
+export * from "./drawer";
+export * from "./dropdown-menu";
+export * from "./form";
+export * from "./hover-card";
+export * from "./input-otp";
+export * from "./input";
+export * from "./label";
+export * from "./menubar";
+export * from "./navigation-menu";
+export * from "./pagination";
+export * from "./popover";
+export * from "./progress";
+export * from "./radio-group";
+export * from "./resizable";
+export * from "./scroll-area";
+export * from "./select";
+export * from "./separator";
+export * from "./sheet";
+export * from "./sidebar";
+export * from "./skeleton";
+export * from "./slider";
+export { Toaster as SonnerToaster } from "./sonner";
+export * from "./switch";
+export * from "./table";
+export * from "./tabs";
+export * from "./textarea";
+export * from "./toast";
+export * from "./toggle-group";
+export * from "./toggle";
+export * from "./tooltip";
+
+// Custom ARIA primitives (v48 design system)
+export * from "./glass-card";
+export * from "./animated-counter";
+export * from "./status-badge";
+export * from "./progress-ring";
+export * from "./sparkline-chart";
+export { toast as ariaToast } from "./toast-aria";
+export * from "./skeleton-loader";
+export * from "./empty-state";
+export * from "./confirm-dialog";
+export * from "./page-transition";

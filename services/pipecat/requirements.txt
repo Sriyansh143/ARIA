@@ -1,0 +1,40 @@
+# services/pipecat/requirements.txt — v69 Phase 19 (BLOCKER 2 + BLOCKER 8)
+#
+# Complete voice pipeline dependencies. The previous requirements.txt
+# only listed httpx + python-dotenv — the actual Pipecat framework was
+# missing entirely, so main.py could not connect to FreeSWITCH or
+# run VAD/TTS even after the TODO was filled in.
+#
+# v69 Phase 19 additions:
+#   - pipecat-ai: the framework that bridges transport (FreeSWITCH/WebRTC)
+#     to processing services (VAD + LLM + TTS).
+#   - greenswitch: FreeSWITCH ESL connection helper (Python).
+#   - fastapi + uvicorn: REST endpoints (/health, /call/start).
+#   - silero-vad: on-device Voice Activity Detection (no GPU required).
+#   - piper-tts: Python client for the local Piper HTTP server.
+#   - fish-speech: optional; installed lazily; ARM64 auto-fallback to Piper.
+#   - numpy + soundfile: audio frame manipulation.
+#   - pydub: lightweight audio format conversion.
+#
+# Install order matters: pipecat-ai first (it pulls its transitive deps),
+# then greenswitch + the rest.
+
+httpx>=0.27.0
+python-dotenv>=1.0.0
+fastapi>=0.115.0
+uvicorn[standard]>=0.32.0
+numpy>=1.26.0
+soundfile>=0.12.0
+pydub>=0.25.1
+
+# Voice framework + transport
+pipecat-ai[websocket]>=0.0.20
+greenswitch>=1.0.0
+
+# VAD + TTS engines
+silero-vad>=5.1.0
+piper-tts>=1.2.0
+
+# Fish Audio / CosyVoice (optional — ARM64 will auto-fallback to Piper).
+# Listed as a comment to avoid forcing the install on ARM64 hosts.
+# fish-speech>=1.4.0

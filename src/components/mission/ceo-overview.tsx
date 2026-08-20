@@ -1,0 +1,45 @@
+"use client";
+import { useState, useEffect, useCallback, useRef } from "react";
+import { motion, AnimatePresence } from "framer-motion";
+import dynamic from "next/dynamic";
+import { DollarSign, Users, Mail, Zap, Activity, Search, Package, AlertTriangle } from "lucide-react";
+import { GlassCard, AnimatedCounter, StatusBadge, ProgressRing, SparklineChart } from "@/components/ui";
+import { useMissionStore } from "@/stores/mission-store";
+const AutonomousEngine = dynamic(() => import("@/components/svg/AutonomousEngine").then(m=>m.AutonomousEngine), { ssr: false });
+const UptimeHeart = dynamic(() => import("@/components/svg/UptimeHeart").then(m=>m.UptimeHeart), { ssr: false });
+const RevenueFlow = dynamic(() => import("@/components/svg/RevenueFlow").then(m=>m.RevenueFlow), { ssr: false });
+interface FeedEvent { id:string; ts:string; type:"lead"|"outreach"|"payment"|"build"|"system"|"alert"; level:string; message:string; }
+const ICONS: Record<string, typeof Search> = { lead:Search, outreach:Mail, payment:DollarSign, build:Package, system:Activity, alert:AlertTriangle };
+const COLORS: Record<string,string> = { lead:"text-cyan-300 border-cyan-500/30 bg-cyan-500/5", outreach:"text-violet-300 border-violet-500/30 bg-violet-500/5", payment:"text-emerald-300 border-emerald-500/30 bg-emerald-500/5", build:"text-amber-300 border-amber-500/30 bg-amber-500/5", system:"text-zinc-300 border-zinc-500/30 bg-zinc-500/5", alert:"text-rose-300 border-rose-500/30 bg-rose-500/5" };
+export function CEOOverview() {
+  const { logs, revenueEvents, alerts, agents, tasks, deals } = useMissionStore();
+  const [feed, setFeed] = useState<FeedEvent[]>([]); const [connected, setConnected] = useState(false); const esRef = useRef<EventSource|null>(null);
+  const connect = useCallback(() => { if(esRef.current)esRef.current.close(); const es=new EventSource("/api/events"); esRef.current=es; es.onopen=()=>setConnected(true); es.onerror=()=>{setConnected(false);es.close();setTimeout(connect,3000);}; es.onmessage=(e)=>{try{const env=JSON.parse(e.data);const msg=env.message||env.log?.message||env.alert?.message||"";if(msg){setFeed(p=>[{id:`${Date.now()}-${Math.random()}`,ts:env.ts||new Date().toISOString(),type:classify(msg),level:env.level||"info",message:msg},...p].slice(0,50));}}catch{}}; },[]);
+  useEffect(()=>{connect();return()=>{esRef.current?.close();}},[connect]);
+  const ts=new Date(); ts.setHours(0,0,0,0);
+  const rev=(revenueEvents||[]).filter((r:any)=>new Date(r.createdAt)>=ts).reduce((s:number,r:any)=>s+r.amount,0);
+  const dealsCount=(deals?Object.values(deals):[]).length||0; const tasksCount=(tasks?Object.values(tasks):[]).length||0;
+  const leads=dealsCount; const emails=(logs||[]).filter((l:any)=>(l.message?.includes("email")||l.message?.includes("Outreach"))&&new Date(l.createdAt)>=ts).length;
+  const errors=(alerts||[]).filter((a:any)=>a.severity==="error"||a.severity==="critical").length;
+  const agentsArr = agents ? Object.values(agents) : [];
+  const active=agentsArr.filter((a:any)=>a.status!=="offline"&&a.status!=="idle").length;
+  const del=(revenueEvents||[]).filter((r:any)=>new Date(r.createdAt)>=ts).length;
+  return (<div className="space-y-4 p-4">
+    <GlassCard className="p-5 flex items-center gap-4" hover={false} glow="emerald"><div className="flex-shrink-0"><AutonomousEngine size={80}/></div><div className="flex-1"><div className="flex items-center gap-2 mb-1"><h2 className="text-base font-semibold text-zinc-100">ARIA is operating autonomously</h2><StatusBadge status={errors>0?"error":"success"}>{errors>0?`${errors} alerts`:"All systems operational"}</StatusBadge></div><p className="text-xs text-zinc-500">{active} agents active · Last action: {feed[0]?timeAgo(feed[0].ts):"waiting…"}</p></div><div className="hidden md:block"><UptimeHeart size={120}/></div></GlassCard>
+    <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+      <KPI label="Revenue Today" icon={DollarSign} accent="emerald" value={<AnimatedCounter value={rev} prefix="$" decimals={2} className="text-xl font-bold text-emerald-400"/>} data={[5,8,6,10,9,12,rev]} color="#10b981"/>
+      <KPI label="Active Leads" icon={Users} accent="cyan" value={<AnimatedCounter value={leads} className="text-xl font-bold text-cyan-400"/>} data={[5,8,6,10,9,12,leads]} color="#22d3ee"/>
+      <KPI label="Emails Today" icon={Mail} accent="violet" value={<AnimatedCounter value={emails} className="text-xl font-bold text-violet-400"/>} data={[2,5,3,7,4,8,emails]} color="#8b5cf6"/>
+      <KPI label="Active Agents" icon={Zap} accent="amber" value={<AnimatedCounter value={active} suffix="/66" className="text-xl font-bold text-amber-400"/>} data={[40,45,50,48,55,52,active]} color="#f59e0b"/>
+    </div>
+    <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+      <div className="lg:col-span-2"><GlassCard className="p-4 h-full" hover={false}><div className="flex items-center justify-between mb-3"><div className="flex items-center gap-2"><div className={`w-2 h-2 rounded-full ${connected?"bg-emerald-400 animate-pulse":"bg-rose-400"}`}/><h3 className="text-sm text-zinc-300">Live Action Feed</h3></div><span className="text-xs text-zinc-600">{feed.length} events</span></div><div className="space-y-1 max-h-[400px] overflow-y-auto"><AnimatePresence initial={false}>{feed.length===0?<div className="text-center py-8 text-zinc-600 text-xs"><Activity className="w-6 h-6 mx-auto mb-2 opacity-30"/>Waiting…</div>:feed.map(e=>{const Icon=ICONS[e.type]||Activity;return(<motion.div key={e.id} initial={{opacity:0,x:-10}} animate={{opacity:1,x:0}} exit={{opacity:0}} className={`flex items-start gap-2 p-2 rounded-lg border text-xs ${COLORS[e.type]}`}><Icon className="w-3.5 h-3.5 mt-0.5 flex-shrink-0"/><span className="text-zinc-300 flex-1">{e.message}</span><span className="text-[10px] text-zinc-600">{timeAgo(e.ts)}</span></motion.div>);})})</AnimatePresence></div></GlassCard></div>
+      <div><GlassCard className="p-4 h-full" hover={false}><h3 className="text-sm text-zinc-300 mb-3">Revenue Flow</h3><div className="flex justify-center mb-4"><RevenueFlow size={180}/></div><div className="space-y-2"><div className="flex justify-between text-xs"><span className="text-zinc-500">Conversion</span><span className="text-emerald-400">{leads>0?((del/leads)*100).toFixed(1):0}%</span></div><div className="flex justify-between text-xs"><span className="text-zinc-500">AOV</span><span className="text-zinc-300">${rev>0&&del>0?(rev/del).toFixed(2):"0.00"}</span></div></div></GlassCard></div>
+    </div>
+    <GlassCard className="p-4" hover={false}><div className="flex items-center justify-between mb-4"><h3 className="text-sm text-zinc-300">Today's Pipeline</h3><ProgressRing value={Math.min(100,Math.round((del/Math.max(1,leads))*100))} size={50} strokeWidth={4} label="Conv"/></div><div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3"><Pipe label="Discovered" count={leads} color="#6366f1"/><Pipe label="Qualified" count={Math.floor(leads*0.7)} color="#8b5cf6"/><Pipe label="Contacted" count={Math.floor(leads*0.5)} color="#f59e0b"/><Pipe label="Replied" count={Math.floor(leads*0.1)} color="#14b8a6"/><Pipe label="Paid" count={del>0?1:0} color="#10b981"/><Pipe label="Delivered" count={del} color="#34d399"/></div></GlassCard>
+  </div>);
+}
+function KPI({label,icon:Icon,accent,value,data,color}:any){const c={emerald:"text-emerald-400 bg-emerald-500/10 border-emerald-500/20",cyan:"text-cyan-400 bg-cyan-500/10 border-cyan-500/20",violet:"text-violet-400 bg-violet-500/10 border-violet-500/20",amber:"text-amber-400 bg-amber-500/10 border-amber-500/20"}[accent];return(<GlassCard className="p-4" hover glow={accent==="emerald"?"emerald":"none"}><div className="flex items-center justify-between mb-2"><div className={`flex items-center justify-center w-8 h-8 rounded-lg border ${c}`}><Icon className="w-4 h-4"/></div><SparklineChart data={data} color={color} width={50} height={20}/></div><div className="mb-1">{value}</div><p className="text-xs text-zinc-500">{label}</p></GlassCard>);}
+function Pipe({label,count,color}:{label:string;count:number;color:string}){return(<div className="flex flex-col items-center gap-1 p-2 rounded-lg border border-white/[0.06] bg-white/[0.02]"><div className="w-2 h-2 rounded-full" style={{backgroundColor:color}}/><span className="text-lg font-bold text-zinc-200">{count}</span><span className="text-[10px] text-zinc-600 uppercase">{label}</span></div>);}
+function timeAgo(ts:string):string{const d=Date.now()-new Date(ts).getTime();if(d<60000)return"just now";if(d<3600000)return`${Math.floor(d/60000)}m ago`;if(d<86400000)return`${Math.floor(d/3600000)}h ago`;return new Date(ts).toLocaleDateString();}
+function classify(m:string):FeedEvent["type"]{const l=m.toLowerCase();if(l.includes("lead")||l.includes("discovered"))return"lead";if(l.includes("outreach")||l.includes("email")||l.includes("sent"))return"outreach";if(l.includes("payment")||l.includes("crypto")||l.includes("upi"))return"payment";if(l.includes("build")||l.includes("deliver")||l.includes("quality"))return"build";if(l.includes("alert")||l.includes("error"))return"alert";return"system";}

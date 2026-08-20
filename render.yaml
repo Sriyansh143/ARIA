@@ -1,0 +1,48 @@
+# render.yaml — ARIA Mission Control on Render (free tier).
+#
+# Render free tier: 1 free web service (512MB RAM, sleeps after 15min
+# of inactivity). Suitable for low-traffic / demo deployments.
+#
+# Quick start:
+#   1. Push this repo to GitHub.
+#   2. Go to https://dashboard.render.com → New → Blueprint.
+#   3. Select your repo → Render will read this render.yaml.
+#   4. Add environment variables (NEXTAUTH_SECRET, ENCRYPTION_MASTER_KEY, etc.)
+#   5. Deploy.
+#
+# The app will be available at https://aria-mission-control.onrender.com.
+# Note: the free tier sleeps after 15min idle — first request after sleep
+# takes ~30s to wake. For 24/7 uptime, upgrade to a paid plan or use Fly.io.
+
+services:
+  - type: web
+    name: aria-mission-control
+    runtime: docker
+    plan: free
+    dockerfilePath: ./Dockerfile
+    healthCheckPath: /api/health
+    autoDeploy: true
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        value: 3000
+      # v40: JARVIS_DEV_BYPASS_AUTH removed — auth always enforced.
+      - key: ARIA_OWNER_EMAIL
+        value: owner@aria.local
+      - key: ARIA_PREFER_LOCAL_LLM
+        value: "1"
+      - key: OLLAMA_HOST
+        value: http://127.0.0.1:11434
+      - key: ARIA_PLAYGROUND_ENABLED
+        value: "1"
+      - key: DATABASE_URL
+        value: file:/app/db/custom.db
+      - key: NEXTAUTH_SECRET
+        generateValue: true
+      - key: ENCRYPTION_MASTER_KEY
+        generateValue: true
+    disk:
+      name: aria-data
+      mountPath: /app/db
+      sizeGB: 1

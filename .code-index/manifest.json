@@ -1,0 +1,6458 @@
+{
+  "generatedAt": "2026-08-19T09:41:49.347Z",
+  "totalFiles": 358,
+  "totalLines": 70583,
+  "files": [
+    {
+      "path": "mini-services/lib/auth-middleware.ts",
+      "purpose": "mini-services/lib/auth-middleware.ts — Shared internal auth for mini-services (v58 Phase 4)",
+      "keyFunctions": [
+        "constantTimeEqual",
+        "extractJarvisKey",
+        "verifyJarvisKey",
+        "withAuth"
+      ],
+      "dependencies": [
+        "../lib/auth-middleware",
+        "http"
+      ],
+      "lineCount": 127,
+      "lastModified": "2026-08-17T04:09:51.000Z",
+      "indexedAt": "2026-08-19T09:41:49.343Z",
+      "category": "infra"
+    },
+    {
+      "path": "mini-services/realtime/index.ts",
+      "purpose": "aria-realtime — standalone socket.io mini-service for ARIA Mission Control.",
+      "keyFunctions": [],
+      "dependencies": [
+        "http",
+        "engine.io",
+        "socket.io"
+      ],
+      "lineCount": 437,
+      "lastModified": "2026-08-17T04:10:27.000Z",
+      "indexedAt": "2026-08-19T09:41:49.343Z",
+      "category": "services"
+    },
+    {
+      "path": "scripts/chaos-test.ts",
+      "purpose": "scripts/chaos-test.ts — Chaos Monkey Test Script (v58 Phase 5)",
+      "keyFunctions": [],
+      "dependencies": [
+        "../src/lib/db",
+        "../src/lib/llm-router",
+        "../src/lib/autonomy-control",
+        "../src/lib/db-write-queue",
+        "fs",
+        "path"
+      ],
+      "lineCount": 303,
+      "lastModified": "2026-08-17T04:24:37.000Z",
+      "indexedAt": "2026-08-19T09:41:49.341Z",
+      "category": "scripts"
+    },
+    {
+      "path": "scripts/check-env.ts",
+      "purpose": "scripts/check-env.ts — Startup Environment Validator (v41)",
+      "keyFunctions": [],
+      "dependencies": [],
+      "lineCount": 143,
+      "lastModified": "2026-08-17T03:11:39.000Z",
+      "indexedAt": "2026-08-19T09:41:49.340Z",
+      "category": "scripts"
+    },
+    {
+      "path": "scripts/check-resource-usage.ts",
+      "purpose": "scripts/check-resource-usage.ts — v69 Phase 19 (BLOCKER 9)",
+      "keyFunctions": [],
+      "dependencies": [
+        "os"
+      ],
+      "lineCount": 107,
+      "lastModified": "2026-08-19T04:13:50.000Z",
+      "indexedAt": "2026-08-19T09:41:49.340Z",
+      "category": "scripts"
+    },
+    {
+      "path": "scripts/daily-knowledge-refresh.ts",
+      "purpose": "─── Step 1: Extract lessons from the worklog ────────────────────────",
+      "keyFunctions": [],
+      "dependencies": [
+        "../src/lib/db",
+        "../src/lib/logger",
+        "../src/lib/event-bus",
+        "fs",
+        "path",
+        "z-ai-web-dev-sdk"
+      ],
+      "lineCount": 456,
+      "lastModified": "2026-08-17T21:23:34.000Z",
+      "indexedAt": "2026-08-19T09:41:49.340Z",
+      "category": "cron"
+    },
+    {
+      "path": "scripts/generate-code-index.ts",
+      "purpose": "─── Helpers ─────────────────────────────────────────────────────────",
+      "keyFunctions": [
+        "name"
+      ],
+      "dependencies": [
+        "fs",
+        "path",
+        "..."
+      ],
+      "lineCount": 346,
+      "lastModified": "2026-08-17T20:42:05.000Z",
+      "indexedAt": "2026-08-19T09:41:49.341Z",
+      "category": "cron"
+    },
+    {
+      "path": "scripts/generate-embedded-projects.ts",
+      "purpose": "scripts/generate-embedded-projects.ts — v76 Phase 26",
+      "keyFunctions": [
+        "getEmbeddedProjectsByCategory",
+        "countEmbeddedProjects"
+      ],
+      "dependencies": [
+        "fs",
+        "path"
+      ],
+      "lineCount": 340,
+      "lastModified": "2026-08-19T09:23:19.000Z",
+      "indexedAt": "2026-08-19T09:41:49.341Z",
+      "category": "scripts"
+    },
+    {
+      "path": "scripts/generate-embedded-skills.ts",
+      "purpose": "scripts/generate-embedded-skills.ts — v76 Phase 26",
+      "keyFunctions": [
+        "getEmbeddedSkill",
+        "getEmbeddedSkillsByCategory",
+        "countEmbeddedSkills"
+      ],
+      "dependencies": [
+        "fs",
+        "path",
+        "./embedded-skills"
+      ],
+      "lineCount": 302,
+      "lastModified": "2026-08-19T09:27:45.000Z",
+      "indexedAt": "2026-08-19T09:41:49.339Z",
+      "category": "scripts"
+    },
+    {
+      "path": "scripts/ingest-500-projects.ts",
+      "purpose": "─── HTTP fetch helper (with timeout) ─────────────────────────────────",
+      "keyFunctions": [],
+      "dependencies": [
+        "../src/lib/db",
+        "../src/lib/logger"
+      ],
+      "lineCount": 554,
+      "lastModified": "2026-08-17T20:21:48.000Z",
+      "indexedAt": "2026-08-19T09:41:49.342Z",
+      "category": "cron"
+    },
+    {
+      "path": "scripts/sample-lead-hunt.ts",
+      "purpose": "scripts/sample-lead-hunt.ts — v71 Phase 21",
+      "keyFunctions": [],
+      "dependencies": [
+        "bun:test",
+        "../src/lib/lead-hunter/service-matcher",
+        "../src/lib/lead-hunter/social-scout",
+        "../src/lib/lead-hunter/profile-extractor"
+      ],
+      "lineCount": 87,
+      "lastModified": "2026-08-19T05:26:45.000Z",
+      "indexedAt": "2026-08-19T09:41:49.340Z",
+      "category": "scripts"
+    },
+    {
+      "path": "scripts/sample-proactive-promo.ts",
+      "purpose": "scripts/sample-proactive-promo.ts — v72 Phase 22 smoke test",
+      "keyFunctions": [],
+      "dependencies": [
+        "bun:test",
+        "fs",
+        "../src/lib/lead-hunter/excel-importer",
+        "../src/lib/lead-hunter/contact-finder",
+        "../src/lib/lead-hunter/free-offer-engine",
+        "../src/lib/lead-hunter/google-maps-scout",
+        "../src/lib/approval-patterns",
+        "../src/lib/social-media-manager"
+      ],
+      "lineCount": 134,
+      "lastModified": "2026-08-19T06:06:40.000Z",
+      "indexedAt": "2026-08-19T09:41:49.339Z",
+      "category": "scripts"
+    },
+    {
+      "path": "scripts/seed-from-embedded.ts",
+      "purpose": "scripts/seed-from-embedded.ts — v76 Phase 26 (Digest and Discard)",
+      "keyFunctions": [],
+      "dependencies": [
+        "../src/lib/db",
+        "../src/lib/embedded-skills",
+        "../src/lib/embedded-projects"
+      ],
+      "lineCount": 132,
+      "lastModified": "2026-08-19T09:28:26.000Z",
+      "indexedAt": "2026-08-19T09:41:49.340Z",
+      "category": "scripts"
+    },
+    {
+      "path": "scripts/simulate-full-loop.ts",
+      "purpose": "ARIA Full-Loop Simulation Script",
+      "keyFunctions": [
+        "GET"
+      ],
+      "dependencies": [
+        "fs",
+        "path",
+        "child_process",
+        "z-ai-web-dev-sdk"
+      ],
+      "lineCount": 1439,
+      "lastModified": "2026-08-17T03:22:23.000Z",
+      "indexedAt": "2026-08-19T09:41:49.343Z",
+      "category": "scripts"
+    },
+    {
+      "path": "scripts/verify-all-phases.ts",
+      "purpose": "scripts/verify-all-phases.ts — v74 Phase 24 (RULE-76)",
+      "keyFunctions": [],
+      "dependencies": [
+        "fs",
+        "path"
+      ],
+      "lineCount": 178,
+      "lastModified": "2026-08-19T08:01:48.000Z",
+      "indexedAt": "2026-08-19T09:41:49.340Z",
+      "category": "scripts"
+    },
+    {
+      "path": "src/app/api/2fa/disable/route.ts",
+      "purpose": "(no purpose documented — add a JSDoc header)",
+      "keyFunctions": [
+        "POST"
+      ],
+      "dependencies": [
+        "next/server",
+        "@/lib/db",
+        "@/lib/logger",
+        "@/lib/two-factor",
+        "@/lib/auth"
+      ],
+      "lineCount": 85,
+      "lastModified": "2026-08-17T03:11:39.000Z",
+      "indexedAt": "2026-08-19T09:41:49.331Z",
+      "category": "general"
+    },
+    {
+      "path": "src/app/api/2fa/setup/route.ts",
+      "purpose": "(no purpose documented — add a JSDoc header)",
+      "keyFunctions": [
+        "POST"
+      ],
+      "dependencies": [
+        "next/server",
+        "@/lib/db",
+        "@/lib/logger",
+        "@/lib/two-factor",
+        "@/lib/auth"
+      ],
+      "lineCount": 62,
+      "lastModified": "2026-08-17T03:11:39.000Z",
+      "indexedAt": "2026-08-19T09:41:49.331Z",
+      "category": "general"
+    },
+    {
+      "path": "src/app/api/2fa/status/route.ts",
+      "purpose": "(no purpose documented — add a JSDoc header)",
+      "keyFunctions": [
+        "GET"
+      ],
+      "dependencies": [
+        "next/server",
+        "@/lib/db",
+        "@/lib/auth"
+      ],
+      "lineCount": 46,
+      "lastModified": "2026-08-17T03:11:39.000Z",
+      "indexedAt": "2026-08-19T09:41:49.331Z",
+      "category": "general"
+    },
+    {
+      "path": "src/app/api/2fa/verify/route.ts",
+      "purpose": "(no purpose documented — add a JSDoc header)",
+      "keyFunctions": [
+        "POST"
+      ],
+      "dependencies": [
+        "next/server",
+        "@/lib/db",
+        "@/lib/logger",
+        "@/lib/two-factor",
+        "@/lib/auth"
+      ],
+      "lineCount": 61,
+      "lastModified": "2026-08-17T03:11:39.000Z",
+      "indexedAt": "2026-08-19T09:41:49.331Z",
+      "category": "general"
+    },
+    {
+      "path": "src/app/api/alerts/[id]/ack/route.ts",
+      "purpose": "(no purpose documented — add a JSDoc header)",
+      "keyFunctions": [
+        "PATCH"
+      ],
+      "dependencies": [
+        "next/server",
+        "@/lib/db",
+        "@/lib/logger",
+        "@/lib/event-bus",
+        "@/lib/types"
+      ],
+      "lineCount": 41,
+      "lastModified": "2026-08-17T03:11:39.000Z",
+      "indexedAt": "2026-08-19T09:41:49.325Z",
+      "category": "general"
+    },
+    {
+      "path": "src/app/api/alerts/ack-all/route.ts",
+      "purpose": "(no purpose documented — add a JSDoc header)",
+      "keyFunctions": [
+        "POST"
+      ],
+      "dependencies": [
+        "next/server",
+        "@/lib/db",
+        "@/lib/event-bus",
+        "@/lib/logger",
+        "@/lib/types"
+      ],
+      "lineCount": 102,
+      "lastModified": "2026-08-17T03:11:39.000Z",
+      "indexedAt": "2026-08-19T09:41:49.325Z",
+      "category": "general"
+    },
+    {
+      "path": "src/app/api/alerts/route.ts",
+      "purpose": "(no purpose documented — add a JSDoc header)",
+      "keyFunctions": [
+        "GET"
+      ],
+      "dependencies": [
+        "next/server",
+        "@/lib/db",
+        "@/lib/logger",
+        "@/lib/types",
+        "@/lib/pagination"
+      ],
+      "lineCount": 94,
+      "lastModified": "2026-08-17T03:11:39.000Z",
+      "indexedAt": "2026-08-19T09:41:49.325Z",
+      "category": "general"
+    },
+    {
+      "path": "src/app/api/approval-patterns/route.ts",
+      "purpose": "GET /api/approval-patterns — v72 Phase 22 (RULE-71)",
+      "keyFunctions": [
+        "GET",
+        "POST",
+        "PATCH"
+      ],
+      "dependencies": [
+        "next/server",
+        "@/lib/auth",
+        "@/lib/approval-patterns",
+        "@/lib/logger"
+      ],
+      "lineCount": 99,
+      "lastModified": "2026-08-19T06:00:00.000Z",
+      "indexedAt": "2026-08-19T09:41:49.327Z",
+      "category": "general"
+    },
+    {
+      "path": "src/app/api/approvals/[id]/decision/route.ts",
+      "purpose": "(no purpose documented — add a JSDoc header)",
+      "keyFunctions": [
+        "GET",
+        "POST"
+      ],
+      "dependencies": [
+        "next/server",
+        "@/lib/approval-decision"
+      ],
+      "lineCount": 31,
+      "lastModified": "2026-08-17T03:11:39.000Z",
+      "indexedAt": "2026-08-19T09:41:49.326Z",
+      "category": "general"
+    },
+    {
+      "path": "src/app/api/approvals/[id]/discuss/route.ts",
+      "purpose": "(no purpose documented — add a JSDoc header)",
+      "keyFunctions": [
+        "POST"
+      ],
+      "dependencies": [
+        "next/server",
+        "@/lib/db",
+        "@/lib/approval-brief",
+        "@/lib/logger"
+      ],
+      "lineCount": 59,
+      "lastModified": "2026-08-17T03:11:39.000Z",
+      "indexedAt": "2026-08-19T09:41:49.326Z",
+      "category": "general"
+    },
+    {
+      "path": "src/app/api/approvals/[id]/oral-confirm/route.ts",
+      "purpose": "(no purpose documented — add a JSDoc header)",
+      "keyFunctions": [
+        "POST"
+      ],
+      "dependencies": [
+        "next/server",
+        "@/lib/db",
+        "@/lib/approval-brief",
+        "@/lib/logger"
+      ],
+      "lineCount": 70,
+      "lastModified": "2026-08-17T03:11:39.000Z",
+      "indexedAt": "2026-08-19T09:41:49.326Z",
+      "category": "general"
+    },
+    {
+      "path": "src/app/api/approvals/[id]/route.ts",
+      "purpose": "v61 (Audit B6): use the shared executor so the dashboard PATCH path",
+      "keyFunctions": [
+        "GET",
+        "PATCH"
+      ],
+      "dependencies": [
+        "next/server",
+        "@/lib/db",
+        "@/lib/event-bus",
+        "@/lib/types",
+        "@/lib/approval-brief",
+        "@/lib/approval-executor"
+      ],
+      "lineCount": 174,
+      "lastModified": "2026-08-17T13:03:15.000Z",
+      "indexedAt": "2026-08-19T09:41:49.326Z",
+      "category": "general"
+    },
+    {
+      "path": "src/app/api/approvals/route.ts",
+      "purpose": "Re-export toIso for downstream consumers (prevents tree-shake removal",
+      "keyFunctions": [
+        "GET",
+        "POST"
+      ],
+      "dependencies": [
+        "next/server",
+        "@/lib/db",
+        "@/lib/event-bus",
+        "@/lib/types",
+        "@/lib/approval-brief",
+        "@/lib/logger",
+        "@/lib/pagination"
+      ],
+      "lineCount": 196,
+      "lastModified": "2026-08-17T03:11:39.000Z",
+      "indexedAt": "2026-08-19T09:41:49.326Z",
+      "category": "general"
+    },
+    {
+      "path": "src/app/api/audit-log/route.ts",
+      "purpose": "─── Types ───────────────────────────────────────────────────────────",
+      "keyFunctions": [
+        "GET"
+      ],
+      "dependencies": [
+        "next/server",
+        "@/lib/db",
+        "@/lib/logger",
+        "@/lib/pagination"
+      ],
+      "lineCount": 214,
+      "lastModified": "2026-08-17T03:11:39.000Z",
+      "indexedAt": "2026-08-19T09:41:49.333Z",
+      "category": "general"
+    },
+    {
+      "path": "src/app/api/auth/[...nextauth]/route.ts",
+      "purpose": "/api/auth/[...nextauth] — NextAuth v4 handler.",
+      "keyFunctions": [],
+      "dependencies": [
+        "next-auth",
+        "@/lib/auth-options"
+      ],
+      "lineCount": 8,
+      "lastModified": "2026-08-17T03:11:39.000Z",
+      "indexedAt": "2026-08-19T09:41:49.323Z",
+      "category": "infra"
+    },
+    {
+      "path": "src/app/api/auth/signup/route.ts",
+      "purpose": "/api/auth/signup — POST: create a new user account (multi-tenant mode).",
+      "keyFunctions": [
+        "POST"
+      ],
+      "dependencies": [
+        "next/server",
+        "bcryptjs",
+        "@/lib/db"
+      ],
+      "lineCount": 44,
+      "lastModified": "2026-08-17T03:11:39.000Z",
+      "indexedAt": "2026-08-19T09:41:49.323Z",
+      "category": "infra"
+    },
+    {
+      "path": "src/app/api/autonomy/pause/route.ts",
+      "purpose": "POST /api/autonomy/pause — Owner-only. Freeze all autonomous operations.",
+      "keyFunctions": [
+        "POST"
+      ],
+      "dependencies": [
+        "next/server",
+        "@/lib/autonomy-control",
+        "@/lib/auth",
+        "@/lib/logger"
+      ],
+      "lineCount": 54,
+      "lastModified": "2026-08-17T04:06:10.000Z",
+      "indexedAt": "2026-08-19T09:41:49.330Z",
+      "category": "general"
+    },
+    {
+      "path": "src/app/api/autonomy/resume/route.ts",
+      "purpose": "POST /api/autonomy/resume — Owner-only. Resume autonomous operations.",
+      "keyFunctions": [
+        "POST"
+      ],
+      "dependencies": [
+        "next/server",
+        "@/lib/autonomy-control",
+        "@/lib/auth",
+        "@/lib/logger"
+      ],
+      "lineCount": 31,
+      "lastModified": "2026-08-17T04:06:20.000Z",
+      "indexedAt": "2026-08-19T09:41:49.330Z",
+      "category": "general"
+    },
+    {
+      "path": "src/app/api/autonomy/status/route.ts",
+      "purpose": "GET /api/autonomy/status — Returns whether autonomy is currently paused.",
+      "keyFunctions": [
+        "GET"
+      ],
+      "dependencies": [
+        "next/server",
+        "@/lib/autonomy-control"
+      ],
+      "lineCount": 28,
+      "lastModified": "2026-08-17T04:06:29.000Z",
+      "indexedAt": "2026-08-19T09:41:49.330Z",
+      "category": "general"
+    },
+    {
+      "path": "src/app/api/blackbox/route.ts",
+      "purpose": "(no purpose documented — add a JSDoc header)",
+      "keyFunctions": [
+        "GET"
+      ],
+      "dependencies": [
+        "next/server",
+        "@/lib/blackbox",
+        "@/lib/logger"
+      ],
+      "lineCount": 44,
+      "lastModified": "2026-08-17T03:11:39.000Z",
+      "indexedAt": "2026-08-19T09:41:49.337Z",
+      "category": "general"
+    },
+    {
+      "path": "src/app/api/browser-sessions/route.ts",
+      "purpose": "/api/browser-sessions — v73 Phase 23 (extension of RULE-70)",
+      "keyFunctions": [
+        "GET",
+        "POST"
+      ],
+      "dependencies": [
+        "next/server",
+        "@/lib/auth",
+        "@/lib/computer-use-accounts",
+        "@/lib/db",
+        "@/lib/logger"
+      ],
+      "lineCount": 44,
+      "lastModified": "2026-08-19T06:31:07.000Z",
+      "indexedAt": "2026-08-19T09:41:49.324Z",
+      "category": "general"
+    },
+    {
+      "path": "src/app/api/business-lifecycle/find/route.ts",
+      "purpose": "(no purpose documented — add a JSDoc header)",
+      "keyFunctions": [
+        "POST"
+      ],
+      "dependencies": [
+        "next/server",
+        "@/lib/logger",
+        "@/lib/autonomous-business-engine"
+      ],
+      "lineCount": 32,
+      "lastModified": "2026-08-17T03:11:39.000Z",
+      "indexedAt": "2026-08-19T09:41:49.327Z",
+      "category": "general"
+    },
+    {
+      "path": "src/app/api/business-lifecycle/plan/route.ts",
+      "purpose": "(no purpose documented — add a JSDoc header)",
+      "keyFunctions": [
+        "POST"
+      ],
+      "dependencies": [
+        "next/server",
+        "@/lib/logger",
+        "@/lib/autonomous-business-engine"
+      ],
+      "lineCount": 35,
+      "lastModified": "2026-08-17T03:11:39.000Z",
+      "indexedAt": "2026-08-19T09:41:49.327Z",
+      "category": "general"
+    },
+    {
+      "path": "src/app/api/business-lifecycle/qualify/route.ts",
+      "purpose": "(no purpose documented — add a JSDoc header)",
+      "keyFunctions": [
+        "POST"
+      ],
+      "dependencies": [
+        "next/server",
+        "@/lib/logger",
+        "@/lib/autonomous-business-engine"
+      ],
+      "lineCount": 35,
+      "lastModified": "2026-08-17T03:11:39.000Z",
+      "indexedAt": "2026-08-19T09:41:49.327Z",
+      "category": "general"
+    },
+    {
+      "path": "src/app/api/business-lifecycle/route.ts",
+      "purpose": "(no purpose documented — add a JSDoc header)",
+      "keyFunctions": [
+        "GET",
+        "POST"
+      ],
+      "dependencies": [
+        "next/server",
+        "@/lib/logger",
+        "@/lib/autonomous-business-engine"
+      ],
+      "lineCount": 53,
+      "lastModified": "2026-08-17T03:11:39.000Z",
+      "indexedAt": "2026-08-19T09:41:49.328Z",
+      "category": "general"
+    },
+    {
+      "path": "src/app/api/business-lifecycle/status/route.ts",
+      "purpose": "(no purpose documented — add a JSDoc header)",
+      "keyFunctions": [
+        "GET"
+      ],
+      "dependencies": [
+        "next/server",
+        "@/lib/logger",
+        "@/lib/db"
+      ],
+      "lineCount": 113,
+      "lastModified": "2026-08-17T03:11:39.000Z",
+      "indexedAt": "2026-08-19T09:41:49.327Z",
+      "category": "general"
+    },
+    {
+      "path": "src/app/api/capabilities/route.ts",
+      "purpose": "GET /api/capabilities — v74 Phase 24 (RULE-77)",
+      "keyFunctions": [
+        "GET",
+        "POST"
+      ],
+      "dependencies": [
+        "next/server",
+        "@/lib/auth",
+        "@/lib/capability-registry",
+        "@/lib/db",
+        "@/lib/logger"
+      ],
+      "lineCount": 66,
+      "lastModified": "2026-08-19T06:54:44.000Z",
+      "indexedAt": "2026-08-19T09:41:49.333Z",
+      "category": "general"
+    },
+    {
+      "path": "src/app/api/cash-claw/route.ts",
+      "purpose": "(no purpose documented — add a JSDoc header)",
+      "keyFunctions": [
+        "GET",
+        "POST"
+      ],
+      "dependencies": [
+        "next/server",
+        "@/lib/logger",
+        "@/lib/cash-claw"
+      ],
+      "lineCount": 38,
+      "lastModified": "2026-08-17T03:11:39.000Z",
+      "indexedAt": "2026-08-19T09:41:49.324Z",
+      "category": "general"
+    },
+    {
+      "path": "src/app/api/chat/route.ts",
+      "purpose": "Recent events for the live event ticker + logs view.",
+      "keyFunctions": [
+        "GET"
+      ],
+      "dependencies": [
+        "next/server",
+        "@/lib/db",
+        "@/lib/logger"
+      ],
+      "lineCount": 19,
+      "lastModified": "2026-08-17T03:11:39.000Z",
+      "indexedAt": "2026-08-19T09:41:49.325Z",
+      "category": "general"
+    },
+    {
+      "path": "src/app/api/companies/[id]/route.ts",
+      "purpose": "(no purpose documented — add a JSDoc header)",
+      "keyFunctions": [
+        "GET",
+        "PUT",
+        "DELETE"
+      ],
+      "dependencies": [
+        "next/server",
+        "@/lib/multi-company",
+        "@/lib/logger"
+      ],
+      "lineCount": 108,
+      "lastModified": "2026-08-17T03:11:39.000Z",
+      "indexedAt": "2026-08-19T09:41:49.334Z",
+      "category": "general"
+    },
+    {
+      "path": "src/app/api/companies/route.ts",
+      "purpose": "(no purpose documented — add a JSDoc header)",
+      "keyFunctions": [
+        "GET",
+        "POST"
+      ],
+      "dependencies": [
+        "next/server",
+        "@/lib/multi-company",
+        "@/lib/logger"
+      ],
+      "lineCount": 101,
+      "lastModified": "2026-08-17T03:11:39.000Z",
+      "indexedAt": "2026-08-19T09:41:49.334Z",
+      "category": "general"
+    },
+    {
+      "path": "src/app/api/competitors/route.ts",
+      "purpose": "(no purpose documented — add a JSDoc header)",
+      "keyFunctions": [
+        "GET"
+      ],
+      "dependencies": [
+        "next/server",
+        "@/lib/db",
+        "@/lib/auth"
+      ],
+      "lineCount": 11,
+      "lastModified": "2026-08-17T03:30:33.000Z",
+      "indexedAt": "2026-08-19T09:41:49.329Z",
+      "category": "general"
+    },
+    {
+      "path": "src/app/api/compliance/scorecard/route.ts",
+      "purpose": "GET /api/compliance/scorecard — v74 Phase 24 (RULE-76)",
+      "keyFunctions": [
+        "GET"
+      ],
+      "dependencies": [
+        "next/server",
+        "@/lib/auth",
+        "@/lib/compliance-auditor",
+        "@/lib/db",
+        "@/lib/logger"
+      ],
+      "lineCount": 62,
+      "lastModified": "2026-08-19T06:54:31.000Z",
+      "indexedAt": "2026-08-19T09:41:49.323Z",
+      "category": "general"
+    },
+    {
+      "path": "src/app/api/computer-use/route.ts",
+      "purpose": "(no purpose documented — add a JSDoc header)",
+      "keyFunctions": [
+        "POST"
+      ],
+      "dependencies": [
+        "next/server",
+        "@/lib/logger",
+        "@/lib/computer-use"
+      ],
+      "lineCount": 63,
+      "lastModified": "2026-08-17T03:11:39.000Z",
+      "indexedAt": "2026-08-19T09:41:49.325Z",
+      "category": "general"
+    },
+    {
+      "path": "src/app/api/conductor/route.ts",
+      "purpose": "(no purpose documented — add a JSDoc header)",
+      "keyFunctions": [
+        "POST"
+      ],
+      "dependencies": [
+        "next/server",
+        "@/lib/db",
+        "@/lib/llm-client",
+        "@/lib/smart-routing",
+        "@/lib/event-bus",
+        "@/lib/types",
+        "@/lib/auth"
+      ],
+      "lineCount": 105,
+      "lastModified": "2026-08-17T03:11:39.000Z",
+      "indexedAt": "2026-08-19T09:41:49.335Z",
+      "category": "conductor"
+    },
+    {
+      "path": "src/app/api/connectors/route.ts",
+      "purpose": "(no purpose documented — add a JSDoc header)",
+      "keyFunctions": [
+        "GET",
+        "POST",
+        "DELETE"
+      ],
+      "dependencies": [
+        "next/server",
+        "@/lib/connector-marketplace",
+        "@/lib/logger"
+      ],
+      "lineCount": 166,
+      "lastModified": "2026-08-17T03:11:39.000Z",
+      "indexedAt": "2026-08-19T09:41:49.324Z",
+      "category": "general"
+    },
+    {
+      "path": "src/app/api/contact-finder/route.ts",
+      "purpose": "/api/contact-finder — v72 Phase 22 (RULE-70)",
+      "keyFunctions": [
+        "GET",
+        "POST"
+      ],
+      "dependencies": [
+        "next/server",
+        "@/lib/auth",
+        "@/lib/lead-hunter/contact-finder",
+        "@/lib/logger"
+      ],
+      "lineCount": 48,
+      "lastModified": "2026-08-19T06:00:18.000Z",
+      "indexedAt": "2026-08-19T09:41:49.324Z",
+      "category": "general"
+    },
+    {
+      "path": "src/app/api/contacts/import/route.ts",
+      "purpose": "POST /api/contacts/import — v72 Phase 22 (RULE-70)",
+      "keyFunctions": [
+        "POST",
+        "GET"
+      ],
+      "dependencies": [
+        "next/server",
+        "@/lib/auth",
+        "@/lib/lead-hunter/excel-importer",
+        "@/lib/logger",
+        "@/lib/db"
+      ],
+      "lineCount": 69,
+      "lastModified": "2026-08-19T05:59:16.000Z",
+      "indexedAt": "2026-08-19T09:41:49.329Z",
+      "category": "general"
+    },
+    {
+      "path": "src/app/api/contracts/route.ts",
+      "purpose": "/api/contracts — v73 Phase 23 (RULE-73)",
+      "keyFunctions": [
+        "GET",
+        "POST"
+      ],
+      "dependencies": [
+        "next/server",
+        "@/lib/auth",
+        "@/lib/db",
+        "@/lib/legal/contract-generator",
+        "@/lib/logger"
+      ],
+      "lineCount": 72,
+      "lastModified": "2026-08-19T06:30:54.000Z",
+      "indexedAt": "2026-08-19T09:41:49.336Z",
+      "category": "general"
+    },
+    {
+      "path": "src/app/api/cost-dashboard/route.ts",
+      "purpose": "(no purpose documented — add a JSDoc header)",
+      "keyFunctions": [
+        "GET"
+      ],
+      "dependencies": [
+        "next/server",
+        "@/lib/cost-dashboard",
+        "@/lib/logger"
+      ],
+      "lineCount": 29,
+      "lastModified": "2026-08-17T03:11:39.000Z",
+      "indexedAt": "2026-08-19T09:41:49.336Z",
+      "category": "general"
+    },
+    {
+      "path": "src/app/api/costs/route.ts",
+      "purpose": "(no purpose documented — add a JSDoc header)",
+      "keyFunctions": [
+        "GET"
+      ],
+      "dependencies": [
+        "next/server",
+        "@/lib/db",
+        "@/lib/types",
+        "@/lib/agent-costs"
+      ],
+      "lineCount": 98,
+      "lastModified": "2026-08-17T03:11:39.000Z",
+      "indexedAt": "2026-08-19T09:41:49.324Z",
+      "category": "general"
+    },
+    {
+      "path": "src/app/api/credential-vault/[key]/route.ts",
+      "purpose": "(no purpose documented — add a JSDoc header)",
+      "keyFunctions": [
+        "GET",
+        "DELETE"
+      ],
+      "dependencies": [
+        "next/server",
+        "@/lib/logger",
+        "@/lib/credential-vault",
+        "@/lib/auth"
+      ],
+      "lineCount": 71,
+      "lastModified": "2026-08-17T03:11:39.000Z",
+      "indexedAt": "2026-08-19T09:41:49.323Z",
+      "category": "general"
+    },
+    {
+      "path": "src/app/api/credential-vault/route.ts",
+      "purpose": "(no purpose documented — add a JSDoc header)",
+      "keyFunctions": [
+        "GET",
+        "POST"
+      ],
+      "dependencies": [
+        "next/server",
+        "@/lib/logger",
+        "@/lib/credential-vault"
+      ],
+      "lineCount": 55,
+      "lastModified": "2026-08-17T03:11:39.000Z",
+      "indexedAt": "2026-08-19T09:41:49.323Z",
+      "category": "general"
+    },
+    {
+      "path": "src/app/api/crm/leads/[id]/stage/route.ts",
+      "purpose": "(no purpose documented — add a JSDoc header)",
+      "keyFunctions": [
+        "PATCH"
+      ],
+      "dependencies": [
+        "next/server",
+        "@/lib/crm",
+        "@/lib/logger",
+        "zod"
+      ],
+      "lineCount": 33,
+      "lastModified": "2026-08-17T03:11:39.000Z",
+      "indexedAt": "2026-08-19T09:41:49.329Z",
+      "category": "general"
+    },
+    {
+      "path": "src/app/api/crm/leads/route.ts",
+      "purpose": "(no purpose documented — add a JSDoc header)",
+      "keyFunctions": [
+        "GET",
+        "POST"
+      ],
+      "dependencies": [
+        "next/server",
+        "@/lib/crm",
+        "@/lib/logger",
+        "zod"
+      ],
+      "lineCount": 42,
+      "lastModified": "2026-08-17T03:11:39.000Z",
+      "indexedAt": "2026-08-19T09:41:49.329Z",
+      "category": "general"
+    },
+    {
+      "path": "src/app/api/crm/pipeline/route.ts",
+      "purpose": "(no purpose documented — add a JSDoc header)",
+      "keyFunctions": [
+        "GET"
+      ],
+      "dependencies": [
+        "next/server",
+        "@/lib/crm",
+        "@/lib/logger"
+      ],
+      "lineCount": 16,
+      "lastModified": "2026-08-17T03:11:39.000Z",
+      "indexedAt": "2026-08-19T09:41:49.329Z",
+      "category": "general"
+    },
+    {
+      "path": "src/app/api/cron/[id]/run/route.ts",
+      "purpose": "(no purpose documented — add a JSDoc header)",
+      "keyFunctions": [
+        "POST"
+      ],
+      "dependencies": [
+        "next/server",
+        "@/lib/db",
+        "@/lib/logger",
+        "@/lib/event-bus",
+        "@/lib/types",
+        "@/lib/cron-scheduler"
+      ],
+      "lineCount": 69,
+      "lastModified": "2026-08-17T19:59:33.000Z",
+      "indexedAt": "2026-08-19T09:41:49.333Z",
+      "category": "general"
+    },
+    {
+      "path": "src/app/api/cron/route.ts",
+      "purpose": "(no purpose documented — add a JSDoc header)",
+      "keyFunctions": [
+        "GET"
+      ],
+      "dependencies": [
+        "next/server",
+        "@/lib/db",
+        "@/lib/logger",
+        "@/lib/types"
+      ],
+      "lineCount": 66,
+      "lastModified": "2026-08-17T03:11:39.000Z",
+      "indexedAt": "2026-08-19T09:41:49.333Z",
+      "category": "general"
+    },
+    {
+      "path": "src/app/api/deals/[id]/stage/route.ts",
+      "purpose": "(no purpose documented — add a JSDoc header)",
+      "keyFunctions": [
+        "PATCH"
+      ],
+      "dependencies": [
+        "next/server",
+        "@/lib/db",
+        "@/lib/logger",
+        "@/lib/event-bus",
+        "@/lib/types"
+      ],
+      "lineCount": 121,
+      "lastModified": "2026-08-17T03:11:39.000Z",
+      "indexedAt": "2026-08-19T09:41:49.333Z",
+      "category": "general"
+    },
+    {
+      "path": "src/app/api/debate/[id]/route.ts",
+      "purpose": "(no purpose documented — add a JSDoc header)",
+      "keyFunctions": [
+        "GET"
+      ],
+      "dependencies": [
+        "next/server",
+        "@/lib/logger",
+        "@/lib/debate"
+      ],
+      "lineCount": 32,
+      "lastModified": "2026-08-17T03:11:39.000Z",
+      "indexedAt": "2026-08-19T09:41:49.330Z",
+      "category": "general"
+    },
+    {
+      "path": "src/app/api/debate/route.ts",
+      "purpose": "(no purpose documented — add a JSDoc header)",
+      "keyFunctions": [
+        "GET",
+        "POST"
+      ],
+      "dependencies": [
+        "next/server",
+        "@/lib/logger",
+        "@/lib/debate"
+      ],
+      "lineCount": 50,
+      "lastModified": "2026-08-17T03:11:39.000Z",
+      "indexedAt": "2026-08-19T09:41:49.330Z",
+      "category": "general"
+    },
+    {
+      "path": "src/app/api/earning/research/route.ts",
+      "purpose": "(no purpose documented — add a JSDoc header)",
+      "keyFunctions": [
+        "GET",
+        "POST"
+      ],
+      "dependencies": [
+        "next/server",
+        "@/lib/hermes/earning-researcher"
+      ],
+      "lineCount": 31,
+      "lastModified": "2026-08-17T03:11:39.000Z",
+      "indexedAt": "2026-08-19T09:41:49.328Z",
+      "category": "general"
+    },
+    {
+      "path": "src/app/api/errors/route.ts",
+      "purpose": "(no purpose documented — add a JSDoc header)",
+      "keyFunctions": [
+        "POST",
+        "GET"
+      ],
+      "dependencies": [
+        "next/server",
+        "@/lib/logger",
+        "@/lib/error-tracking",
+        "@/lib/auth"
+      ],
+      "lineCount": 68,
+      "lastModified": "2026-08-17T03:11:39.000Z",
+      "indexedAt": "2026-08-19T09:41:49.324Z",
+      "category": "general"
+    },
+    {
+      "path": "src/app/api/events/route.ts",
+      "purpose": "(no purpose documented — add a JSDoc header)",
+      "keyFunctions": [
+        "GET"
+      ],
+      "dependencies": [
+        "@/lib/event-bus",
+        "@/lib/logger",
+        "@/lib/simulation",
+        "next/server",
+        "@/lib/types"
+      ],
+      "lineCount": 89,
+      "lastModified": "2026-08-17T03:11:39.000Z",
+      "indexedAt": "2026-08-19T09:41:49.336Z",
+      "category": "general"
+    },
+    {
+      "path": "src/app/api/expansion/earning-methods/route.ts",
+      "purpose": "(no purpose documented — add a JSDoc header)",
+      "keyFunctions": [
+        "GET",
+        "POST"
+      ],
+      "dependencies": [
+        "next/server",
+        "@/lib/db",
+        "@/lib/auth"
+      ],
+      "lineCount": 22,
+      "lastModified": "2026-08-17T03:30:37.000Z",
+      "indexedAt": "2026-08-19T09:41:49.331Z",
+      "category": "expansion"
+    },
+    {
+      "path": "src/app/api/expansion/service-opportunities/route.ts",
+      "purpose": "(no purpose documented — add a JSDoc header)",
+      "keyFunctions": [
+        "GET",
+        "POST"
+      ],
+      "dependencies": [
+        "next/server",
+        "@/lib/db",
+        "@/lib/auth",
+        "@/lib/pre-publish-gate"
+      ],
+      "lineCount": 28,
+      "lastModified": "2026-08-17T21:57:14.000Z",
+      "indexedAt": "2026-08-19T09:41:49.331Z",
+      "category": "expansion"
+    },
+    {
+      "path": "src/app/api/export/route.ts",
+      "purpose": "(no purpose documented — add a JSDoc header)",
+      "keyFunctions": [
+        "GET"
+      ],
+      "dependencies": [
+        "next/server",
+        "@/lib/db",
+        "@/lib/logger"
+      ],
+      "lineCount": 141,
+      "lastModified": "2026-08-17T03:11:39.000Z",
+      "indexedAt": "2026-08-19T09:41:49.334Z",
+      "category": "general"
+    },
+    {
+      "path": "src/app/api/failure-alchemy/route.ts",
+      "purpose": "(no purpose documented — add a JSDoc header)",
+      "keyFunctions": [
+        "GET",
+        "POST"
+      ],
+      "dependencies": [
+        "next/server",
+        "@/lib/logger",
+        "@/lib/failure-alchemy"
+      ],
+      "lineCount": 39,
+      "lastModified": "2026-08-17T03:11:39.000Z",
+      "indexedAt": "2026-08-19T09:41:49.326Z",
+      "category": "general"
+    },
+    {
+      "path": "src/app/api/feedback/route.ts",
+      "purpose": "(no purpose documented — add a JSDoc header)",
+      "keyFunctions": [
+        "POST",
+        "GET"
+      ],
+      "dependencies": [
+        "next/server",
+        "@/lib/db",
+        "@/lib/intelligence/feedback-loop",
+        "@/lib/auth"
+      ],
+      "lineCount": 18,
+      "lastModified": "2026-08-17T03:30:37.000Z",
+      "indexedAt": "2026-08-19T09:41:49.333Z",
+      "category": "general"
+    },
+    {
+      "path": "src/app/api/finance/pnl/route.ts",
+      "purpose": "GET /api/finance/pnl — v73 Phase 23 (RULE-74)",
+      "keyFunctions": [
+        "GET"
+      ],
+      "dependencies": [
+        "next/server",
+        "@/lib/auth",
+        "@/lib/finance/ledger",
+        "@/lib/logger"
+      ],
+      "lineCount": 46,
+      "lastModified": "2026-08-19T06:29:58.000Z",
+      "indexedAt": "2026-08-19T09:41:49.330Z",
+      "category": "general"
+    },
+    {
+      "path": "src/app/api/free-offers/route.ts",
+      "purpose": "GET /api/free-offers — v72 Phase 22 (RULE-70)",
+      "keyFunctions": [
+        "GET",
+        "POST"
+      ],
+      "dependencies": [
+        "next/server",
+        "@/lib/auth",
+        "@/lib/lead-hunter/free-offer-engine",
+        "@/lib/logger",
+        "@/lib/db"
+      ],
+      "lineCount": 72,
+      "lastModified": "2026-08-19T05:59:29.000Z",
+      "indexedAt": "2026-08-19T09:41:49.328Z",
+      "category": "general"
+    },
+    {
+      "path": "src/app/api/funnel/route.ts",
+      "purpose": "(no purpose documented — add a JSDoc header)",
+      "keyFunctions": [
+        "GET"
+      ],
+      "dependencies": [
+        "next/server",
+        "@/lib/db",
+        "@/lib/types",
+        "@/lib/funnel-decay"
+      ],
+      "lineCount": 110,
+      "lastModified": "2026-08-17T03:11:39.000Z",
+      "indexedAt": "2026-08-19T09:41:49.336Z",
+      "category": "general"
+    },
+    {
+      "path": "src/app/api/goals/route.ts",
+      "purpose": "(no purpose documented — add a JSDoc header)",
+      "keyFunctions": [
+        "GET",
+        "POST",
+        "PATCH"
+      ],
+      "dependencies": [
+        "next/server",
+        "@/lib/goals",
+        "@/lib/logger"
+      ],
+      "lineCount": 86,
+      "lastModified": "2026-08-17T03:11:39.000Z",
+      "indexedAt": "2026-08-19T09:41:49.324Z",
+      "category": "general"
+    },
+    {
+      "path": "src/app/api/health/route.ts",
+      "purpose": "(no purpose documented — add a JSDoc header)",
+      "keyFunctions": [
+        "GET"
+      ],
+      "dependencies": [
+        "next/server",
+        "@/lib/db",
+        "@/lib/logger",
+        "@/lib/self-heal",
+        "@/lib/llm-router",
+        "@/lib/email-service",
+        "@/lib/error-tracking"
+      ],
+      "lineCount": 119,
+      "lastModified": "2026-08-17T03:11:39.000Z",
+      "indexedAt": "2026-08-19T09:41:49.332Z",
+      "category": "general"
+    },
+    {
+      "path": "src/app/api/hermes/execute/route.ts",
+      "purpose": "(no purpose documented — add a JSDoc header)",
+      "keyFunctions": [
+        "POST"
+      ],
+      "dependencies": [
+        "next/server",
+        "@/lib/hermes/toolsets"
+      ],
+      "lineCount": 28,
+      "lastModified": "2026-08-17T03:11:39.000Z",
+      "indexedAt": "2026-08-19T09:41:49.328Z",
+      "category": "general"
+    },
+    {
+      "path": "src/app/api/hermes/memory/route.ts",
+      "purpose": "(no purpose documented — add a JSDoc header)",
+      "keyFunctions": [
+        "GET",
+        "POST"
+      ],
+      "dependencies": [
+        "next/server",
+        "@/lib/hermes/memory"
+      ],
+      "lineCount": 31,
+      "lastModified": "2026-08-17T03:11:39.000Z",
+      "indexedAt": "2026-08-19T09:41:49.328Z",
+      "category": "memory"
+    },
+    {
+      "path": "src/app/api/image-gen/route.ts",
+      "purpose": "(no purpose documented — add a JSDoc header)",
+      "keyFunctions": [
+        "POST"
+      ],
+      "dependencies": [
+        "next/server",
+        "@/lib/logger",
+        "z-ai-web-dev-sdk"
+      ],
+      "lineCount": 62,
+      "lastModified": "2026-08-17T03:11:39.000Z",
+      "indexedAt": "2026-08-19T09:41:49.330Z",
+      "category": "general"
+    },
+    {
+      "path": "src/app/api/industry-playbooks/route.ts",
+      "purpose": "(no purpose documented — add a JSDoc header)",
+      "keyFunctions": [
+        "GET",
+        "POST"
+      ],
+      "dependencies": [
+        "next/server",
+        "@/lib/logger",
+        "@/lib/industry-playbooks"
+      ],
+      "lineCount": 67,
+      "lastModified": "2026-08-17T03:11:39.000Z",
+      "indexedAt": "2026-08-19T09:41:49.328Z",
+      "category": "general"
+    },
+    {
+      "path": "src/app/api/insights/route.ts",
+      "purpose": "(no purpose documented — add a JSDoc header)",
+      "keyFunctions": [
+        "GET",
+        "POST"
+      ],
+      "dependencies": [
+        "next/server",
+        "@/lib/ai-insights",
+        "@/lib/logger"
+      ],
+      "lineCount": 69,
+      "lastModified": "2026-08-17T03:11:39.000Z",
+      "indexedAt": "2026-08-19T09:41:49.336Z",
+      "category": "general"
+    },
+    {
+      "path": "src/app/api/invoices/[orderId]/route.ts",
+      "purpose": "(no purpose documented — add a JSDoc header)",
+      "keyFunctions": [
+        "GET"
+      ],
+      "dependencies": [
+        "next/server",
+        "@/lib/invoice-generator",
+        "@/lib/auth"
+      ],
+      "lineCount": 11,
+      "lastModified": "2026-08-17T03:11:39.000Z",
+      "indexedAt": "2026-08-19T09:41:49.330Z",
+      "category": "general"
+    },
+    {
+      "path": "src/app/api/knowledge-base/route.ts",
+      "purpose": "(no purpose documented — add a JSDoc header)",
+      "keyFunctions": [
+        "GET"
+      ],
+      "dependencies": [
+        "next/server",
+        "@/lib/knowledge-base",
+        "@/lib/logger"
+      ],
+      "lineCount": 91,
+      "lastModified": "2026-08-17T03:11:39.000Z",
+      "indexedAt": "2026-08-19T09:41:49.337Z",
+      "category": "memory"
+    },
+    {
+      "path": "src/app/api/kpis/route.ts",
+      "purpose": "(no purpose documented — add a JSDoc header)",
+      "keyFunctions": [
+        "GET",
+        "POST"
+      ],
+      "dependencies": [
+        "next/server",
+        "@/lib/logger",
+        "@/lib/kpi-engine"
+      ],
+      "lineCount": 48,
+      "lastModified": "2026-08-17T03:11:39.000Z",
+      "indexedAt": "2026-08-19T09:41:49.324Z",
+      "category": "general"
+    },
+    {
+      "path": "src/app/api/lead-hunt/run/route.ts",
+      "purpose": "GET /api/lead-hunt/run — v71 Phase 21 (RULE-69)",
+      "keyFunctions": [
+        "POST",
+        "GET"
+      ],
+      "dependencies": [
+        "next/server",
+        "@/lib/auth",
+        "@/lib/lead-hunter",
+        "@/lib/logger",
+        "@/lib/db"
+      ],
+      "lineCount": 117,
+      "lastModified": "2026-08-19T05:21:18.000Z",
+      "indexedAt": "2026-08-19T09:41:49.328Z",
+      "category": "general"
+    },
+    {
+      "path": "src/app/api/leads/[id]/approve/route.ts",
+      "purpose": "(no purpose documented — add a JSDoc header)",
+      "keyFunctions": [
+        "POST"
+      ],
+      "dependencies": [
+        "next/server",
+        "@/lib/db",
+        "@/lib/logger",
+        "@/lib/auth"
+      ],
+      "lineCount": 66,
+      "lastModified": "2026-08-17T03:11:39.000Z",
+      "indexedAt": "2026-08-19T09:41:49.328Z",
+      "category": "general"
+    },
+    {
+      "path": "src/app/api/leads/[id]/discard/route.ts",
+      "purpose": "(no purpose documented — add a JSDoc header)",
+      "keyFunctions": [
+        "POST"
+      ],
+      "dependencies": [
+        "next/server",
+        "@/lib/db",
+        "@/lib/logger",
+        "@/lib/auth"
+      ],
+      "lineCount": 46,
+      "lastModified": "2026-08-17T03:11:39.000Z",
+      "indexedAt": "2026-08-19T09:41:49.328Z",
+      "category": "general"
+    },
+    {
+      "path": "src/app/api/leads/route.ts",
+      "purpose": "(no purpose documented — add a JSDoc header)",
+      "keyFunctions": [
+        "GET"
+      ],
+      "dependencies": [
+        "next/server",
+        "@/lib/db",
+        "@/lib/auth"
+      ],
+      "lineCount": 62,
+      "lastModified": "2026-08-17T03:11:39.000Z",
+      "indexedAt": "2026-08-19T09:41:49.328Z",
+      "category": "general"
+    },
+    {
+      "path": "src/app/api/learn/route.ts",
+      "purpose": "POST /api/learn — v65 Phase 15 (Unified Multi-Format Learning API)",
+      "keyFunctions": [
+        "POST"
+      ],
+      "dependencies": [
+        "next/server",
+        "@/lib/db",
+        "@/lib/logger",
+        "@/lib/hermes/learning",
+        "@/lib/vector-memory",
+        "z-ai-web-dev-sdk"
+      ],
+      "lineCount": 152,
+      "lastModified": "2026-08-17T21:56:50.000Z",
+      "indexedAt": "2026-08-19T09:41:49.329Z",
+      "category": "general"
+    },
+    {
+      "path": "src/app/api/learning/ingest/route.ts",
+      "purpose": "(no purpose documented — add a JSDoc header)",
+      "keyFunctions": [
+        "POST"
+      ],
+      "dependencies": [
+        "next/server",
+        "@/lib/hermes/learning"
+      ],
+      "lineCount": 33,
+      "lastModified": "2026-08-17T03:11:39.000Z",
+      "indexedAt": "2026-08-19T09:41:49.335Z",
+      "category": "general"
+    },
+    {
+      "path": "src/app/api/llm-router/status/route.ts",
+      "purpose": "(no purpose documented — add a JSDoc header)",
+      "keyFunctions": [
+        "GET"
+      ],
+      "dependencies": [
+        "next/server",
+        "@/lib/llm-router",
+        "@/lib/ollama-client",
+        "@/lib/freeswitch-esl"
+      ],
+      "lineCount": 47,
+      "lastModified": "2026-08-17T03:11:39.000Z",
+      "indexedAt": "2026-08-19T09:41:49.333Z",
+      "category": "llm"
+    },
+    {
+      "path": "src/app/api/mcp-client/route.ts",
+      "purpose": "(no purpose documented — add a JSDoc header)",
+      "keyFunctions": [
+        "GET",
+        "POST"
+      ],
+      "dependencies": [
+        "next/server",
+        "@/lib/logger",
+        "@/lib/mcp-client"
+      ],
+      "lineCount": 76,
+      "lastModified": "2026-08-17T03:11:39.000Z",
+      "indexedAt": "2026-08-19T09:41:49.326Z",
+      "category": "general"
+    },
+    {
+      "path": "src/app/api/milestones/[id]/viewed/route.ts",
+      "purpose": "(no purpose documented — add a JSDoc header)",
+      "keyFunctions": [
+        "POST"
+      ],
+      "dependencies": [
+        "next/server",
+        "@/lib/logger",
+        "@/lib/milestones"
+      ],
+      "lineCount": 32,
+      "lastModified": "2026-08-17T03:11:39.000Z",
+      "indexedAt": "2026-08-19T09:41:49.324Z",
+      "category": "general"
+    },
+    {
+      "path": "src/app/api/milestones/route.ts",
+      "purpose": "(no purpose documented — add a JSDoc header)",
+      "keyFunctions": [
+        "GET",
+        "POST"
+      ],
+      "dependencies": [
+        "next/server",
+        "@/lib/logger",
+        "@/lib/milestones"
+      ],
+      "lineCount": 54,
+      "lastModified": "2026-08-17T03:11:39.000Z",
+      "indexedAt": "2026-08-19T09:41:49.325Z",
+      "category": "general"
+    },
+    {
+      "path": "src/app/api/monitor/heal/route.ts",
+      "purpose": "(no purpose documented — add a JSDoc header)",
+      "keyFunctions": [
+        "POST"
+      ],
+      "dependencies": [
+        "next/server",
+        "@/lib/monitor",
+        "@/lib/logger"
+      ],
+      "lineCount": 51,
+      "lastModified": "2026-08-17T03:11:39.000Z",
+      "indexedAt": "2026-08-19T09:41:49.323Z",
+      "category": "general"
+    },
+    {
+      "path": "src/app/api/monitor/route.ts",
+      "purpose": "Re-export checkAgentHealth for downstream consumers.",
+      "keyFunctions": [
+        "GET",
+        "POST"
+      ],
+      "dependencies": [
+        "next/server",
+        "@/lib/monitor",
+        "@/lib/logger"
+      ],
+      "lineCount": 113,
+      "lastModified": "2026-08-17T03:11:39.000Z",
+      "indexedAt": "2026-08-19T09:41:49.323Z",
+      "category": "general"
+    },
+    {
+      "path": "src/app/api/multi-company-cycles/route.ts",
+      "purpose": "(no purpose documented — add a JSDoc header)",
+      "keyFunctions": [
+        "GET",
+        "POST"
+      ],
+      "dependencies": [
+        "next/server",
+        "@/lib/multi-company-cycles",
+        "@/lib/logger"
+      ],
+      "lineCount": 81,
+      "lastModified": "2026-08-17T03:11:39.000Z",
+      "indexedAt": "2026-08-19T09:41:49.324Z",
+      "category": "general"
+    },
+    {
+      "path": "src/app/api/notes/[id]/route.ts",
+      "purpose": "(no purpose documented — add a JSDoc header)",
+      "keyFunctions": [
+        "PUT",
+        "DELETE"
+      ],
+      "dependencies": [
+        "next/server",
+        "@/lib/logger",
+        "@/lib/notes"
+      ],
+      "lineCount": 65,
+      "lastModified": "2026-08-17T03:11:39.000Z",
+      "indexedAt": "2026-08-19T09:41:49.332Z",
+      "category": "general"
+    },
+    {
+      "path": "src/app/api/notes/route.ts",
+      "purpose": "(no purpose documented — add a JSDoc header)",
+      "keyFunctions": [
+        "GET",
+        "POST"
+      ],
+      "dependencies": [
+        "next/server",
+        "@/lib/logger",
+        "@/lib/notes"
+      ],
+      "lineCount": 62,
+      "lastModified": "2026-08-17T03:11:39.000Z",
+      "indexedAt": "2026-08-19T09:41:49.332Z",
+      "category": "general"
+    },
+    {
+      "path": "src/app/api/notifications/route.ts",
+      "purpose": "(no purpose documented — add a JSDoc header)",
+      "keyFunctions": [
+        "GET"
+      ],
+      "dependencies": [
+        "next/server",
+        "@/lib/db",
+        "@/lib/auth"
+      ],
+      "lineCount": 39,
+      "lastModified": "2026-08-17T03:11:39.000Z",
+      "indexedAt": "2026-08-19T09:41:49.338Z",
+      "category": "general"
+    },
+    {
+      "path": "src/app/api/notifications/subscribe/route.ts",
+      "purpose": "(no purpose documented — add a JSDoc header)",
+      "keyFunctions": [
+        "POST",
+        "DELETE",
+        "GET"
+      ],
+      "dependencies": [
+        "next/server",
+        "@/lib/db",
+        "@/lib/auth"
+      ],
+      "lineCount": 100,
+      "lastModified": "2026-08-17T03:11:39.000Z",
+      "indexedAt": "2026-08-19T09:41:49.337Z",
+      "category": "general"
+    },
+    {
+      "path": "src/app/api/notifications/vapid-key/route.ts",
+      "purpose": "(no purpose documented — add a JSDoc header)",
+      "keyFunctions": [
+        "GET"
+      ],
+      "dependencies": [
+        "next/server",
+        "@/lib/db",
+        "@/lib/auth"
+      ],
+      "lineCount": 29,
+      "lastModified": "2026-08-17T03:11:39.000Z",
+      "indexedAt": "2026-08-19T09:41:49.337Z",
+      "category": "general"
+    },
+    {
+      "path": "src/app/api/onboarding/route.ts",
+      "purpose": "(no purpose documented — add a JSDoc header)",
+      "keyFunctions": [
+        "GET"
+      ],
+      "dependencies": [
+        "next/server",
+        "@/lib/db",
+        "@/lib/logger"
+      ],
+      "lineCount": 46,
+      "lastModified": "2026-08-17T03:11:39.000Z",
+      "indexedAt": "2026-08-19T09:41:49.336Z",
+      "category": "general"
+    },
+    {
+      "path": "src/app/api/openapi/route.ts",
+      "purpose": "(no purpose documented — add a JSDoc header)",
+      "keyFunctions": [
+        "GET",
+        "OPTIONS"
+      ],
+      "dependencies": [
+        "next/server",
+        "@/lib/openapi",
+        "@/lib/logger"
+      ],
+      "lineCount": 56,
+      "lastModified": "2026-08-17T03:11:39.000Z",
+      "indexedAt": "2026-08-19T09:41:49.330Z",
+      "category": "general"
+    },
+    {
+      "path": "src/app/api/outreach/status/route.ts",
+      "purpose": "(no purpose documented — add a JSDoc header)",
+      "keyFunctions": [
+        "GET",
+        "POST"
+      ],
+      "dependencies": [
+        "next/server",
+        "@/lib/health-sim",
+        "@/lib/auth"
+      ],
+      "lineCount": 43,
+      "lastModified": "2026-08-17T03:30:24.000Z",
+      "indexedAt": "2026-08-19T09:41:49.337Z",
+      "category": "general"
+    },
+    {
+      "path": "src/app/api/outreach/suppression/route.ts",
+      "purpose": "(no purpose documented — add a JSDoc header)",
+      "keyFunctions": [
+        "GET",
+        "POST",
+        "DELETE"
+      ],
+      "dependencies": [
+        "next/server",
+        "@/lib/db",
+        "@/lib/auth"
+      ],
+      "lineCount": 129,
+      "lastModified": "2026-08-17T03:30:24.000Z",
+      "indexedAt": "2026-08-19T09:41:49.337Z",
+      "category": "general"
+    },
+    {
+      "path": "src/app/api/planner/route.ts",
+      "purpose": "(no purpose documented — add a JSDoc header)",
+      "keyFunctions": [
+        "POST",
+        "GET"
+      ],
+      "dependencies": [
+        "next/server",
+        "@/lib/planner",
+        "@/lib/logger"
+      ],
+      "lineCount": 117,
+      "lastModified": "2026-08-17T03:11:39.000Z",
+      "indexedAt": "2026-08-19T09:41:49.335Z",
+      "category": "general"
+    },
+    {
+      "path": "src/app/api/playground/chat/route.ts",
+      "purpose": "POST /api/playground/chat — public, no-login LLM chat endpoint.",
+      "keyFunctions": [
+        "POST",
+        "GET"
+      ],
+      "dependencies": [
+        "next/server",
+        "@/lib/llm-router",
+        "@/lib/db",
+        "@/lib/logger",
+        "@/lib/multimodal-fallback"
+      ],
+      "lineCount": 257,
+      "lastModified": "2026-08-17T15:32:28.000Z",
+      "indexedAt": "2026-08-19T09:41:49.329Z",
+      "category": "general"
+    },
+    {
+      "path": "src/app/api/portal/access/route.ts",
+      "purpose": "/api/portal/access — v73 Phase 23",
+      "keyFunctions": [
+        "GET",
+        "POST"
+      ],
+      "dependencies": [
+        "next/server",
+        "@/lib/db",
+        "@/lib/logger",
+        "crypto",
+        "@/lib/auth"
+      ],
+      "lineCount": 115,
+      "lastModified": "2026-08-19T06:33:47.000Z",
+      "indexedAt": "2026-08-19T09:41:49.324Z",
+      "category": "general"
+    },
+    {
+      "path": "src/app/api/proactive-promo/run/route.ts",
+      "purpose": "POST /api/proactive-promo/run — v72 Phase 22 (RULE-70)",
+      "keyFunctions": [
+        "POST",
+        "GET"
+      ],
+      "dependencies": [
+        "next/server",
+        "@/lib/auth",
+        "@/lib/logger",
+        "@/lib/lead-hunter/google-maps-scout",
+        "@/lib/outreach-coordinator",
+        "@/lib/db"
+      ],
+      "lineCount": 85,
+      "lastModified": "2026-08-19T05:59:44.000Z",
+      "indexedAt": "2026-08-19T09:41:49.326Z",
+      "category": "general"
+    },
+    {
+      "path": "src/app/api/refactor-proposals/[id]/merge/route.ts",
+      "purpose": "POST /api/refactor-proposals/[id]/merge — v73 Phase 23 (RULE-72)",
+      "keyFunctions": [
+        "POST"
+      ],
+      "dependencies": [
+        "next/server",
+        "@/lib/auth",
+        "@/lib/self-evolution/refactor-engine",
+        "@/lib/logger"
+      ],
+      "lineCount": 41,
+      "lastModified": "2026-08-19T06:30:40.000Z",
+      "indexedAt": "2026-08-19T09:41:49.336Z",
+      "category": "general"
+    },
+    {
+      "path": "src/app/api/refactor-proposals/[id]/review/route.ts",
+      "purpose": "POST /api/refactor-proposals/[id]/review — v74 Phase 24 (RULE-75)",
+      "keyFunctions": [
+        "POST"
+      ],
+      "dependencies": [
+        "next/server",
+        "@/lib/auth",
+        "@/lib/self-evolution/refactor-engine",
+        "@/lib/logger"
+      ],
+      "lineCount": 39,
+      "lastModified": "2026-08-19T06:54:55.000Z",
+      "indexedAt": "2026-08-19T09:41:49.336Z",
+      "category": "general"
+    },
+    {
+      "path": "src/app/api/refactor-proposals/[id]/suggest/route.ts",
+      "purpose": "POST /api/refactor-proposals/[id]/suggest — v74 Phase 24 (RULE-75)",
+      "keyFunctions": [
+        "POST"
+      ],
+      "dependencies": [
+        "next/server",
+        "@/lib/auth",
+        "@/lib/self-evolution/refactor-engine",
+        "@/lib/logger"
+      ],
+      "lineCount": 46,
+      "lastModified": "2026-08-19T06:55:13.000Z",
+      "indexedAt": "2026-08-19T09:41:49.336Z",
+      "category": "general"
+    },
+    {
+      "path": "src/app/api/refactor-proposals/route.ts",
+      "purpose": "/api/refactor-proposals — v73 Phase 23 (RULE-72)",
+      "keyFunctions": [
+        "GET",
+        "POST"
+      ],
+      "dependencies": [
+        "next/server",
+        "@/lib/auth",
+        "@/lib/db",
+        "@/lib/self-evolution/refactor-engine",
+        "@/lib/logger"
+      ],
+      "lineCount": 75,
+      "lastModified": "2026-08-19T06:30:24.000Z",
+      "indexedAt": "2026-08-19T09:41:49.336Z",
+      "category": "general"
+    },
+    {
+      "path": "src/app/api/revenue-engine/route.ts",
+      "purpose": "(no purpose documented — add a JSDoc header)",
+      "keyFunctions": [
+        "GET",
+        "POST"
+      ],
+      "dependencies": [
+        "next/server",
+        "@/lib/logger",
+        "@/lib/revenue-engine"
+      ],
+      "lineCount": 38,
+      "lastModified": "2026-08-17T03:11:39.000Z",
+      "indexedAt": "2026-08-19T09:41:49.330Z",
+      "category": "general"
+    },
+    {
+      "path": "src/app/api/revenue-loop/route.ts",
+      "purpose": "(no purpose documented — add a JSDoc header)",
+      "keyFunctions": [
+        "GET"
+      ],
+      "dependencies": [
+        "next/server",
+        "@/lib/db",
+        "@/lib/auth",
+        "@/lib/outreach-executor"
+      ],
+      "lineCount": 101,
+      "lastModified": "2026-08-17T03:11:39.000Z",
+      "indexedAt": "2026-08-19T09:41:49.336Z",
+      "category": "general"
+    },
+    {
+      "path": "src/app/api/route.ts",
+      "purpose": "(no purpose documented — add a JSDoc header)",
+      "keyFunctions": [
+        "GET"
+      ],
+      "dependencies": [
+        "next/server",
+        "@/lib/db"
+      ],
+      "lineCount": 24,
+      "lastModified": "2026-08-17T03:11:39.000Z",
+      "indexedAt": "2026-08-19T09:41:49.337Z",
+      "category": "general"
+    },
+    {
+      "path": "src/app/api/sample-data/route.ts",
+      "purpose": "(no purpose documented — add a JSDoc header)",
+      "keyFunctions": [
+        "GET",
+        "POST",
+        "DELETE"
+      ],
+      "dependencies": [
+        "next/server",
+        "@/lib/db",
+        "@/lib/logger",
+        "@/lib/simulation"
+      ],
+      "lineCount": 354,
+      "lastModified": "2026-08-17T03:11:39.000Z",
+      "indexedAt": "2026-08-19T09:41:49.334Z",
+      "category": "general"
+    },
+    {
+      "path": "src/app/api/screen-vision/route.ts",
+      "purpose": "(no purpose documented — add a JSDoc header)",
+      "keyFunctions": [
+        "POST",
+        "GET"
+      ],
+      "dependencies": [
+        "next/server",
+        "@/lib/screen-vision"
+      ],
+      "lineCount": 49,
+      "lastModified": "2026-08-17T03:11:39.000Z",
+      "indexedAt": "2026-08-19T09:41:49.329Z",
+      "category": "general"
+    },
+    {
+      "path": "src/app/api/seed/route.ts",
+      "purpose": "(no purpose documented — add a JSDoc header)",
+      "keyFunctions": [
+        "GET"
+      ],
+      "dependencies": [
+        "next/server",
+        "@/lib/db",
+        "@/lib/logger",
+        "@/lib/simulation",
+        "@/lib/approval-decision",
+        "@/lib/monitor",
+        "@/lib/env-loader",
+        "@/lib/auth",
+        "@/lib/types"
+      ],
+      "lineCount": 288,
+      "lastModified": "2026-08-17T03:11:39.000Z",
+      "indexedAt": "2026-08-19T09:41:49.329Z",
+      "category": "general"
+    },
+    {
+      "path": "src/app/api/services/approve/route.ts",
+      "purpose": "POST /api/services/approve — Owner approves a pending crypto payment + triggers build.",
+      "keyFunctions": [
+        "POST"
+      ],
+      "dependencies": [
+        "next/server",
+        "@/lib/logger",
+        "@/lib/services/crypto-checkout",
+        "@/lib/auth"
+      ],
+      "lineCount": 51,
+      "lastModified": "2026-08-17T03:11:39.000Z",
+      "indexedAt": "2026-08-19T09:41:49.332Z",
+      "category": "services"
+    },
+    {
+      "path": "src/app/api/services/catalog/route.ts",
+      "purpose": "GET /api/services/catalog — public service catalog.",
+      "keyFunctions": [
+        "GET"
+      ],
+      "dependencies": [
+        "next/server",
+        "@/lib/services/catalog",
+        "@/lib/stripe-checkout",
+        "@/lib/db"
+      ],
+      "lineCount": 63,
+      "lastModified": "2026-08-17T21:53:39.000Z",
+      "indexedAt": "2026-08-19T09:41:49.331Z",
+      "category": "services"
+    },
+    {
+      "path": "src/app/api/services/checkout/route.ts",
+      "purpose": "POST /api/services/checkout — Create a crypto payment order.",
+      "keyFunctions": [
+        "POST"
+      ],
+      "dependencies": [
+        "next/server",
+        "@/lib/logger",
+        "@/lib/services/crypto-checkout"
+      ],
+      "lineCount": 58,
+      "lastModified": "2026-08-17T03:11:39.000Z",
+      "indexedAt": "2026-08-19T09:41:49.332Z",
+      "category": "services"
+    },
+    {
+      "path": "src/app/api/services/orders/[id]/deliverable/route.ts",
+      "purpose": "GET /api/services/orders/[id]/deliverable — download the built zip.",
+      "keyFunctions": [
+        "GET"
+      ],
+      "dependencies": [
+        "next/server",
+        "@/lib/db",
+        "fs"
+      ],
+      "lineCount": 43,
+      "lastModified": "2026-08-17T03:11:39.000Z",
+      "indexedAt": "2026-08-19T09:41:49.332Z",
+      "category": "services"
+    },
+    {
+      "path": "src/app/api/services/orders/[id]/route.ts",
+      "purpose": "GET /api/services/orders/[id] — get a single order's status + details.",
+      "keyFunctions": [
+        "GET"
+      ],
+      "dependencies": [
+        "next/server",
+        "@/lib/db"
+      ],
+      "lineCount": 44,
+      "lastModified": "2026-08-17T03:11:39.000Z",
+      "indexedAt": "2026-08-19T09:41:49.332Z",
+      "category": "services"
+    },
+    {
+      "path": "src/app/api/services/orders/route.ts",
+      "purpose": "GET /api/services/orders — list orders for the current session.",
+      "keyFunctions": [
+        "GET"
+      ],
+      "dependencies": [
+        "next/server",
+        "@/lib/db"
+      ],
+      "lineCount": 53,
+      "lastModified": "2026-08-17T03:11:39.000Z",
+      "indexedAt": "2026-08-19T09:41:49.332Z",
+      "category": "services"
+    },
+    {
+      "path": "src/app/api/services/pending/route.ts",
+      "purpose": "GET /api/services/pending — list pending crypto payments for the owner dashboard.",
+      "keyFunctions": [
+        "GET"
+      ],
+      "dependencies": [
+        "next/server",
+        "@/lib/services/crypto-checkout"
+      ],
+      "lineCount": 13,
+      "lastModified": "2026-08-17T03:11:39.000Z",
+      "indexedAt": "2026-08-19T09:41:49.331Z",
+      "category": "services"
+    },
+    {
+      "path": "src/app/api/services/preview/route.ts",
+      "purpose": "POST /api/services/preview — free preview build (rate-limited).",
+      "keyFunctions": [
+        "POST"
+      ],
+      "dependencies": [
+        "next/server",
+        "@/lib/llm-router",
+        "@/lib/services/catalog",
+        "@/lib/services/builder",
+        "@/lib/logger"
+      ],
+      "lineCount": 148,
+      "lastModified": "2026-08-17T03:11:39.000Z",
+      "indexedAt": "2026-08-19T09:41:49.332Z",
+      "category": "services"
+    },
+    {
+      "path": "src/app/api/services/refund/route.ts",
+      "purpose": "(no purpose documented — add a JSDoc header)",
+      "keyFunctions": [
+        "POST"
+      ],
+      "dependencies": [
+        "next/server",
+        "@/lib/db",
+        "@/lib/logger",
+        "@/lib/auth",
+        "@/lib/email-service",
+        "@/lib/services/builder",
+        "fs"
+      ],
+      "lineCount": 107,
+      "lastModified": "2026-08-17T03:11:39.000Z",
+      "indexedAt": "2026-08-19T09:41:49.331Z",
+      "category": "services"
+    },
+    {
+      "path": "src/app/api/services/upi/approve/route.ts",
+      "purpose": "(no purpose documented — add a JSDoc header)",
+      "keyFunctions": [
+        "POST"
+      ],
+      "dependencies": [
+        "next/server",
+        "@/lib/upi-payments",
+        "@/lib/auth"
+      ],
+      "lineCount": 40,
+      "lastModified": "2026-08-17T03:30:24.000Z",
+      "indexedAt": "2026-08-19T09:41:49.332Z",
+      "category": "services"
+    },
+    {
+      "path": "src/app/api/services/upi/checkout/route.ts",
+      "purpose": "(no purpose documented — add a JSDoc header)",
+      "keyFunctions": [
+        "POST"
+      ],
+      "dependencies": [
+        "next/server",
+        "@/lib/upi-payments"
+      ],
+      "lineCount": 50,
+      "lastModified": "2026-08-17T03:11:39.000Z",
+      "indexedAt": "2026-08-19T09:41:49.331Z",
+      "category": "services"
+    },
+    {
+      "path": "src/app/api/services/upi/claim/route.ts",
+      "purpose": "(no purpose documented — add a JSDoc header)",
+      "keyFunctions": [
+        "POST"
+      ],
+      "dependencies": [
+        "next/server",
+        "@/lib/upi-payments"
+      ],
+      "lineCount": 33,
+      "lastModified": "2026-08-17T03:11:39.000Z",
+      "indexedAt": "2026-08-19T09:41:49.332Z",
+      "category": "services"
+    },
+    {
+      "path": "src/app/api/services/upi/pending/route.ts",
+      "purpose": "(no purpose documented — add a JSDoc header)",
+      "keyFunctions": [
+        "GET"
+      ],
+      "dependencies": [
+        "next/server",
+        "@/lib/upi-payments",
+        "@/lib/auth"
+      ],
+      "lineCount": 22,
+      "lastModified": "2026-08-17T03:30:24.000Z",
+      "indexedAt": "2026-08-19T09:41:49.331Z",
+      "category": "services"
+    },
+    {
+      "path": "src/app/api/settings/env/route.ts",
+      "purpose": "POST /api/settings/env — Dynamic env writer (v57 comprehensive).",
+      "keyFunctions": [
+        "POST",
+        "GET"
+      ],
+      "dependencies": [
+        "next/server",
+        "fs",
+        "path",
+        "@/lib/logger",
+        "@/lib/auth"
+      ],
+      "lineCount": 199,
+      "lastModified": "2026-08-17T14:49:10.000Z",
+      "indexedAt": "2026-08-19T09:41:49.325Z",
+      "category": "general"
+    },
+    {
+      "path": "src/app/api/settings/payment-qr/route.ts",
+      "purpose": "(no purpose documented — add a JSDoc header)",
+      "keyFunctions": [
+        "GET"
+      ],
+      "dependencies": [
+        "next/server",
+        "@/lib/upi-payments",
+        "@/lib/auth"
+      ],
+      "lineCount": 37,
+      "lastModified": "2026-08-17T03:30:24.000Z",
+      "indexedAt": "2026-08-19T09:41:49.325Z",
+      "category": "general"
+    },
+    {
+      "path": "src/app/api/settings/route.ts",
+      "purpose": "(no purpose documented — add a JSDoc header)",
+      "keyFunctions": [
+        "GET"
+      ],
+      "dependencies": [
+        "next/server",
+        "@/lib/freeswitch-esl",
+        "@/lib/ollama-client",
+        "@/lib/db"
+      ],
+      "lineCount": 60,
+      "lastModified": "2026-08-17T03:11:39.000Z",
+      "indexedAt": "2026-08-19T09:41:49.325Z",
+      "category": "general"
+    },
+    {
+      "path": "src/app/api/settings/upi/route.ts",
+      "purpose": "(no purpose documented — add a JSDoc header)",
+      "keyFunctions": [
+        "GET",
+        "POST"
+      ],
+      "dependencies": [
+        "next/server",
+        "@/lib/upi-payments",
+        "@/lib/auth"
+      ],
+      "lineCount": 50,
+      "lastModified": "2026-08-17T03:30:24.000Z",
+      "indexedAt": "2026-08-19T09:41:49.325Z",
+      "category": "general"
+    },
+    {
+      "path": "src/app/api/simulations/metrics/route.ts",
+      "purpose": "GET /api/simulations/metrics — v63 Phase 13",
+      "keyFunctions": [
+        "GET"
+      ],
+      "dependencies": [
+        "next/server",
+        "@/lib/simulation-engine",
+        "@/lib/logger"
+      ],
+      "lineCount": 19,
+      "lastModified": "2026-08-17T21:23:01.000Z",
+      "indexedAt": "2026-08-19T09:41:49.330Z",
+      "category": "general"
+    },
+    {
+      "path": "src/app/api/simulations/report/route.ts",
+      "purpose": "GET /api/simulations/report — v63 Phase 13",
+      "keyFunctions": [
+        "GET"
+      ],
+      "dependencies": [
+        "next/server",
+        "@/lib/db",
+        "@/lib/logger"
+      ],
+      "lineCount": 33,
+      "lastModified": "2026-08-17T21:23:08.000Z",
+      "indexedAt": "2026-08-19T09:41:49.330Z",
+      "category": "general"
+    },
+    {
+      "path": "src/app/api/simulations/run/route.ts",
+      "purpose": "POST /api/simulations/run — v63 Phase 13",
+      "keyFunctions": [
+        "POST"
+      ],
+      "dependencies": [
+        "next/server",
+        "@/lib/simulation-engine",
+        "@/lib/logger"
+      ],
+      "lineCount": 28,
+      "lastModified": "2026-08-17T21:22:49.000Z",
+      "indexedAt": "2026-08-19T09:41:49.330Z",
+      "category": "general"
+    },
+    {
+      "path": "src/app/api/simulator/[id]/result/route.ts",
+      "purpose": "(no purpose documented — add a JSDoc header)",
+      "keyFunctions": [
+        "GET"
+      ],
+      "dependencies": [
+        "next/server",
+        "@/lib/simulator",
+        "@/lib/db",
+        "@/lib/logger"
+      ],
+      "lineCount": 66,
+      "lastModified": "2026-08-17T03:11:39.000Z",
+      "indexedAt": "2026-08-19T09:41:49.323Z",
+      "category": "general"
+    },
+    {
+      "path": "src/app/api/simulator/[id]/route.ts",
+      "purpose": "(no purpose documented — add a JSDoc header)",
+      "keyFunctions": [
+        "GET",
+        "DELETE"
+      ],
+      "dependencies": [
+        "next/server",
+        "@/lib/simulator",
+        "@/lib/db",
+        "@/lib/logger"
+      ],
+      "lineCount": 67,
+      "lastModified": "2026-08-17T03:11:39.000Z",
+      "indexedAt": "2026-08-19T09:41:49.323Z",
+      "category": "general"
+    },
+    {
+      "path": "src/app/api/simulator/route.ts",
+      "purpose": "(no purpose documented — add a JSDoc header)",
+      "keyFunctions": [
+        "GET",
+        "POST"
+      ],
+      "dependencies": [
+        "next/server",
+        "@/lib/simulator",
+        "@/lib/logger"
+      ],
+      "lineCount": 123,
+      "lastModified": "2026-08-17T03:11:39.000Z",
+      "indexedAt": "2026-08-19T09:41:49.323Z",
+      "category": "general"
+    },
+    {
+      "path": "src/app/api/social-accounts/route.ts",
+      "purpose": "/api/social-accounts — v72 Phase 22 (RULE-70)",
+      "keyFunctions": [
+        "GET",
+        "POST"
+      ],
+      "dependencies": [
+        "next/server",
+        "@/lib/auth",
+        "@/lib/social-media-manager",
+        "@/lib/logger"
+      ],
+      "lineCount": 41,
+      "lastModified": "2026-08-19T06:00:09.000Z",
+      "indexedAt": "2026-08-19T09:41:49.326Z",
+      "category": "general"
+    },
+    {
+      "path": "src/app/api/stripe/checkout/route.ts",
+      "purpose": "(no purpose documented — add a JSDoc header)",
+      "keyFunctions": [
+        "POST"
+      ],
+      "dependencies": [
+        "next/server",
+        "@/lib/stripe-checkout",
+        "@/lib/services/catalog",
+        "@/lib/db"
+      ],
+      "lineCount": 18,
+      "lastModified": "2026-08-17T03:11:39.000Z",
+      "indexedAt": "2026-08-19T09:41:49.326Z",
+      "category": "integration"
+    },
+    {
+      "path": "src/app/api/supervisors/reviews/route.ts",
+      "purpose": "(no purpose documented — add a JSDoc header)",
+      "keyFunctions": [
+        "GET"
+      ],
+      "dependencies": [
+        "next/server",
+        "@/lib/db",
+        "@/lib/auth"
+      ],
+      "lineCount": 15,
+      "lastModified": "2026-08-17T03:30:37.000Z",
+      "indexedAt": "2026-08-19T09:41:49.338Z",
+      "category": "safety"
+    },
+    {
+      "path": "src/app/api/system-access/approvals/[id]/decide/route.ts",
+      "purpose": "(no purpose documented — add a JSDoc header)",
+      "keyFunctions": [
+        "POST"
+      ],
+      "dependencies": [
+        "next/server",
+        "@/lib/db",
+        "@/lib/logger",
+        "@/lib/event-bus"
+      ],
+      "lineCount": 68,
+      "lastModified": "2026-08-17T03:11:39.000Z",
+      "indexedAt": "2026-08-19T09:41:49.337Z",
+      "category": "general"
+    },
+    {
+      "path": "src/app/api/system-access/approvals/route.ts",
+      "purpose": "(no purpose documented — add a JSDoc header)",
+      "keyFunctions": [
+        "GET"
+      ],
+      "dependencies": [
+        "next/server",
+        "@/lib/db",
+        "@/lib/logger"
+      ],
+      "lineCount": 30,
+      "lastModified": "2026-08-17T03:11:39.000Z",
+      "indexedAt": "2026-08-19T09:41:49.337Z",
+      "category": "general"
+    },
+    {
+      "path": "src/app/api/system-access/request/route.ts",
+      "purpose": "(no purpose documented — add a JSDoc header)",
+      "keyFunctions": [
+        "POST"
+      ],
+      "dependencies": [
+        "next/server",
+        "@/lib/db",
+        "@/lib/logger",
+        "@/lib/event-bus"
+      ],
+      "lineCount": 53,
+      "lastModified": "2026-08-17T03:11:39.000Z",
+      "indexedAt": "2026-08-19T09:41:49.337Z",
+      "category": "general"
+    },
+    {
+      "path": "src/app/api/system-access/session/[id]/revoke/route.ts",
+      "purpose": "(no purpose documented — add a JSDoc header)",
+      "keyFunctions": [
+        "POST"
+      ],
+      "dependencies": [
+        "next/server",
+        "@/lib/db",
+        "@/lib/logger",
+        "@/lib/event-bus"
+      ],
+      "lineCount": 47,
+      "lastModified": "2026-08-17T03:11:39.000Z",
+      "indexedAt": "2026-08-19T09:41:49.337Z",
+      "category": "general"
+    },
+    {
+      "path": "src/app/api/system-access/session/route.ts",
+      "purpose": "(no purpose documented — add a JSDoc header)",
+      "keyFunctions": [
+        "GET"
+      ],
+      "dependencies": [
+        "next/server",
+        "@/lib/db",
+        "@/lib/logger"
+      ],
+      "lineCount": 28,
+      "lastModified": "2026-08-17T03:11:39.000Z",
+      "indexedAt": "2026-08-19T09:41:49.337Z",
+      "category": "general"
+    },
+    {
+      "path": "src/app/api/system-metrics/route.ts",
+      "purpose": "(no purpose documented — add a JSDoc header)",
+      "keyFunctions": [
+        "GET"
+      ],
+      "dependencies": [
+        "next/server",
+        "@/lib/logger",
+        "node:os",
+        "systeminformation"
+      ],
+      "lineCount": 270,
+      "lastModified": "2026-08-17T03:11:39.000Z",
+      "indexedAt": "2026-08-19T09:41:49.327Z",
+      "category": "general"
+    },
+    {
+      "path": "src/app/api/system/route.ts",
+      "purpose": "(no purpose documented — add a JSDoc header)",
+      "keyFunctions": [
+        "GET"
+      ],
+      "dependencies": [
+        "next/server",
+        "@/lib/db",
+        "@/lib/central-registry",
+        "@/lib/pagination"
+      ],
+      "lineCount": 82,
+      "lastModified": "2026-08-17T03:11:39.000Z",
+      "indexedAt": "2026-08-19T09:41:49.337Z",
+      "category": "general"
+    },
+    {
+      "path": "src/app/api/tasks/route.ts",
+      "purpose": "(no purpose documented — add a JSDoc header)",
+      "keyFunctions": [
+        "GET",
+        "POST"
+      ],
+      "dependencies": [
+        "next/server",
+        "@/lib/db",
+        "@/lib/event-bus",
+        "@/lib/simulation",
+        "@/lib/types",
+        "@/lib/pagination",
+        "zod"
+      ],
+      "lineCount": 181,
+      "lastModified": "2026-08-17T03:11:39.000Z",
+      "indexedAt": "2026-08-19T09:41:49.333Z",
+      "category": "general"
+    },
+    {
+      "path": "src/app/api/telegram/webhook/route.ts",
+      "purpose": "POST /api/telegram/webhook — Inbound Telegram update handler (v58 Phase 2)",
+      "keyFunctions": [
+        "POST",
+        "GET"
+      ],
+      "dependencies": [
+        "next/server",
+        "@/lib/telegram-bot",
+        "@/lib/logger"
+      ],
+      "lineCount": 56,
+      "lastModified": "2026-08-17T04:08:24.000Z",
+      "indexedAt": "2026-08-19T09:41:49.325Z",
+      "category": "general"
+    },
+    {
+      "path": "src/app/api/telephony/call/route.ts",
+      "purpose": "(no purpose documented — add a JSDoc header)",
+      "keyFunctions": [
+        "POST",
+        "GET"
+      ],
+      "dependencies": [
+        "next/server",
+        "@/lib/telephony",
+        "@/lib/logger",
+        "zod"
+      ],
+      "lineCount": 68,
+      "lastModified": "2026-08-17T03:41:52.000Z",
+      "indexedAt": "2026-08-19T09:41:49.334Z",
+      "category": "integration"
+    },
+    {
+      "path": "src/app/api/telephony/sms/route.ts",
+      "purpose": "(no purpose documented — add a JSDoc header)",
+      "keyFunctions": [
+        "POST"
+      ],
+      "dependencies": [
+        "next/server",
+        "@/lib/telephony",
+        "@/lib/logger",
+        "zod"
+      ],
+      "lineCount": 59,
+      "lastModified": "2026-08-17T03:42:04.000Z",
+      "indexedAt": "2026-08-19T09:41:49.334Z",
+      "category": "integration"
+    },
+    {
+      "path": "src/app/api/telephony/status/route.ts",
+      "purpose": "(no purpose documented — add a JSDoc header)",
+      "keyFunctions": [
+        "GET"
+      ],
+      "dependencies": [
+        "next/server",
+        "@/lib/telephony",
+        "@/lib/ollama-client",
+        "@/lib/env-loader"
+      ],
+      "lineCount": 55,
+      "lastModified": "2026-08-17T03:11:39.000Z",
+      "indexedAt": "2026-08-19T09:41:49.334Z",
+      "category": "integration"
+    },
+    {
+      "path": "src/app/api/tracing/route.ts",
+      "purpose": "(no purpose documented — add a JSDoc header)",
+      "keyFunctions": [
+        "GET"
+      ],
+      "dependencies": [
+        "next/server",
+        "@/lib/logger",
+        "@/lib/tracing"
+      ],
+      "lineCount": 45,
+      "lastModified": "2026-08-17T03:11:39.000Z",
+      "indexedAt": "2026-08-19T09:41:49.334Z",
+      "category": "general"
+    },
+    {
+      "path": "src/app/api/training/feedback/route.ts",
+      "purpose": "(no purpose documented — add a JSDoc header)",
+      "keyFunctions": [
+        "POST"
+      ],
+      "dependencies": [
+        "next/server",
+        "zod",
+        "@/lib/blackbox",
+        "@/lib/logger",
+        "@/lib/auth"
+      ],
+      "lineCount": 55,
+      "lastModified": "2026-08-17T03:11:39.000Z",
+      "indexedAt": "2026-08-19T09:41:49.335Z",
+      "category": "general"
+    },
+    {
+      "path": "src/app/api/training/inject/route.ts",
+      "purpose": "POST /api/training/inject — Inject human feedback into the Hermes engine.",
+      "keyFunctions": [
+        "POST"
+      ],
+      "dependencies": [
+        "next/server",
+        "zod",
+        "@/lib/db",
+        "@/lib/logger",
+        "@/lib/auth",
+        "@/lib/blackbox",
+        "@/lib/hermes/memory",
+        "@/lib/event-bus",
+        "@/lib/hermes/skills"
+      ],
+      "lineCount": 168,
+      "lastModified": "2026-08-17T03:11:39.000Z",
+      "indexedAt": "2026-08-19T09:41:49.334Z",
+      "category": "general"
+    },
+    {
+      "path": "src/app/api/training/route.ts",
+      "purpose": "(no purpose documented — add a JSDoc header)",
+      "keyFunctions": [
+        "GET"
+      ],
+      "dependencies": [
+        "next/server",
+        "@/lib/agent-training",
+        "@/lib/logger",
+        "@/lib/auth"
+      ],
+      "lineCount": 35,
+      "lastModified": "2026-08-17T03:11:39.000Z",
+      "indexedAt": "2026-08-19T09:41:49.335Z",
+      "category": "general"
+    },
+    {
+      "path": "src/app/api/training/teach/route.ts",
+      "purpose": "(no purpose documented — add a JSDoc header)",
+      "keyFunctions": [
+        "POST"
+      ],
+      "dependencies": [
+        "next/server",
+        "zod",
+        "@/lib/agent-training",
+        "@/lib/logger",
+        "@/lib/auth"
+      ],
+      "lineCount": 73,
+      "lastModified": "2026-08-17T03:11:39.000Z",
+      "indexedAt": "2026-08-19T09:41:49.335Z",
+      "category": "general"
+    },
+    {
+      "path": "src/app/api/tts/route.ts",
+      "purpose": "(no purpose documented — add a JSDoc header)",
+      "keyFunctions": [
+        "GET"
+      ],
+      "dependencies": [
+        "next/server",
+        "@/lib/tts"
+      ],
+      "lineCount": 20,
+      "lastModified": "2026-08-17T03:11:39.000Z",
+      "indexedAt": "2026-08-19T09:41:49.336Z",
+      "category": "general"
+    },
+    {
+      "path": "src/app/api/unsubscribe/[token]/route.ts",
+      "purpose": "(no purpose documented — add a JSDoc header)",
+      "keyFunctions": [
+        "GET"
+      ],
+      "dependencies": [
+        "next/server",
+        "@/lib/db"
+      ],
+      "lineCount": 104,
+      "lastModified": "2026-08-17T03:11:39.000Z",
+      "indexedAt": "2026-08-19T09:41:49.328Z",
+      "category": "general"
+    },
+    {
+      "path": "src/app/api/users/[id]/role/route.ts",
+      "purpose": "(no purpose documented — add a JSDoc header)",
+      "keyFunctions": [
+        "PATCH"
+      ],
+      "dependencies": [
+        "next/server",
+        "@/lib/db",
+        "@/lib/logger",
+        "@/lib/auth",
+        "@/lib/rbac"
+      ],
+      "lineCount": 70,
+      "lastModified": "2026-08-17T03:11:39.000Z",
+      "indexedAt": "2026-08-19T09:41:49.333Z",
+      "category": "general"
+    },
+    {
+      "path": "src/app/api/users/route.ts",
+      "purpose": "(no purpose documented — add a JSDoc header)",
+      "keyFunctions": [
+        "GET"
+      ],
+      "dependencies": [
+        "next/server",
+        "@/lib/db",
+        "@/lib/logger",
+        "@/lib/auth"
+      ],
+      "lineCount": 37,
+      "lastModified": "2026-08-17T03:11:39.000Z",
+      "indexedAt": "2026-08-19T09:41:49.333Z",
+      "category": "general"
+    },
+    {
+      "path": "src/app/api/webhooks/inbound-email/route.ts",
+      "purpose": "POST /api/webhooks/inbound-email — v73 Phase 23 (RULE-73)",
+      "keyFunctions": [
+        "POST"
+      ],
+      "dependencies": [
+        "next/server",
+        "@/lib/legal/contract-generator",
+        "@/lib/logger"
+      ],
+      "lineCount": 58,
+      "lastModified": "2026-08-19T06:30:10.000Z",
+      "indexedAt": "2026-08-19T09:41:49.335Z",
+      "category": "general"
+    },
+    {
+      "path": "src/app/api/webhooks/resend/route.ts",
+      "purpose": "(no purpose documented — add a JSDoc header)",
+      "keyFunctions": [
+        "POST"
+      ],
+      "dependencies": [
+        "next/server",
+        "crypto",
+        "@/lib/db",
+        "@/lib/logger",
+        "@/lib/llm-client",
+        "@/lib/email-service"
+      ],
+      "lineCount": 397,
+      "lastModified": "2026-08-17T03:11:39.000Z",
+      "indexedAt": "2026-08-19T09:41:49.335Z",
+      "category": "integration"
+    },
+    {
+      "path": "src/app/api/webhooks/stripe/route.ts",
+      "purpose": "(no purpose documented — add a JSDoc header)",
+      "keyFunctions": [
+        "POST"
+      ],
+      "dependencies": [
+        "next/server",
+        "@/lib/stripe-checkout"
+      ],
+      "lineCount": 12,
+      "lastModified": "2026-08-17T03:11:39.000Z",
+      "indexedAt": "2026-08-19T09:41:49.335Z",
+      "category": "integration"
+    },
+    {
+      "path": "src/app/api/whatsapp/qr/route.ts",
+      "purpose": "GET /api/whatsapp/qr — v69 Phase 19 (BLOCKER 7)",
+      "keyFunctions": [
+        "GET"
+      ],
+      "dependencies": [
+        "next/server",
+        "@/lib/auth",
+        "@/lib/whatsapp/business",
+        "@/lib/logger"
+      ],
+      "lineCount": 50,
+      "lastModified": "2026-08-19T04:16:25.000Z",
+      "indexedAt": "2026-08-19T09:41:49.327Z",
+      "category": "integration"
+    },
+    {
+      "path": "src/app/api/whatsapp/send/route.ts",
+      "purpose": "(no purpose documented — add a JSDoc header)",
+      "keyFunctions": [
+        "POST"
+      ],
+      "dependencies": [
+        "next/server",
+        "@/lib/whatsapp/business",
+        "@/lib/auth"
+      ],
+      "lineCount": 13,
+      "lastModified": "2026-08-17T03:30:37.000Z",
+      "indexedAt": "2026-08-19T09:41:49.327Z",
+      "category": "integration"
+    },
+    {
+      "path": "src/app/api/whatsapp/webhook/route.ts",
+      "purpose": "(no purpose documented — add a JSDoc header)",
+      "keyFunctions": [
+        "GET",
+        "POST"
+      ],
+      "dependencies": [
+        "next/server",
+        "@/lib/whatsapp/business",
+        "@/lib/logger",
+        "@/lib/support-agent"
+      ],
+      "lineCount": 29,
+      "lastModified": "2026-08-17T03:11:39.000Z",
+      "indexedAt": "2026-08-19T09:41:49.327Z",
+      "category": "integration"
+    },
+    {
+      "path": "src/app/api/workflow-templates/route.ts",
+      "purpose": "(no purpose documented — add a JSDoc header)",
+      "keyFunctions": [
+        "GET"
+      ],
+      "dependencies": [
+        "next/server",
+        "@/lib/workflow-templates",
+        "@/lib/logger"
+      ],
+      "lineCount": 60,
+      "lastModified": "2026-08-17T03:11:39.000Z",
+      "indexedAt": "2026-08-19T09:41:49.325Z",
+      "category": "workflow"
+    },
+    {
+      "path": "src/app/api/workflows/route.ts",
+      "purpose": "(no purpose documented — add a JSDoc header)",
+      "keyFunctions": [
+        "GET",
+        "POST"
+      ],
+      "dependencies": [
+        "next/server",
+        "@/lib/workflow-engine",
+        "@/lib/event-bus",
+        "@/lib/types"
+      ],
+      "lineCount": 68,
+      "lastModified": "2026-08-17T03:11:39.000Z",
+      "indexedAt": "2026-08-19T09:41:49.327Z",
+      "category": "general"
+    },
+    {
+      "path": "src/components/ui/index.ts",
+      "purpose": "Barrel export for shadcn/ui + custom ARIA UI primitives.",
+      "keyFunctions": [],
+      "dependencies": [
+        "@/components/ui"
+      ],
+      "lineCount": 64,
+      "lastModified": "2026-08-17T03:19:31.000Z",
+      "indexedAt": "2026-08-19T09:41:49.322Z",
+      "category": "ui"
+    },
+    {
+      "path": "src/hooks/use-alert-notifications.ts",
+      "purpose": "(no purpose documented — add a JSDoc header)",
+      "keyFunctions": [
+        "useAlertNotifications"
+      ],
+      "dependencies": [
+        "react",
+        "@/stores/mission-store",
+        "@/lib/types"
+      ],
+      "lineCount": 209,
+      "lastModified": "2026-08-17T03:11:39.000Z",
+      "indexedAt": "2026-08-19T09:41:49.338Z",
+      "category": "general"
+    },
+    {
+      "path": "src/hooks/use-clock.ts",
+      "purpose": "(no purpose documented — add a JSDoc header)",
+      "keyFunctions": [
+        "useClock",
+        "formatTime",
+        "relTime",
+        "compact"
+      ],
+      "dependencies": [
+        "react"
+      ],
+      "lineCount": 84,
+      "lastModified": "2026-08-17T03:11:39.000Z",
+      "indexedAt": "2026-08-19T09:41:49.339Z",
+      "category": "general"
+    },
+    {
+      "path": "src/hooks/use-mission-control.ts",
+      "purpose": "(no purpose documented — add a JSDoc header)",
+      "keyFunctions": [
+        "useMissionControl"
+      ],
+      "dependencies": [
+        "react",
+        "@/stores/mission-store",
+        "./use-sse-stream",
+        "@/lib/types"
+      ],
+      "lineCount": 122,
+      "lastModified": "2026-08-17T03:11:39.000Z",
+      "indexedAt": "2026-08-19T09:41:49.338Z",
+      "category": "general"
+    },
+    {
+      "path": "src/hooks/use-mobile.ts",
+      "purpose": "(no purpose documented — add a JSDoc header)",
+      "keyFunctions": [
+        "useIsMobile"
+      ],
+      "dependencies": [
+        "react"
+      ],
+      "lineCount": 20,
+      "lastModified": "2026-08-17T03:11:39.000Z",
+      "indexedAt": "2026-08-19T09:41:49.338Z",
+      "category": "general"
+    },
+    {
+      "path": "src/hooks/use-onboarding.ts",
+      "purpose": "(no purpose documented — add a JSDoc header)",
+      "keyFunctions": [
+        "useOnboarding"
+      ],
+      "dependencies": [
+        "react"
+      ],
+      "lineCount": 61,
+      "lastModified": "2026-08-17T03:11:39.000Z",
+      "indexedAt": "2026-08-19T09:41:49.338Z",
+      "category": "general"
+    },
+    {
+      "path": "src/hooks/use-realtime-sync.ts",
+      "purpose": "(no purpose documented — add a JSDoc header)",
+      "keyFunctions": [
+        "useRealtimeSync"
+      ],
+      "dependencies": [
+        "react",
+        "socket.io-client"
+      ],
+      "lineCount": 141,
+      "lastModified": "2026-08-17T03:11:39.000Z",
+      "indexedAt": "2026-08-19T09:41:49.339Z",
+      "category": "general"
+    },
+    {
+      "path": "src/hooks/use-sse-stream.ts",
+      "purpose": "(no purpose documented — add a JSDoc header)",
+      "keyFunctions": [
+        "useSseStream"
+      ],
+      "dependencies": [
+        "react",
+        "@/lib/types"
+      ],
+      "lineCount": 153,
+      "lastModified": "2026-08-17T03:11:39.000Z",
+      "indexedAt": "2026-08-19T09:41:49.339Z",
+      "category": "general"
+    },
+    {
+      "path": "src/hooks/use-toast.ts",
+      "purpose": "Inspired by react-hot-toast library",
+      "keyFunctions": [
+        "reducer"
+      ],
+      "dependencies": [
+        "react",
+        "@/components/ui/toast"
+      ],
+      "lineCount": 194,
+      "lastModified": "2026-08-17T03:11:39.000Z",
+      "indexedAt": "2026-08-19T09:41:49.338Z",
+      "category": "general"
+    },
+    {
+      "path": "src/instrumentation-node.ts",
+      "purpose": "src/instrumentation-node.ts — Node-only instrumentation.",
+      "keyFunctions": [
+        "startNodeInstrumentation"
+      ],
+      "dependencies": [
+        "./lib/auto-bootstrap",
+        "./lib/error-tracking",
+        "./lib/self-heal",
+        "./lib/db-write-queue",
+        "./lib/db-schema-ensure",
+        "./lib/db",
+        "./lib/simulation/seed",
+        "./lib/simulation/engine"
+      ],
+      "lineCount": 93,
+      "lastModified": "2026-08-17T20:09:20.000Z",
+      "indexedAt": "2026-08-19T09:41:49.339Z",
+      "category": "general"
+    },
+    {
+      "path": "src/instrumentation.ts",
+      "purpose": "src/instrumentation.ts — Next.js server-boot hook (Edge-safe).",
+      "keyFunctions": [
+        "register"
+      ],
+      "dependencies": [
+        "./instrumentation-node"
+      ],
+      "lineCount": 31,
+      "lastModified": "2026-08-17T03:11:39.000Z",
+      "indexedAt": "2026-08-19T09:41:49.259Z",
+      "category": "general"
+    },
+    {
+      "path": "src/lib/agent-blackboard.ts",
+      "purpose": "src/lib/agent-blackboard.ts — v61 Phase 4 (Agent Communication Board)",
+      "keyFunctions": [
+        "postToBlackboard",
+        "readBlackboard",
+        "releaseFromBlackboard",
+        "isResourceClaimed"
+      ],
+      "dependencies": [
+        "./db",
+        "./logger",
+        "./event-bus"
+      ],
+      "lineCount": 180,
+      "lastModified": "2026-08-17T15:36:04.000Z",
+      "indexedAt": "2026-08-19T09:41:49.302Z",
+      "category": "safety"
+    },
+    {
+      "path": "src/lib/agent-bus.ts",
+      "purpose": "src/lib/agent-bus.ts — inter-agent messaging via db.agentMessage + SSE.",
+      "keyFunctions": [
+        "sendDirect",
+        "broadcast",
+        "listInbox",
+        "postBlackboard"
+      ],
+      "dependencies": [
+        "@prisma/client",
+        "./db",
+        "./logger",
+        "./event-bus",
+        "./types"
+      ],
+      "lineCount": 176,
+      "lastModified": "2026-08-17T03:11:39.000Z",
+      "indexedAt": "2026-08-19T09:41:49.284Z",
+      "category": "general"
+    },
+    {
+      "path": "src/lib/agent-costs.ts",
+      "purpose": "ARIA Mission Control — Per-agent cost rollup + spend projection.",
+      "keyFunctions": [
+        "pricingFor",
+        "runCostUsd",
+        "costOf",
+        "agentCostBreakdown",
+        "spendPerDay",
+        "projectedMonthlySpend",
+        "costTotals"
+      ],
+      "dependencies": [
+        "@/lib/types"
+      ],
+      "lineCount": 258,
+      "lastModified": "2026-08-17T03:11:39.000Z",
+      "indexedAt": "2026-08-19T09:41:49.288Z",
+      "category": "general"
+    },
+    {
+      "path": "src/lib/agent-training.ts",
+      "purpose": "src/lib/agent-training.ts — LLM-powered teaching source ingestion.",
+      "keyFunctions": [
+        "teachAgent",
+        "getTrainingHistory"
+      ],
+      "dependencies": [
+        "@/lib/llm-client",
+        "@/lib/db",
+        "@/lib/logger",
+        "@/lib/event-bus",
+        "@/lib/blackbox"
+      ],
+      "lineCount": 238,
+      "lastModified": "2026-08-17T03:11:39.000Z",
+      "indexedAt": "2026-08-19T09:41:49.295Z",
+      "category": "general"
+    },
+    {
+      "path": "src/lib/ai-insights.ts",
+      "purpose": "src/lib/ai-insights.ts — AI Insights & Recommendations Engine.",
+      "keyFunctions": [
+        "generateInsights"
+      ],
+      "dependencies": [
+        "./db",
+        "./central-registry",
+        "./llm-router",
+        "./logger"
+      ],
+      "lineCount": 351,
+      "lastModified": "2026-08-17T03:11:39.000Z",
+      "indexedAt": "2026-08-19T09:41:49.304Z",
+      "category": "general"
+    },
+    {
+      "path": "src/lib/approval-brief.ts",
+      "purpose": "ARIA Mission Control — Enhanced Approval Brief engine (Task 23).",
+      "keyFunctions": [
+        "generateApprovalBrief",
+        "discussApproval",
+        "oralConfirm",
+        "notifyOwner",
+        "briefToJson",
+        "briefFromJson",
+        "discussionFromJson",
+        "appendDiscussion",
+        "serializeApproval"
+      ],
+      "dependencies": [
+        "./db",
+        "./llm-client",
+        "./logger",
+        "./telegram-notifier",
+        "./types",
+        "./event-bus"
+      ],
+      "lineCount": 579,
+      "lastModified": "2026-08-17T03:11:39.000Z",
+      "indexedAt": "2026-08-19T09:41:49.314Z",
+      "category": "general"
+    },
+    {
+      "path": "src/lib/approval-decision.ts",
+      "purpose": "src/lib/approval-decision.ts — Centralized Approval Decision System",
+      "keyFunctions": [
+        "evaluateApproval",
+        "getApprovalDecision",
+        "startApprovalDecider",
+        "stopApprovalDecider"
+      ],
+      "dependencies": [
+        "@/lib/db",
+        "@/lib/logger",
+        "@/lib/event-bus",
+        "@/lib/llm-client"
+      ],
+      "lineCount": 387,
+      "lastModified": "2026-08-17T14:18:37.000Z",
+      "indexedAt": "2026-08-19T09:41:49.284Z",
+      "category": "general"
+    },
+    {
+      "path": "src/lib/approval-executor.ts",
+      "purpose": "src/lib/approval-executor.ts — v61 (Audit B6)",
+      "keyFunctions": [
+        "executeApprovalAction"
+      ],
+      "dependencies": [
+        "@/lib/db",
+        "@/lib/event-bus",
+        "@/lib/types",
+        "@/lib/logger",
+        "@/lib/email-service"
+      ],
+      "lineCount": 264,
+      "lastModified": "2026-08-17T13:08:57.000Z",
+      "indexedAt": "2026-08-19T09:41:49.288Z",
+      "category": "general"
+    },
+    {
+      "path": "src/lib/approval-patterns/index.ts",
+      "purpose": "src/lib/approval-patterns/index.ts — v72 Phase 22 (RULE-71)",
+      "keyFunctions": [
+        "requestPatternApproval",
+        "isPatternApproved",
+        "approvePattern",
+        "revokePattern",
+        "incrementPatternUsage",
+        "listPatterns",
+        "requestCallScriptApproval",
+        "isCallScriptApproved"
+      ],
+      "dependencies": [
+        "../db",
+        "../logger",
+        "../event-bus",
+        "../telegram-notifier"
+      ],
+      "lineCount": 386,
+      "lastModified": "2026-08-19T06:02:54.000Z",
+      "indexedAt": "2026-08-19T09:41:49.285Z",
+      "category": "general"
+    },
+    {
+      "path": "src/lib/auth-options.ts",
+      "purpose": "auth-options.ts — NextAuth v4 configuration for ARIA Mission Control.",
+      "keyFunctions": [],
+      "dependencies": [
+        "next-auth",
+        "next-auth/providers/credentials",
+        "@/lib/db",
+        "@/lib/logger",
+        "bcryptjs",
+        "crypto",
+        "./two-factor"
+      ],
+      "lineCount": 337,
+      "lastModified": "2026-08-17T03:11:39.000Z",
+      "indexedAt": "2026-08-19T09:41:49.284Z",
+      "category": "infra"
+    },
+    {
+      "path": "src/lib/auth.ts",
+      "purpose": "src/lib/auth.ts — Convenience helpers for server-side auth (v40).",
+      "keyFunctions": [
+        "getSession",
+        "requireAuth",
+        "requireOwner",
+        "requireOwnerOnly",
+        "requireRole",
+        "requirePermission",
+        "requirePermissionResponse",
+        "requireAuthOrResponse",
+        "getUserCount"
+      ],
+      "dependencies": [
+        "next-auth",
+        "next/server",
+        "@/lib/auth-options",
+        "@/lib/db",
+        "@/lib/rbac"
+      ],
+      "lineCount": 153,
+      "lastModified": "2026-08-17T03:30:12.000Z",
+      "indexedAt": "2026-08-19T09:41:49.295Z",
+      "category": "infra"
+    },
+    {
+      "path": "src/lib/auto-bootstrap.ts",
+      "purpose": "src/lib/auto-bootstrap.ts — Zero-config first-run bootstrap (v58)",
+      "keyFunctions": [
+        "autoBootstrap"
+      ],
+      "dependencies": [
+        "fs",
+        "path",
+        "crypto",
+        "./logger",
+        "./db"
+      ],
+      "lineCount": 345,
+      "lastModified": "2026-08-19T04:16:06.000Z",
+      "indexedAt": "2026-08-19T09:41:49.284Z",
+      "category": "infra"
+    },
+    {
+      "path": "src/lib/autonomous-business-engine.ts",
+      "purpose": "src/lib/autonomous-business-engine.ts — Autonomous Business Engine.",
+      "keyFunctions": [
+        "findOpportunities",
+        "qualifyOpportunities",
+        "planExecution",
+        "executePlan",
+        "deliverToClient",
+        "generateInvoice",
+        "trackProgress",
+        "optimizePerformance",
+        "runAutonomousCycle",
+        "getLifecyclePipeline"
+      ],
+      "dependencies": [
+        "./db",
+        "./logger",
+        "./event-bus",
+        "./llm-router",
+        "./industry-playbooks",
+        "./milestones"
+      ],
+      "lineCount": 1423,
+      "lastModified": "2026-08-17T04:55:28.000Z",
+      "indexedAt": "2026-08-19T09:41:49.264Z",
+      "category": "general"
+    },
+    {
+      "path": "src/lib/autonomy-control.ts",
+      "purpose": "src/lib/autonomy-control.ts — Global Autonomy Kill Switch (v58 Phase 2)",
+      "keyFunctions": [
+        "isAutonomyPaused",
+        "setAutonomyPaused",
+        "getAutonomyStatus",
+        "setAutonomyPausedWithReason"
+      ],
+      "dependencies": [
+        "./db",
+        "./logger",
+        "./event-bus"
+      ],
+      "lineCount": 132,
+      "lastModified": "2026-08-17T04:22:14.000Z",
+      "indexedAt": "2026-08-19T09:41:49.313Z",
+      "category": "safety"
+    },
+    {
+      "path": "src/lib/backup-service.ts",
+      "purpose": "(no purpose documented — add a JSDoc header)",
+      "keyFunctions": [
+        "runBackup",
+        "getBackupStatus"
+      ],
+      "dependencies": [
+        "fs",
+        "path",
+        "child_process",
+        "./db",
+        "./logger",
+        "./event-bus"
+      ],
+      "lineCount": 23,
+      "lastModified": "2026-08-17T03:11:39.000Z",
+      "indexedAt": "2026-08-19T09:41:49.270Z",
+      "category": "general"
+    },
+    {
+      "path": "src/lib/blackbox.ts",
+      "purpose": "src/lib/blackbox.ts — In-memory flight recorder.",
+      "keyFunctions": [
+        "record",
+        "getRecent",
+        "getById",
+        "getStats",
+        "startBlackbox",
+        "stopBlackbox",
+        "clear",
+        "injectFeedback"
+      ],
+      "dependencies": [
+        "@/lib/db",
+        "@/lib/logger"
+      ],
+      "lineCount": 221,
+      "lastModified": "2026-08-17T03:11:39.000Z",
+      "indexedAt": "2026-08-19T09:41:49.320Z",
+      "category": "general"
+    },
+    {
+      "path": "src/lib/brand-extractor.ts",
+      "purpose": "src/lib/brand-extractor.ts — v65 Phase 15 (Personalized Brand Previews)",
+      "keyFunctions": [
+        "extractBrandFromEmail"
+      ],
+      "dependencies": [
+        "./logger",
+        "z-ai-web-dev-sdk"
+      ],
+      "lineCount": 233,
+      "lastModified": "2026-08-17T21:58:58.000Z",
+      "indexedAt": "2026-08-19T09:41:49.260Z",
+      "category": "general"
+    },
+    {
+      "path": "src/lib/business-hours.ts",
+      "purpose": "src/lib/business-hours.ts — v61 Phase 2 (Owner Rule: Strict Business Hours)",
+      "keyFunctions": [
+        "isWithinBusinessHours",
+        "currentHourInTimezone",
+        "getOwnerTimezone",
+        "isWithinOwnerBusinessHours",
+        "businessHoursStatus"
+      ],
+      "dependencies": [
+        "server-only"
+      ],
+      "lineCount": 108,
+      "lastModified": "2026-08-17T14:42:38.000Z",
+      "indexedAt": "2026-08-19T09:41:49.270Z",
+      "category": "general"
+    },
+    {
+      "path": "src/lib/cache.ts",
+      "purpose": "src/lib/cache.ts — Pluggable cache abstraction.",
+      "keyFunctions": [
+        "cacheGet",
+        "cacheSet",
+        "cacheDelete",
+        "cacheInvalidate",
+        "cacheStats"
+      ],
+      "dependencies": [
+        "@/lib/logger",
+        "@/lib/cache"
+      ],
+      "lineCount": 207,
+      "lastModified": "2026-08-17T03:11:39.000Z",
+      "indexedAt": "2026-08-19T09:41:49.295Z",
+      "category": "general"
+    },
+    {
+      "path": "src/lib/capability-registry.ts",
+      "purpose": "src/lib/capability-registry.ts — v74 Phase 24 (RULE-77)",
+      "keyFunctions": [
+        "generateCapabilityManifest"
+      ],
+      "dependencies": [
+        "./db",
+        "./logger",
+        "./event-bus",
+        "./llm-client",
+        "fs",
+        "path",
+        "./constitution"
+      ],
+      "lineCount": 336,
+      "lastModified": "2026-08-19T06:58:10.000Z",
+      "indexedAt": "2026-08-19T09:41:49.319Z",
+      "category": "general"
+    },
+    {
+      "path": "src/lib/cash-claw.ts",
+      "purpose": "src/lib/cash-claw.ts — evolutionary agent survival scoring.",
+      "keyFunctions": [
+        "runCashClawSweep",
+        "getSurvivalBoard",
+        "classifyAgent"
+      ],
+      "dependencies": [
+        "@prisma/client",
+        "./db",
+        "./logger",
+        "./event-bus",
+        "./types"
+      ],
+      "lineCount": 158,
+      "lastModified": "2026-08-17T03:11:39.000Z",
+      "indexedAt": "2026-08-19T09:41:49.263Z",
+      "category": "general"
+    },
+    {
+      "path": "src/lib/central-registry.ts",
+      "purpose": "src/lib/central-registry.ts — Centralized System Registry",
+      "keyFunctions": [
+        "getSystemSnapshot"
+      ],
+      "dependencies": [
+        "@/lib/db",
+        "@/lib/logger",
+        "@/lib/cache",
+        "@/lib/tracing"
+      ],
+      "lineCount": 431,
+      "lastModified": "2026-08-17T03:11:39.000Z",
+      "indexedAt": "2026-08-19T09:41:49.307Z",
+      "category": "general"
+    },
+    {
+      "path": "src/lib/compliance-auditor.ts",
+      "purpose": "src/lib/compliance-auditor.ts — v74 Phase 24 (RULE-76)",
+      "keyFunctions": [
+        "auditCompliance"
+      ],
+      "dependencies": [
+        "./db",
+        "./logger",
+        "./event-bus",
+        "child_process",
+        "fs",
+        "path",
+        "./telegram-notifier"
+      ],
+      "lineCount": 396,
+      "lastModified": "2026-08-19T06:50:44.000Z",
+      "indexedAt": "2026-08-19T09:41:49.299Z",
+      "category": "general"
+    },
+    {
+      "path": "src/lib/computer-use-accounts/index.ts",
+      "purpose": "src/lib/computer-use-accounts/index.ts — v73 Phase 23 (extension of RULE-70)",
+      "keyFunctions": [
+        "connectPlatformAccount",
+        "publishPostViaBrowser",
+        "sendDirectMessageViaBrowser"
+      ],
+      "dependencies": [
+        "../db",
+        "../logger",
+        "../event-bus",
+        "../approval-patterns",
+        "fs",
+        "path",
+        "../credential-vault",
+        "playwright",
+        "z-ai-web-dev-sdk"
+      ],
+      "lineCount": 310,
+      "lastModified": "2026-08-19T06:29:03.000Z",
+      "indexedAt": "2026-08-19T09:41:49.302Z",
+      "category": "general"
+    },
+    {
+      "path": "src/lib/computer-use.ts",
+      "purpose": "src/lib/computer-use.ts — screen capture + VLM action (graceful degrade).",
+      "keyFunctions": [
+        "captureScreen",
+        "analyzeScreen",
+        "executeAction"
+      ],
+      "dependencies": [
+        "./logger",
+        "z-ai-web-dev-sdk"
+      ],
+      "lineCount": 171,
+      "lastModified": "2026-08-17T11:46:30.000Z",
+      "indexedAt": "2026-08-19T09:41:49.297Z",
+      "category": "general"
+    },
+    {
+      "path": "src/lib/conductor/council.ts",
+      "purpose": "src/lib/conductor/council.ts — v61 Phase 4 (The Council Pattern)",
+      "keyFunctions": [
+        "conveneCouncil",
+        "shouldConveneCouncil"
+      ],
+      "dependencies": [
+        "@/lib/db",
+        "@/lib/logger",
+        "@/lib/event-bus",
+        "@/lib/llm-client"
+      ],
+      "lineCount": 289,
+      "lastModified": "2026-08-17T15:20:58.000Z",
+      "indexedAt": "2026-08-19T09:41:49.309Z",
+      "category": "conductor"
+    },
+    {
+      "path": "src/lib/conductor/dispatcher.ts",
+      "purpose": "src/lib/conductor/dispatcher.ts — Subagent Delegation Protocol",
+      "keyFunctions": [
+        "dispatchToAgent",
+        "getSubAgentTasks",
+        "promoteNextNonBlockedTask"
+      ],
+      "dependencies": [
+        "@/lib/db",
+        "@/lib/logger",
+        "@/lib/event-bus",
+        "@/lib/llm-client",
+        "@/lib/hermes/skills",
+        "@/lib/hermes/toolsets",
+        "@/lib/hermes/memory",
+        "@/lib/types",
+        "../agent-blackboard"
+      ],
+      "lineCount": 389,
+      "lastModified": "2026-08-17T18:18:20.000Z",
+      "indexedAt": "2026-08-19T09:41:49.309Z",
+      "category": "conductor"
+    },
+    {
+      "path": "src/lib/conductor/router.ts",
+      "purpose": "src/lib/conductor/router.ts — Autonomy-Aware Workflow Router (v59)",
+      "keyFunctions": [
+        "routeWorkflowByAutonomy",
+        "routeSkillByAutonomy",
+        "isApprovalResolved",
+        "routeAndWaitForApproval"
+      ],
+      "dependencies": [
+        "@/lib/db",
+        "@/lib/logger",
+        "@/lib/event-bus",
+        "@prisma/client",
+        "@/lib/telegram-notifier",
+        "./council",
+        "@/lib/approval-brief"
+      ],
+      "lineCount": 373,
+      "lastModified": "2026-08-17T15:21:35.000Z",
+      "indexedAt": "2026-08-19T09:41:49.310Z",
+      "category": "conductor"
+    },
+    {
+      "path": "src/lib/connector-marketplace.ts",
+      "purpose": "src/lib/connector-marketplace.ts — Connector Marketplace v2.",
+      "keyFunctions": [
+        "listConnectors",
+        "installConnector",
+        "uninstallConnector",
+        "getInstalledConnectors",
+        "listCategories"
+      ],
+      "dependencies": [
+        "./db",
+        "./logger"
+      ],
+      "lineCount": 655,
+      "lastModified": "2026-08-17T03:11:39.000Z",
+      "indexedAt": "2026-08-19T09:41:49.310Z",
+      "category": "general"
+    },
+    {
+      "path": "src/lib/constitution.ts",
+      "purpose": "src/lib/constitution.ts — v70 Phase 20 (The Great Rule Consolidation)",
+      "keyFunctions": [
+        "buildConstitutionPrompt",
+        "buildCompactConstitution",
+        "buildExecutionContext",
+        "isProposedChangeConstitutional"
+      ],
+      "dependencies": [
+        "./global-logics"
+      ],
+      "lineCount": 893,
+      "lastModified": "2026-08-19T08:06:12.000Z",
+      "indexedAt": "2026-08-19T09:41:49.303Z",
+      "category": "safety"
+    },
+    {
+      "path": "src/lib/context-manager.ts",
+      "purpose": "src/lib/context-manager.ts — v70 Phase 20 (Multi-Tier Context Manager)",
+      "keyFunctions": [
+        "shouldUseLocalModel"
+      ],
+      "dependencies": [
+        "./logger",
+        "./llm-client",
+        "./constitution"
+      ],
+      "lineCount": 340,
+      "lastModified": "2026-08-19T04:45:42.000Z",
+      "indexedAt": "2026-08-19T09:41:49.261Z",
+      "category": "general"
+    },
+    {
+      "path": "src/lib/cost-dashboard.ts",
+      "purpose": "src/lib/cost-dashboard.ts — LLM cost breakdown + budget enforcement.",
+      "keyFunctions": [
+        "getCostBreakdown"
+      ],
+      "dependencies": [
+        "./db",
+        "./logger"
+      ],
+      "lineCount": 335,
+      "lastModified": "2026-08-17T03:11:39.000Z",
+      "indexedAt": "2026-08-19T09:41:49.293Z",
+      "category": "general"
+    },
+    {
+      "path": "src/lib/credential-vault.ts",
+      "purpose": "src/lib/credential-vault.ts — encrypted credential CRUD on db.credential.",
+      "keyFunctions": [
+        "listCredentials",
+        "storeCredential",
+        "getCredential",
+        "deleteCredential",
+        "rotateCredential"
+      ],
+      "dependencies": [
+        "@prisma/client",
+        "./db",
+        "./logger",
+        "./secure-crypto"
+      ],
+      "lineCount": 178,
+      "lastModified": "2026-08-17T03:11:39.000Z",
+      "indexedAt": "2026-08-19T09:41:49.320Z",
+      "category": "general"
+    },
+    {
+      "path": "src/lib/creds.ts",
+      "purpose": "ARIA Mission Control — Credential management (env + JSON file fallback).",
+      "keyFunctions": [
+        "credsFilePath",
+        "maskSecret",
+        "getCredential",
+        "setCredential",
+        "deleteCredential",
+        "listCredentials"
+      ],
+      "dependencies": [
+        "node:fs",
+        "node:os",
+        "node:path"
+      ],
+      "lineCount": 220,
+      "lastModified": "2026-08-17T03:11:39.000Z",
+      "indexedAt": "2026-08-19T09:41:49.321Z",
+      "category": "general"
+    },
+    {
+      "path": "src/lib/crm.ts",
+      "purpose": "src/lib/crm.ts — Embedded CRM (Customer Relationship Management)",
+      "keyFunctions": [
+        "createLead",
+        "listLeads",
+        "updateLeadStage",
+        "scheduleFollowUp",
+        "getPipelineSummary"
+      ],
+      "dependencies": [
+        "./db",
+        "./logger",
+        "./event-bus",
+        "./types"
+      ],
+      "lineCount": 352,
+      "lastModified": "2026-08-17T03:11:39.000Z",
+      "indexedAt": "2026-08-19T09:41:49.305Z",
+      "category": "general"
+    },
+    {
+      "path": "src/lib/cron-handlers.ts",
+      "purpose": "src/lib/cron-handlers.ts — v62 Phase 12 (Extracted from cron-scheduler.ts)",
+      "keyFunctions": [],
+      "dependencies": [
+        "./db",
+        "./event-bus",
+        "./types",
+        "./logger",
+        "./backup-service",
+        "./hermes/learning",
+        "./hermes/earning-researcher",
+        "./business-hours",
+        "./lead-finder",
+        "./outreach-executor",
+        "./crypto-verifier",
+        "./founder-briefing",
+        "./health-sim",
+        "./environment-detector",
+        "@/lib/telegram-notifier",
+        "@/lib/self-heal",
+        "./hermes/memory",
+        "./execution-trace",
+        "./vector-memory",
+        "./llm-client"
+      ],
+      "lineCount": 1023,
+      "lastModified": "2026-08-19T06:29:24.000Z",
+      "indexedAt": "2026-08-19T09:41:49.306Z",
+      "category": "general"
+    },
+    {
+      "path": "src/lib/cron-scheduler.ts",
+      "purpose": "ARIA Mission Control — Real Cron Scheduler.",
+      "keyFunctions": [
+        "runJobByName",
+        "startScheduler",
+        "stopScheduler"
+      ],
+      "dependencies": [
+        "./db",
+        "./event-bus",
+        "./types",
+        "./logger",
+        "./cron-handlers",
+        "./autonomy-control"
+      ],
+      "lineCount": 239,
+      "lastModified": "2026-08-17T21:06:52.000Z",
+      "indexedAt": "2026-08-19T09:41:49.295Z",
+      "category": "cron"
+    },
+    {
+      "path": "src/lib/crypto-verifier.ts",
+      "purpose": "src/lib/crypto-verifier.ts — Autonomous Crypto Payment Verifier (v44-critical-fixes)",
+      "keyFunctions": [
+        "runCryptoVerifier"
+      ],
+      "dependencies": [
+        "./db",
+        "./logger",
+        "./event-bus",
+        "./services/crypto-checkout",
+        "./email-service"
+      ],
+      "lineCount": 956,
+      "lastModified": "2026-08-17T04:59:23.000Z",
+      "indexedAt": "2026-08-19T09:41:49.269Z",
+      "category": "integration"
+    },
+    {
+      "path": "src/lib/db-schema-ensure.ts",
+      "purpose": "src/lib/db-schema-ensure.ts — v58 Auto-apply Prisma schema on first run.",
+      "keyFunctions": [
+        "ensureSchemaApplied"
+      ],
+      "dependencies": [
+        "fs",
+        "path",
+        "child_process",
+        "./db"
+      ],
+      "lineCount": 63,
+      "lastModified": "2026-08-17T11:40:37.000Z",
+      "indexedAt": "2026-08-19T09:41:49.288Z",
+      "category": "general"
+    },
+    {
+      "path": "src/lib/db-write-queue.ts",
+      "purpose": "src/lib/db-write-queue.ts — SQLite Write Queue (v58 Phase 3)",
+      "keyFunctions": [
+        "safeWriteBatch",
+        "safeWrite",
+        "getQueueStats",
+        "stopWriteQueue"
+      ],
+      "dependencies": [
+        "@/lib/db-write-queue",
+        "./logger"
+      ],
+      "lineCount": 198,
+      "lastModified": "2026-08-17T04:09:16.000Z",
+      "indexedAt": "2026-08-19T09:41:49.263Z",
+      "category": "general"
+    },
+    {
+      "path": "src/lib/db.ts",
+      "purpose": "Use the new versioned cache if it has a healthy client; otherwise",
+      "keyFunctions": [
+        "getDatabaseProvider"
+      ],
+      "dependencies": [
+        "@prisma/client"
+      ],
+      "lineCount": 62,
+      "lastModified": "2026-08-17T04:17:58.000Z",
+      "indexedAt": "2026-08-19T09:41:49.320Z",
+      "category": "infra"
+    },
+    {
+      "path": "src/lib/debate.ts",
+      "purpose": "src/lib/debate.ts — multi-model debate via routeLLM.",
+      "keyFunctions": [
+        "startDebate",
+        "getDebate",
+        "listDebates"
+      ],
+      "dependencies": [
+        "@prisma/client",
+        "./db",
+        "./logger",
+        "./llm-router"
+      ],
+      "lineCount": 250,
+      "lastModified": "2026-08-17T03:11:39.000Z",
+      "indexedAt": "2026-08-19T09:41:49.296Z",
+      "category": "general"
+    },
+    {
+      "path": "src/lib/email-service.ts",
+      "purpose": "src/lib/email-service.ts — Resend + NotificationLog fallback (v40)",
+      "keyFunctions": [
+        "sendNotification",
+        "getNotificationLog",
+        "isEmailConfigured",
+        "buildDefaultHtml"
+      ],
+      "dependencies": [
+        "./db",
+        "./logger",
+        "resend"
+      ],
+      "lineCount": 290,
+      "lastModified": "2026-08-17T04:53:50.000Z",
+      "indexedAt": "2026-08-19T09:41:49.313Z",
+      "category": "integration"
+    },
+    {
+      "path": "src/lib/email.ts",
+      "purpose": "src/lib/email.ts — Embedded Email Service",
+      "keyFunctions": [
+        "sendEmail",
+        "isSMTPConfigured",
+        "getEmailStatus"
+      ],
+      "dependencies": [
+        "./db",
+        "./logger",
+        "./event-bus",
+        "nodemailer"
+      ],
+      "lineCount": 154,
+      "lastModified": "2026-08-17T03:11:39.000Z",
+      "indexedAt": "2026-08-19T09:41:49.287Z",
+      "category": "general"
+    },
+    {
+      "path": "src/lib/embedded-projects.ts",
+      "purpose": "src/lib/embedded-projects.ts — v76 Phase 26 (Digest and Discard)",
+      "keyFunctions": [
+        "getEmbeddedProjectsByCategory",
+        "countEmbeddedProjects"
+      ],
+      "dependencies": [],
+      "lineCount": 518,
+      "lastModified": "2026-08-19T09:23:30.000Z",
+      "indexedAt": "2026-08-19T09:41:49.306Z",
+      "category": "general"
+    },
+    {
+      "path": "src/lib/embedded-skills.ts",
+      "purpose": "src/lib/embedded-skills.ts — v76 Phase 26 (Digest and Discard)",
+      "keyFunctions": [
+        "POST",
+        "Icon",
+        "getEmbeddedSkill",
+        "getEmbeddedSkillsByCategory",
+        "countEmbeddedSkills"
+      ],
+      "dependencies": [
+        "./embedded-skills",
+        "z-ai-web-dev-sdk",
+        "fs",
+        "path",
+        "express",
+        "multer",
+        "next/server",
+        ",\n    systemPrompt: ",
+        "@/lib/db",
+        "crypto",
+        "ws",
+        "node-cron"
+      ],
+      "lineCount": 888,
+      "lastModified": "2026-08-19T09:27:56.000Z",
+      "indexedAt": "2026-08-19T09:41:49.277Z",
+      "category": "general"
+    },
+    {
+      "path": "src/lib/env-loader.ts",
+      "purpose": "src/lib/env-loader.ts — Hot-Reload Environment Configuration",
+      "keyFunctions": [
+        "reloadEnv",
+        "startEnvLoader",
+        "stopEnvLoader",
+        "getEnvLoaderStatus"
+      ],
+      "dependencies": [
+        "fs",
+        "path",
+        "crypto",
+        "./logger"
+      ],
+      "lineCount": 246,
+      "lastModified": "2026-08-17T11:32:47.000Z",
+      "indexedAt": "2026-08-19T09:41:49.294Z",
+      "category": "infra"
+    },
+    {
+      "path": "src/lib/environment-detector.ts",
+      "purpose": "src/lib/environment-detector.ts — v61 Phase 3 (Environment Awareness)",
+      "keyFunctions": [
+        "getEnvironment",
+        "getEnvironmentStatus",
+        "isCloudRestricted"
+      ],
+      "dependencies": [
+        "os"
+      ],
+      "lineCount": 110,
+      "lastModified": "2026-08-17T15:06:03.000Z",
+      "indexedAt": "2026-08-19T09:41:49.307Z",
+      "category": "general"
+    },
+    {
+      "path": "src/lib/error-tracking.ts",
+      "purpose": "src/lib/error-tracking.ts — $0 DB error logger + Sentry-ready hook (v42)",
+      "keyFunctions": [
+        "captureError",
+        "getRecentErrors",
+        "getErrorStats",
+        "installGlobalErrorHandlers"
+      ],
+      "dependencies": [
+        "./db",
+        "./logger"
+      ],
+      "lineCount": 158,
+      "lastModified": "2026-08-17T11:43:57.000Z",
+      "indexedAt": "2026-08-19T09:41:49.290Z",
+      "category": "general"
+    },
+    {
+      "path": "src/lib/event-bus.ts",
+      "purpose": "ARIA Mission Control — server-side event bus.",
+      "keyFunctions": [
+        "emit"
+      ],
+      "dependencies": [
+        "./types"
+      ],
+      "lineCount": 54,
+      "lastModified": "2026-08-17T03:11:39.000Z",
+      "indexedAt": "2026-08-19T09:41:49.310Z",
+      "category": "general"
+    },
+    {
+      "path": "src/lib/execution-trace.ts",
+      "purpose": "src/lib/execution-trace.ts — v61 Phase 3 (Self-Improving Rules)",
+      "keyFunctions": [
+        "logExecutionTrace",
+        "findProblematicTraces"
+      ],
+      "dependencies": [
+        "./db",
+        "./logger"
+      ],
+      "lineCount": 122,
+      "lastModified": "2026-08-17T15:12:34.000Z",
+      "indexedAt": "2026-08-19T09:41:49.300Z",
+      "category": "general"
+    },
+    {
+      "path": "src/lib/expansion/earning-method-researcher.ts",
+      "purpose": "(no purpose documented — add a JSDoc header)",
+      "keyFunctions": [
+        "runEarningMethodResearch"
+      ],
+      "dependencies": [
+        "../db",
+        "../logger",
+        "../event-bus",
+        "z-ai-web-dev-sdk",
+        "../llm-client"
+      ],
+      "lineCount": 20,
+      "lastModified": "2026-08-17T03:20:57.000Z",
+      "indexedAt": "2026-08-19T09:41:49.297Z",
+      "category": "expansion"
+    },
+    {
+      "path": "src/lib/expansion/service-designer.ts",
+      "purpose": "(no purpose documented — add a JSDoc header)",
+      "keyFunctions": [
+        "designServiceOpportunity"
+      ],
+      "dependencies": [
+        "../db",
+        "../logger",
+        "../event-bus",
+        "../llm-client",
+        "./service-simulator"
+      ],
+      "lineCount": 19,
+      "lastModified": "2026-08-17T03:21:08.000Z",
+      "indexedAt": "2026-08-19T09:41:49.297Z",
+      "category": "expansion"
+    },
+    {
+      "path": "src/lib/expansion/service-researcher.ts",
+      "purpose": "(no purpose documented — add a JSDoc header)",
+      "keyFunctions": [
+        "runServiceResearch"
+      ],
+      "dependencies": [
+        "../db",
+        "../logger",
+        "../event-bus",
+        "z-ai-web-dev-sdk",
+        "../llm-client"
+      ],
+      "lineCount": 21,
+      "lastModified": "2026-08-17T03:21:36.000Z",
+      "indexedAt": "2026-08-19T09:41:49.297Z",
+      "category": "expansion"
+    },
+    {
+      "path": "src/lib/expansion/service-simulator.ts",
+      "purpose": "(no purpose documented — add a JSDoc header)",
+      "keyFunctions": [
+        "simulateService"
+      ],
+      "dependencies": [
+        "../db",
+        "../logger",
+        "../llm-router",
+        "../services/builder"
+      ],
+      "lineCount": 17,
+      "lastModified": "2026-08-17T03:26:00.000Z",
+      "indexedAt": "2026-08-19T09:41:49.298Z",
+      "category": "expansion"
+    },
+    {
+      "path": "src/lib/expansion/workflow-simulator.ts",
+      "purpose": "(no purpose documented — add a JSDoc header)",
+      "keyFunctions": [
+        "runWorkflowHealthCheck",
+        "generateWeeklyBusinessReview"
+      ],
+      "dependencies": [
+        "../db",
+        "../logger",
+        "../event-bus",
+        "../llm-client"
+      ],
+      "lineCount": 26,
+      "lastModified": "2026-08-17T03:26:10.000Z",
+      "indexedAt": "2026-08-19T09:41:49.297Z",
+      "category": "expansion"
+    },
+    {
+      "path": "src/lib/failure-alchemy.ts",
+      "purpose": "src/lib/failure-alchemy.ts — Antibody/Vaccine/Catalyst artifacts from errors.",
+      "keyFunctions": [
+        "recordFailure",
+        "synthesizeArtifacts",
+        "listArtifacts"
+      ],
+      "dependencies": [
+        "@prisma/client",
+        "./db",
+        "./logger",
+        "./llm-router"
+      ],
+      "lineCount": 212,
+      "lastModified": "2026-08-17T04:55:33.000Z",
+      "indexedAt": "2026-08-19T09:41:49.299Z",
+      "category": "general"
+    },
+    {
+      "path": "src/lib/feasibility.ts",
+      "purpose": "src/lib/feasibility.ts — Monte Carlo feasibility (P10/P50/P90 + GO/HALT/PIVOT).",
+      "keyFunctions": [
+        "scoreOpportunity",
+        "runMonteCarlo"
+      ],
+      "dependencies": [
+        "./db",
+        "./logger"
+      ],
+      "lineCount": 139,
+      "lastModified": "2026-08-17T03:11:39.000Z",
+      "indexedAt": "2026-08-19T09:41:49.285Z",
+      "category": "general"
+    },
+    {
+      "path": "src/lib/finance/ledger.ts",
+      "purpose": "src/lib/finance/ledger.ts — v73 Phase 23 (RULE-74)",
+      "keyFunctions": [
+        "recordLedgerEntry",
+        "recordDoubleEntry",
+        "recordApiExpense",
+        "recordComputeExpense",
+        "recordStripePayout",
+        "recordContractorPayout",
+        "calculatePnL",
+        "getCashBalance",
+        "verifyLedgerBalance"
+      ],
+      "dependencies": [
+        "../db",
+        "../logger",
+        "../event-bus"
+      ],
+      "lineCount": 336,
+      "lastModified": "2026-08-19T06:28:16.000Z",
+      "indexedAt": "2026-08-19T09:41:49.295Z",
+      "category": "general"
+    },
+    {
+      "path": "src/lib/founder-briefing.ts",
+      "purpose": "src/lib/founder-briefing.ts — Daily Morning Report Engine (v44)",
+      "keyFunctions": [
+        "runFounderBriefing"
+      ],
+      "dependencies": [
+        "./db",
+        "./logger",
+        "./event-bus",
+        "./email-service",
+        "./outreach-executor",
+        "./self-heal"
+      ],
+      "lineCount": 444,
+      "lastModified": "2026-08-17T03:11:39.000Z",
+      "indexedAt": "2026-08-19T09:41:49.303Z",
+      "category": "general"
+    },
+    {
+      "path": "src/lib/freeswitch-esl.ts",
+      "purpose": "src/lib/freeswitch-esl.ts — FreeSWITCH ESL Integration (Deep)",
+      "keyFunctions": [
+        "originateCall",
+        "hangupCall",
+        "isFreeSWITCHConfigured",
+        "startESLConnection",
+        "onCallEvent",
+        "getESLState",
+        "getActiveCalls",
+        "stopESLConnection"
+      ],
+      "dependencies": [
+        "net",
+        "./logger",
+        "./event-bus"
+      ],
+      "lineCount": 414,
+      "lastModified": "2026-08-17T03:11:39.000Z",
+      "indexedAt": "2026-08-19T09:41:49.261Z",
+      "category": "general"
+    },
+    {
+      "path": "src/lib/funnel-decay.ts",
+      "purpose": "ARIA Mission Control — Lead staleness math + attention triage.",
+      "keyFunctions": [
+        "hoursSinceLastActivity",
+        "classifyDeal",
+        "classifyLeadStaleness",
+        "triageLeads",
+        "stalestLead",
+        "daysSinceLastActivity",
+        "bucketLabel"
+      ],
+      "dependencies": [
+        "@/lib/types"
+      ],
+      "lineCount": 178,
+      "lastModified": "2026-08-17T03:11:39.000Z",
+      "indexedAt": "2026-08-19T09:41:49.286Z",
+      "category": "general"
+    },
+    {
+      "path": "src/lib/global-logics.ts",
+      "purpose": "src/lib/global-logics.ts — v61 Phase 5 (Global Logic Repository)",
+      "keyFunctions": [
+        "getLogicsByCategory",
+        "getCriticalLogics",
+        "buildGlobalLogicsPrompt",
+        "canModifyRule"
+      ],
+      "dependencies": [
+        "server-only"
+      ],
+      "lineCount": 346,
+      "lastModified": "2026-08-17T15:49:41.000Z",
+      "indexedAt": "2026-08-19T09:41:49.263Z",
+      "category": "general"
+    },
+    {
+      "path": "src/lib/goals.ts",
+      "purpose": "src/lib/goals.ts — Goal & OKR tracking (server-only).",
+      "keyFunctions": [
+        "getGoals",
+        "saveGoals",
+        "updateGoalProgress",
+        "deriveStatus"
+      ],
+      "dependencies": [
+        "./db",
+        "./logger"
+      ],
+      "lineCount": 285,
+      "lastModified": "2026-08-17T03:11:39.000Z",
+      "indexedAt": "2026-08-19T09:41:49.261Z",
+      "category": "general"
+    },
+    {
+      "path": "src/lib/health-sim.ts",
+      "purpose": "src/lib/health-sim.ts — Daily Health Simulation (v45)",
+      "keyFunctions": [
+        "runDailyHealthSim",
+        "isOutreachPaused",
+        "resumeOutreach"
+      ],
+      "dependencies": [
+        "./db",
+        "./logger",
+        "./event-bus",
+        "z-ai-web-dev-sdk"
+      ],
+      "lineCount": 321,
+      "lastModified": "2026-08-17T03:11:39.000Z",
+      "indexedAt": "2026-08-19T09:41:49.285Z",
+      "category": "general"
+    },
+    {
+      "path": "src/lib/hermes/earning-researcher.ts",
+      "purpose": "src/lib/hermes/earning-researcher.ts — Daily Earning & Business Opportunity Researcher",
+      "keyFunctions": [
+        "runDailyEarningResearch",
+        "getTodayOpportunities"
+      ],
+      "dependencies": [
+        "@/lib/db",
+        "@/lib/logger",
+        "@/lib/event-bus",
+        "z-ai-web-dev-sdk",
+        "@/lib/llm-client"
+      ],
+      "lineCount": 225,
+      "lastModified": "2026-08-17T03:11:39.000Z",
+      "indexedAt": "2026-08-19T09:41:49.290Z",
+      "category": "general"
+    },
+    {
+      "path": "src/lib/hermes/learning.ts",
+      "purpose": "src/lib/hermes/learning.ts — Autonomous Daily Multimodal Learning Engine",
+      "keyFunctions": [
+        "ingestWebUrl",
+        "ingestVideoLink",
+        "ingestSocialFeed",
+        "ingestFile",
+        "runDailyLearning"
+      ],
+      "dependencies": [
+        "@/lib/db",
+        "@/lib/logger",
+        "./memory",
+        "./skills",
+        "z-ai-web-dev-sdk",
+        "@/lib/llm-client"
+      ],
+      "lineCount": 434,
+      "lastModified": "2026-08-17T21:59:30.000Z",
+      "indexedAt": "2026-08-19T09:41:49.289Z",
+      "category": "general"
+    },
+    {
+      "path": "src/lib/hermes/memory.ts",
+      "purpose": "src/lib/hermes/memory.ts — Persistent Memory & Context Compression",
+      "keyFunctions": [
+        "searchMemory",
+        "storeMemory",
+        "compressContext",
+        "linkMemories",
+        "estimateTokens"
+      ],
+      "dependencies": [
+        "@/lib/db",
+        "@/lib/logger",
+        "@/lib/llm-client"
+      ],
+      "lineCount": 249,
+      "lastModified": "2026-08-17T03:11:39.000Z",
+      "indexedAt": "2026-08-19T09:41:49.289Z",
+      "category": "memory"
+    },
+    {
+      "path": "src/lib/hermes/skills.ts",
+      "purpose": "src/lib/hermes/skills.ts — Dynamic Skill Acquisition & Learning Engine",
+      "keyFunctions": [
+        "discoverSkills",
+        "loadSkillInstructions",
+        "findSkillBySlug",
+        "incrementSkillUsage",
+        "createSkillFromExecution",
+        "SKILL_SYSTEM_PROMPT_SECTION"
+      ],
+      "dependencies": [
+        "@/lib/db",
+        "@/lib/logger",
+        "@/lib/conductor/router",
+        "@/lib/skill-patterns",
+        "@/lib/llm-client"
+      ],
+      "lineCount": 367,
+      "lastModified": "2026-08-17T15:05:35.000Z",
+      "indexedAt": "2026-08-19T09:41:49.289Z",
+      "category": "general"
+    },
+    {
+      "path": "src/lib/hermes/toolsets.ts",
+      "purpose": "ARIA Mission Control — Hermes Programmatic Tool Calling and Code Execution.",
+      "keyFunctions": [
+        "executeCode",
+        "executeToolCall",
+        "parseHermesXML",
+        "formatHermesXML",
+        "TOOLS_SYSTEM_PROMPT_SECTION"
+      ],
+      "dependencies": [
+        "node:vm",
+        "@/lib/db",
+        "@/lib/event-bus",
+        "@/lib/llm-client",
+        "@/lib/types",
+        "@/lib/hermes/memory",
+        "@/lib/hermes/skills",
+        "z-ai-web-dev-sdk"
+      ],
+      "lineCount": 902,
+      "lastModified": "2026-08-17T03:11:39.000Z",
+      "indexedAt": "2026-08-19T09:41:49.290Z",
+      "category": "general"
+    },
+    {
+      "path": "src/lib/hook-engine.ts",
+      "purpose": "src/lib/hook-engine.ts — v66 Phase 16 (Anti-Robot-Call Hook Engine)",
+      "keyFunctions": [
+        "generateHook",
+        "adaptPitchLive",
+        "handleNegotiation"
+      ],
+      "dependencies": [
+        "./logger",
+        "./brand-extractor"
+      ],
+      "lineCount": 207,
+      "lastModified": "2026-08-17T22:23:06.000Z",
+      "indexedAt": "2026-08-19T09:41:49.300Z",
+      "category": "general"
+    },
+    {
+      "path": "src/lib/industry-playbooks.ts",
+      "purpose": "src/lib/industry-playbooks.ts — 12 industry playbooks.",
+      "keyFunctions": [
+        "getPlaybook"
+      ],
+      "dependencies": [],
+      "lineCount": 424,
+      "lastModified": "2026-08-17T03:11:39.000Z",
+      "indexedAt": "2026-08-19T09:41:49.266Z",
+      "category": "general"
+    },
+    {
+      "path": "src/lib/intelligence/ab-testing.ts",
+      "purpose": "(no purpose documented — add a JSDoc header)",
+      "keyFunctions": [
+        "assignVariant",
+        "recordOutcome",
+        "getWinningVariant"
+      ],
+      "dependencies": [
+        "crypto",
+        "../db",
+        "../logger"
+      ],
+      "lineCount": 49,
+      "lastModified": "2026-08-17T04:51:44.000Z",
+      "indexedAt": "2026-08-19T09:41:49.267Z",
+      "category": "intelligence"
+    },
+    {
+      "path": "src/lib/intelligence/competitor-analyzer.ts",
+      "purpose": "(no purpose documented — add a JSDoc header)",
+      "keyFunctions": [
+        "runCompetitorAnalysis"
+      ],
+      "dependencies": [
+        "../db",
+        "../logger",
+        "../event-bus",
+        "z-ai-web-dev-sdk",
+        "../llm-client"
+      ],
+      "lineCount": 15,
+      "lastModified": "2026-08-17T03:21:32.000Z",
+      "indexedAt": "2026-08-19T09:41:49.268Z",
+      "category": "intelligence"
+    },
+    {
+      "path": "src/lib/intelligence/feedback-loop.ts",
+      "purpose": "(no purpose documented — add a JSDoc header)",
+      "keyFunctions": [
+        "sendSatisfactionSurvey",
+        "recordFeedback",
+        "getSuccessfulPatterns"
+      ],
+      "dependencies": [
+        "../db",
+        "../logger",
+        "../event-bus",
+        "../email-service",
+        "../llm-client"
+      ],
+      "lineCount": 24,
+      "lastModified": "2026-08-17T04:52:17.000Z",
+      "indexedAt": "2026-08-19T09:41:49.268Z",
+      "category": "intelligence"
+    },
+    {
+      "path": "src/lib/intelligence/prompt-improver.ts",
+      "purpose": "(no purpose documented — add a JSDoc header)",
+      "keyFunctions": [
+        "checkAndImprovePrompts"
+      ],
+      "dependencies": [
+        "../db",
+        "../logger",
+        "../event-bus",
+        "../llm-client",
+        "../supervisors"
+      ],
+      "lineCount": 74,
+      "lastModified": "2026-08-17T04:52:10.000Z",
+      "indexedAt": "2026-08-19T09:41:49.267Z",
+      "category": "intelligence"
+    },
+    {
+      "path": "src/lib/intelligence/sandbox.ts",
+      "purpose": "(no purpose documented — add a JSDoc header)",
+      "keyFunctions": [
+        "executeInSandbox"
+      ],
+      "dependencies": [
+        "fs",
+        "path",
+        "child_process",
+        "os",
+        "../logger"
+      ],
+      "lineCount": 99,
+      "lastModified": "2026-08-17T04:51:27.000Z",
+      "indexedAt": "2026-08-19T09:41:49.267Z",
+      "category": "intelligence"
+    },
+    {
+      "path": "src/lib/internet-research.ts",
+      "purpose": "src/lib/internet-research.ts — v61 Phase 5 (Internet Research for Complex Tasks)",
+      "keyFunctions": [
+        "researchTaskContext",
+        "enhancePromptWithResearch"
+      ],
+      "dependencies": [
+        "./logger",
+        "z-ai-web-dev-sdk",
+        "./skill-patterns"
+      ],
+      "lineCount": 216,
+      "lastModified": "2026-08-17T19:11:42.000Z",
+      "indexedAt": "2026-08-19T09:41:49.301Z",
+      "category": "general"
+    },
+    {
+      "path": "src/lib/invoice-generator.ts",
+      "purpose": "(no purpose documented — add a JSDoc header)",
+      "keyFunctions": [
+        "generateInvoiceData",
+        "renderInvoiceHtml"
+      ],
+      "dependencies": [
+        "./db",
+        "./logger"
+      ],
+      "lineCount": 16,
+      "lastModified": "2026-08-17T03:19:36.000Z",
+      "indexedAt": "2026-08-19T09:41:49.287Z",
+      "category": "general"
+    },
+    {
+      "path": "src/lib/knowledge-base.ts",
+      "purpose": "src/lib/knowledge-base.ts — In-app Knowledge Base.",
+      "keyFunctions": [
+        "listArticles",
+        "getArticle",
+        "searchArticles",
+        "listCategories"
+      ],
+      "dependencies": [],
+      "lineCount": 400,
+      "lastModified": "2026-08-17T03:11:39.000Z",
+      "indexedAt": "2026-08-19T09:41:49.322Z",
+      "category": "memory"
+    },
+    {
+      "path": "src/lib/kpi-engine.ts",
+      "purpose": "src/lib/kpi-engine.ts — KPI snapshots.",
+      "keyFunctions": [
+        "captureSnapshot",
+        "getKpiSeries",
+        "getKpiSummary"
+      ],
+      "dependencies": [
+        "@prisma/client",
+        "./db",
+        "./logger"
+      ],
+      "lineCount": 127,
+      "lastModified": "2026-08-17T03:11:39.000Z",
+      "indexedAt": "2026-08-19T09:41:49.319Z",
+      "category": "general"
+    },
+    {
+      "path": "src/lib/lead-finder.ts",
+      "purpose": "src/lib/lead-finder.ts — Autonomous Lead Finder (v40)",
+      "keyFunctions": [
+        "runLeadFinder",
+        "getDiscoveredLeads"
+      ],
+      "dependencies": [
+        "./db",
+        "./logger",
+        "./event-bus",
+        "./services/catalog",
+        "z-ai-web-dev-sdk",
+        "./llm-client"
+      ],
+      "lineCount": 316,
+      "lastModified": "2026-08-17T20:00:32.000Z",
+      "indexedAt": "2026-08-19T09:41:49.270Z",
+      "category": "general"
+    },
+    {
+      "path": "src/lib/lead-hunter/contact-finder.ts",
+      "purpose": "src/lib/lead-hunter/contact-finder.ts — v72 Phase 22 (RULE-70)",
+      "keyFunctions": [
+        "findContactDetails"
+      ],
+      "dependencies": [
+        "../logger",
+        "z-ai-web-dev-sdk"
+      ],
+      "lineCount": 191,
+      "lastModified": "2026-08-19T05:55:10.000Z",
+      "indexedAt": "2026-08-19T09:41:49.312Z",
+      "category": "general"
+    },
+    {
+      "path": "src/lib/lead-hunter/excel-importer.ts",
+      "purpose": "src/lib/lead-hunter/excel-importer.ts — v72 Phase 22 (RULE-70)",
+      "keyFunctions": [
+        "importContactsFromFile"
+      ],
+      "dependencies": [
+        "../db",
+        "../logger",
+        "../event-bus",
+        "xlsx"
+      ],
+      "lineCount": 258,
+      "lastModified": "2026-08-19T06:08:01.000Z",
+      "indexedAt": "2026-08-19T09:41:49.311Z",
+      "category": "general"
+    },
+    {
+      "path": "src/lib/lead-hunter/free-offer-engine.ts",
+      "purpose": "src/lib/lead-hunter/free-offer-engine.ts — v72 Phase 22 (RULE-70)",
+      "keyFunctions": [
+        "redeemFreeOffer",
+        "updateRedemptionStatus",
+        "getOfferStatus",
+        "generateOfferText"
+      ],
+      "dependencies": [
+        "../db",
+        "../logger",
+        "../event-bus"
+      ],
+      "lineCount": 259,
+      "lastModified": "2026-08-19T05:55:41.000Z",
+      "indexedAt": "2026-08-19T09:41:49.311Z",
+      "category": "general"
+    },
+    {
+      "path": "src/lib/lead-hunter/google-maps-scout.ts",
+      "purpose": "src/lib/lead-hunter/google-maps-scout.ts — v72 Phase 22 (RULE-70)",
+      "keyFunctions": [
+        "scanForBusinessesWithoutWebsites",
+        "promoteToLead"
+      ],
+      "dependencies": [
+        "../db",
+        "../logger",
+        "../event-bus",
+        "z-ai-web-dev-sdk"
+      ],
+      "lineCount": 334,
+      "lastModified": "2026-08-19T05:54:15.000Z",
+      "indexedAt": "2026-08-19T09:41:49.312Z",
+      "category": "general"
+    },
+    {
+      "path": "src/lib/lead-hunter/index.ts",
+      "purpose": "src/lib/lead-hunter/index.ts — v71 Phase 21 (Autonomous Lead Hunter)",
+      "keyFunctions": [
+        "runDailyLeadHunt"
+      ],
+      "dependencies": [
+        "../db",
+        "../logger",
+        "../event-bus",
+        "./social-scout",
+        "./service-matcher",
+        "./profile-extractor",
+        "./qualification-debate",
+        "../preview-generator"
+      ],
+      "lineCount": 256,
+      "lastModified": "2026-08-19T05:20:13.000Z",
+      "indexedAt": "2026-08-19T09:41:49.311Z",
+      "category": "general"
+    },
+    {
+      "path": "src/lib/lead-hunter/profile-extractor.ts",
+      "purpose": "src/lib/lead-hunter/profile-extractor.ts — v71 Phase 21 (Autonomous Lead Hunter)",
+      "keyFunctions": [
+        "extractFromSocialProfile"
+      ],
+      "dependencies": [
+        "../logger",
+        "./social-scout",
+        "z-ai-web-dev-sdk"
+      ],
+      "lineCount": 315,
+      "lastModified": "2026-08-19T05:18:30.000Z",
+      "indexedAt": "2026-08-19T09:41:49.313Z",
+      "category": "general"
+    },
+    {
+      "path": "src/lib/lead-hunter/qualification-debate.ts",
+      "purpose": "src/lib/lead-hunter/qualification-debate.ts — v71 Phase 21 (Autonomous Lead Hunter)",
+      "keyFunctions": [
+        "qualifyLead"
+      ],
+      "dependencies": [
+        "../logger",
+        "../llm-client",
+        "../context-manager",
+        "../constitution",
+        "./social-scout",
+        "./service-matcher",
+        "./profile-extractor"
+      ],
+      "lineCount": 247,
+      "lastModified": "2026-08-19T05:24:36.000Z",
+      "indexedAt": "2026-08-19T09:41:49.311Z",
+      "category": "general"
+    },
+    {
+      "path": "src/lib/lead-hunter/service-matcher.ts",
+      "purpose": "src/lib/lead-hunter/service-matcher.ts — v71 Phase 21 (Autonomous Lead Hunter)",
+      "keyFunctions": [
+        "matchServiceToLead"
+      ],
+      "dependencies": [
+        "../db",
+        "../logger",
+        "../llm-client",
+        "./social-scout"
+      ],
+      "lineCount": 226,
+      "lastModified": "2026-08-19T05:17:48.000Z",
+      "indexedAt": "2026-08-19T09:41:49.312Z",
+      "category": "general"
+    },
+    {
+      "path": "src/lib/lead-hunter/social-scout.ts",
+      "purpose": "src/lib/lead-hunter/social-scout.ts — v71 Phase 21 (Autonomous Lead Hunter)",
+      "keyFunctions": [
+        "huntForLeads",
+        "replyToPost",
+        "generateHelpfulComment"
+      ],
+      "dependencies": [
+        "../db",
+        "../logger",
+        "../event-bus",
+        "z-ai-web-dev-sdk"
+      ],
+      "lineCount": 417,
+      "lastModified": "2026-08-19T05:17:16.000Z",
+      "indexedAt": "2026-08-19T09:41:49.312Z",
+      "category": "general"
+    },
+    {
+      "path": "src/lib/legal/contract-generator.ts",
+      "purpose": "src/lib/legal/contract-generator.ts — v73 Phase 23 (RULE-73)",
+      "keyFunctions": [
+        "createContractForServiceOrder",
+        "sendContractForSignature",
+        "processInboundSignatureEmail"
+      ],
+      "dependencies": [
+        "../db",
+        "../logger",
+        "../event-bus",
+        "pdfkit",
+        "fs",
+        "path",
+        "../email-service",
+        "../finance/ledger"
+      ],
+      "lineCount": 382,
+      "lastModified": "2026-08-19T06:33:53.000Z",
+      "indexedAt": "2026-08-19T09:41:49.308Z",
+      "category": "general"
+    },
+    {
+      "path": "src/lib/live-screen-session.ts",
+      "purpose": "src/lib/live-screen-session.ts — v66 Phase 16 (Gemini-Style Live Screen Interaction)",
+      "keyFunctions": [
+        "startLiveScreenSession",
+        "analyzeScreenFrame",
+        "endLiveScreenSession"
+      ],
+      "dependencies": [
+        "./db",
+        "./logger",
+        "./event-bus",
+        "crypto",
+        "sharp",
+        "z-ai-web-dev-sdk"
+      ],
+      "lineCount": 216,
+      "lastModified": "2026-08-19T04:09:40.000Z",
+      "indexedAt": "2026-08-19T09:41:49.269Z",
+      "category": "general"
+    },
+    {
+      "path": "src/lib/llm-client.ts",
+      "purpose": "ARIA Mission Control — Real LLM Client.",
+      "keyFunctions": [
+        "callLLM",
+        "agentThink",
+        "conductorRespond"
+      ],
+      "dependencies": [
+        "z-ai-web-dev-sdk",
+        "./db",
+        "./types",
+        "./llm-router"
+      ],
+      "lineCount": 659,
+      "lastModified": "2026-08-17T03:11:39.000Z",
+      "indexedAt": "2026-08-19T09:41:49.293Z",
+      "category": "llm"
+    },
+    {
+      "path": "src/lib/llm-router.ts",
+      "purpose": "src/lib/llm-router.ts — Multi-Provider LLM Routing Engine (v39 hardened)",
+      "keyFunctions": [
+        "safeJsonParse",
+        "routeLLM",
+        "classifyComplexity",
+        "getRouterStatus"
+      ],
+      "dependencies": [
+        "./logger",
+        "./ollama-client",
+        "./db",
+        "./event-bus",
+        "z-ai-web-dev-sdk",
+        "playwright",
+        "./environment-detector"
+      ],
+      "lineCount": 1028,
+      "lastModified": "2026-08-17T21:08:13.000Z",
+      "indexedAt": "2026-08-19T09:41:49.265Z",
+      "category": "conductor"
+    },
+    {
+      "path": "src/lib/logger.ts",
+      "purpose": "logger.ts — leveled, structured, dev-friendly console logger.",
+      "keyFunctions": [
+        "createLogger"
+      ],
+      "dependencies": [],
+      "lineCount": 73,
+      "lastModified": "2026-08-17T03:11:39.000Z",
+      "indexedAt": "2026-08-19T09:41:49.299Z",
+      "category": "infra"
+    },
+    {
+      "path": "src/lib/mcp-client.ts",
+      "purpose": "src/lib/mcp-client.ts — Model Context Protocol client registry.",
+      "keyFunctions": [
+        "listServers",
+        "registerServer",
+        "callTool"
+      ],
+      "dependencies": [
+        "./db",
+        "./logger"
+      ],
+      "lineCount": 157,
+      "lastModified": "2026-08-17T03:11:39.000Z",
+      "indexedAt": "2026-08-19T09:41:49.305Z",
+      "category": "general"
+    },
+    {
+      "path": "src/lib/milestones.ts",
+      "purpose": "src/lib/milestones.ts — milestone event log.",
+      "keyFunctions": [
+        "recordMilestone",
+        "listMilestones",
+        "markViewed"
+      ],
+      "dependencies": [
+        "@prisma/client",
+        "./db",
+        "./logger",
+        "./event-bus"
+      ],
+      "lineCount": 101,
+      "lastModified": "2026-08-17T03:11:39.000Z",
+      "indexedAt": "2026-08-19T09:41:49.301Z",
+      "category": "general"
+    },
+    {
+      "path": "src/lib/monitor.ts",
+      "purpose": "ARIA Mission Control — Monitoring & Self-Healing Agents.",
+      "keyFunctions": [
+        "checkAgentHealth",
+        "selfHeal",
+        "monitorApp",
+        "helpOtherAgents",
+        "startMonitor",
+        "stopMonitor",
+        "getMonitorStatus",
+        "getMonitoringAgentNames"
+      ],
+      "dependencies": [
+        "./db",
+        "./event-bus",
+        "./logger"
+      ],
+      "lineCount": 754,
+      "lastModified": "2026-08-17T03:11:39.000Z",
+      "indexedAt": "2026-08-19T09:41:49.292Z",
+      "category": "infra"
+    },
+    {
+      "path": "src/lib/multi-company-cycles.ts",
+      "purpose": "src/lib/multi-company-cycles.ts — Multi-Company Autonomous Cycles.",
+      "keyFunctions": [
+        "runMultiCompanyCycle",
+        "getMultiCompanyStatus",
+        "resolvePlaybookId"
+      ],
+      "dependencies": [
+        "./db",
+        "./logger",
+        "./event-bus",
+        "./multi-company",
+        "./autonomous-business-engine"
+      ],
+      "lineCount": 402,
+      "lastModified": "2026-08-17T03:11:39.000Z",
+      "indexedAt": "2026-08-19T09:41:49.319Z",
+      "category": "general"
+    },
+    {
+      "path": "src/lib/multi-company.ts",
+      "purpose": "ARIA Mission Control — Multi-Company support (Task 23).",
+      "keyFunctions": [
+        "listCompanies",
+        "getCompany",
+        "createCompany",
+        "updateCompany",
+        "deactivateCompany",
+        "getActiveCompanyId",
+        "switchCompany",
+        "clearActiveCompany",
+        "assignOpportunityToCompany",
+        "listOpportunitiesForCompany",
+        "unassignOpportunityFromCompany"
+      ],
+      "dependencies": [
+        "next/headers",
+        "./db",
+        "./types"
+      ],
+      "lineCount": 245,
+      "lastModified": "2026-08-17T03:11:39.000Z",
+      "indexedAt": "2026-08-19T09:41:49.286Z",
+      "category": "general"
+    },
+    {
+      "path": "src/lib/multi-owner/workspace-manager.ts",
+      "purpose": "src/lib/multi-owner/workspace-manager.ts — v74 Phase 24 (RULE-78)",
+      "keyFunctions": [
+        "getOwnerContext",
+        "loadWorkspace",
+        "registerOwnerWorkspace",
+        "getDatabaseUrlForOwner",
+        "verifyDataIsolation"
+      ],
+      "dependencies": [
+        "../db",
+        "../logger",
+        "fs",
+        "path"
+      ],
+      "lineCount": 237,
+      "lastModified": "2026-08-19T06:52:13.000Z",
+      "indexedAt": "2026-08-19T09:41:49.308Z",
+      "category": "general"
+    },
+    {
+      "path": "src/lib/multimodal-fallback.ts",
+      "purpose": "src/lib/multimodal-fallback.ts — v61 Phase 4 (Multimodal Sync)",
+      "keyFunctions": [
+        "pushDetailToText",
+        "shouldPushToText",
+        "generateVoiceSummary"
+      ],
+      "dependencies": [
+        "./logger",
+        "./telegram-notifier",
+        "./whatsapp/business"
+      ],
+      "lineCount": 126,
+      "lastModified": "2026-08-17T15:22:33.000Z",
+      "indexedAt": "2026-08-19T09:41:49.262Z",
+      "category": "general"
+    },
+    {
+      "path": "src/lib/notes.ts",
+      "purpose": "src/lib/notes.ts — owner/agent notes CRUD on db.note.",
+      "keyFunctions": [
+        "listNotes",
+        "createNote",
+        "updateNote",
+        "deleteNote",
+        "pinNote"
+      ],
+      "dependencies": [
+        "@prisma/client",
+        "./db",
+        "./logger"
+      ],
+      "lineCount": 126,
+      "lastModified": "2026-08-17T03:11:39.000Z",
+      "indexedAt": "2026-08-19T09:41:49.307Z",
+      "category": "general"
+    },
+    {
+      "path": "src/lib/notifications.ts",
+      "purpose": "src/lib/notifications.ts — $0 notification system.",
+      "keyFunctions": [
+        "sendWebPush",
+        "sendGmailVision",
+        "notifyOrderPlaced",
+        "notifyOrderDelivered",
+        "addPushSubscription",
+        "getPushSubscriptions"
+      ],
+      "dependencies": [
+        "./db",
+        "./logger",
+        "web-push",
+        "playwright"
+      ],
+      "lineCount": 319,
+      "lastModified": "2026-08-17T03:11:39.000Z",
+      "indexedAt": "2026-08-19T09:41:49.301Z",
+      "category": "general"
+    },
+    {
+      "path": "src/lib/ollama-client.ts",
+      "purpose": "src/lib/ollama-client.ts — Ollama LLM Client (fallback provider)",
+      "keyFunctions": [
+        "isOllamaAvailable",
+        "isOllamaRunning",
+        "listOllamaModels",
+        "autoDetectOllamaModels",
+        "ensureOllamaModel",
+        "callOllama",
+        "embedText",
+        "shouldSkipOllama",
+        "getLastOllamaLatency",
+        "cosineSimilarity"
+      ],
+      "dependencies": [
+        "./logger",
+        "child_process",
+        "util"
+      ],
+      "lineCount": 524,
+      "lastModified": "2026-08-17T20:01:10.000Z",
+      "indexedAt": "2026-08-19T09:41:49.288Z",
+      "category": "llm"
+    },
+    {
+      "path": "src/lib/openapi.ts",
+      "purpose": "src/lib/openapi.ts — OpenAPI 3.0 spec generator.",
+      "keyFunctions": [
+        "generateOpenApiSpec"
+      ],
+      "dependencies": [
+        "@/lib/central-registry"
+      ],
+      "lineCount": 175,
+      "lastModified": "2026-08-17T03:11:39.000Z",
+      "indexedAt": "2026-08-19T09:41:49.305Z",
+      "category": "general"
+    },
+    {
+      "path": "src/lib/oral-confirmation.ts",
+      "purpose": "src/lib/oral-confirmation.ts — v67 Phase 17 (Oral Call Confirmation)",
+      "keyFunctions": [
+        "processOralApproval",
+        "analyzeOralConfirmation",
+        "analyzeCustomerCall",
+        "analyzeInvestorCall"
+      ],
+      "dependencies": [
+        "./db",
+        "./logger",
+        "./event-bus"
+      ],
+      "lineCount": 371,
+      "lastModified": "2026-08-17T22:52:03.000Z",
+      "indexedAt": "2026-08-19T09:41:49.302Z",
+      "category": "general"
+    },
+    {
+      "path": "src/lib/outreach-coordinator/index.ts",
+      "purpose": "src/lib/outreach-coordinator/index.ts — v72 Phase 22 (RULE-70 + RULE-71)",
+      "keyFunctions": [
+        "sendProactiveOutreach",
+        "sendOutreachToAllPursuedLeads",
+        "sendOutreachToGoogleMapsBusinesses",
+        "sendOutreachToImportedContacts",
+        "pickBestChannel"
+      ],
+      "dependencies": [
+        "../db",
+        "../logger",
+        "../event-bus",
+        "../approval-patterns",
+        "../lead-hunter/free-offer-engine",
+        "../whatsapp/business",
+        "../email-service",
+        "../telephony"
+      ],
+      "lineCount": 435,
+      "lastModified": "2026-08-19T06:03:17.000Z",
+      "indexedAt": "2026-08-19T09:41:49.268Z",
+      "category": "general"
+    },
+    {
+      "path": "src/lib/outreach-executor.ts",
+      "purpose": "src/lib/outreach-executor.ts — Autonomous Outreach Execution Engine (v43)",
+      "keyFunctions": [
+        "runOutreachExecutor",
+        "isSuppressed",
+        "suppressEmail",
+        "getOutreachStats"
+      ],
+      "dependencies": [
+        "./db",
+        "./logger",
+        "./event-bus",
+        "./llm-client",
+        "./email-service",
+        "./health-sim",
+        "./autonomy-control",
+        "./business-hours",
+        "./agent-blackboard",
+        "./conductor/dispatcher",
+        "./brand-extractor",
+        "./preview-generator"
+      ],
+      "lineCount": 747,
+      "lastModified": "2026-08-17T21:57:29.000Z",
+      "indexedAt": "2026-08-19T09:41:49.287Z",
+      "category": "general"
+    },
+    {
+      "path": "src/lib/pagination.ts",
+      "purpose": "src/lib/pagination.ts — Shared pagination helpers for list endpoints.",
+      "keyFunctions": [
+        "parsePagination",
+        "paginatedResponse"
+      ],
+      "dependencies": [
+        "next/server"
+      ],
+      "lineCount": 114,
+      "lastModified": "2026-08-17T03:11:39.000Z",
+      "indexedAt": "2026-08-19T09:41:49.309Z",
+      "category": "general"
+    },
+    {
+      "path": "src/lib/planner.ts",
+      "purpose": "ARIA Mission Control — Claude-Level Planning with Questioning.",
+      "keyFunctions": [
+        "analyzeTask",
+        "generatePlan",
+        "questionBeforeExecution"
+      ],
+      "dependencies": [
+        "./llm-client",
+        "./logger"
+      ],
+      "lineCount": 374,
+      "lastModified": "2026-08-17T03:11:39.000Z",
+      "indexedAt": "2026-08-19T09:41:49.301Z",
+      "category": "workflow"
+    },
+    {
+      "path": "src/lib/pre-publish-gate.ts",
+      "purpose": "src/lib/pre-publish-gate.ts — v65 Phase 15 (Pre-Publish Quality Gate)",
+      "keyFunctions": [
+        "runPrePublishGate"
+      ],
+      "dependencies": [
+        "./db",
+        "./logger",
+        "./event-bus",
+        "./expansion/service-simulator",
+        "./telegram-notifier"
+      ],
+      "lineCount": 170,
+      "lastModified": "2026-08-17T21:54:07.000Z",
+      "indexedAt": "2026-08-19T09:41:49.289Z",
+      "category": "general"
+    },
+    {
+      "path": "src/lib/preview-generator.ts",
+      "purpose": "src/lib/preview-generator.ts — v65 Phase 15 (Personalized Brand Previews)",
+      "keyFunctions": [
+        "generatePreview"
+      ],
+      "dependencies": [
+        "./logger",
+        "./brand-extractor"
+      ],
+      "lineCount": 129,
+      "lastModified": "2026-08-17T21:55:14.000Z",
+      "indexedAt": "2026-08-19T09:41:49.292Z",
+      "category": "general"
+    },
+    {
+      "path": "src/lib/production-gate.ts",
+      "purpose": "src/lib/production-gate.ts — v61 Phase 5 (100% Production-Grade Gate)",
+      "keyFunctions": [
+        "verifyProductionReadiness"
+      ],
+      "dependencies": [
+        "./logger"
+      ],
+      "lineCount": 173,
+      "lastModified": "2026-08-17T18:18:38.000Z",
+      "indexedAt": "2026-08-19T09:41:49.304Z",
+      "category": "safety"
+    },
+    {
+      "path": "src/lib/protected-preview.ts",
+      "purpose": "src/lib/protected-preview.ts — v66 Phase 16 (Protected Preview System)",
+      "keyFunctions": [
+        "createProtectedPreview",
+        "generateProtectionWrapper"
+      ],
+      "dependencies": [
+        "./db",
+        "./logger",
+        "./event-bus",
+        "crypto"
+      ],
+      "lineCount": 203,
+      "lastModified": "2026-08-17T22:23:35.000Z",
+      "indexedAt": "2026-08-19T09:41:49.304Z",
+      "category": "general"
+    },
+    {
+      "path": "src/lib/pulse-history.ts",
+      "purpose": "ARIA Mission Control — Pulse history + state-of-world sentence builder.",
+      "keyFunctions": [
+        "runsPerDay",
+        "inboundPerDay",
+        "stateOfWorld",
+        "stateSeverity"
+      ],
+      "dependencies": [
+        "@/lib/types"
+      ],
+      "lineCount": 177,
+      "lastModified": "2026-08-17T03:11:39.000Z",
+      "indexedAt": "2026-08-19T09:41:49.268Z",
+      "category": "general"
+    },
+    {
+      "path": "src/lib/rate-limiter.ts",
+      "purpose": "src/lib/rate-limiter.ts — Token-bucket rate limiter (in-memory, per-IP).",
+      "keyFunctions": [
+        "checkRateLimit",
+        "getClientIp",
+        "isExpensiveEndpoint",
+        "isAuthEndpoint",
+        "isPreviewEndpoint",
+        "getRateLimitTier"
+      ],
+      "dependencies": [],
+      "lineCount": 226,
+      "lastModified": "2026-08-17T03:11:39.000Z",
+      "indexedAt": "2026-08-19T09:41:49.269Z",
+      "category": "general"
+    },
+    {
+      "path": "src/lib/rbac.ts",
+      "purpose": "src/lib/rbac.ts — Role-Based Access Control (v40)",
+      "keyFunctions": [
+        "canAccess",
+        "getRoles",
+        "describeRole"
+      ],
+      "dependencies": [
+        "server-only"
+      ],
+      "lineCount": 185,
+      "lastModified": "2026-08-17T03:11:39.000Z",
+      "indexedAt": "2026-08-19T09:41:49.319Z",
+      "category": "general"
+    },
+    {
+      "path": "src/lib/revenue-engine.ts",
+      "purpose": "src/lib/revenue-engine.ts — 6-stage revenue pipeline.",
+      "keyFunctions": [
+        "runRevenueCycle",
+        "getRevenuePipeline"
+      ],
+      "dependencies": [
+        "./db",
+        "./logger",
+        "./feasibility",
+        "./services/crypto-checkout"
+      ],
+      "lineCount": 363,
+      "lastModified": "2026-08-17T03:11:39.000Z",
+      "indexedAt": "2026-08-19T09:41:49.270Z",
+      "category": "general"
+    },
+    {
+      "path": "src/lib/screen-context.ts",
+      "purpose": "ARIA Mission Control — Screen context for Conductor routing.",
+      "keyFunctions": [
+        "getScreenContext",
+        "formatScreenContext",
+        "screenContextString"
+      ],
+      "dependencies": [],
+      "lineCount": 180,
+      "lastModified": "2026-08-17T03:11:39.000Z",
+      "indexedAt": "2026-08-19T09:41:49.262Z",
+      "category": "general"
+    },
+    {
+      "path": "src/lib/screen-vision.ts",
+      "purpose": "src/lib/screen-vision.ts — Screen Sharing + Vision Interaction System",
+      "keyFunctions": [
+        "analyzeScreen",
+        "queryScreen",
+        "executeScreenAction"
+      ],
+      "dependencies": [
+        "@/lib/db",
+        "@/lib/logger",
+        "@/lib/hermes/memory",
+        "z-ai-web-dev-sdk",
+        "@/lib/planner"
+      ],
+      "lineCount": 254,
+      "lastModified": "2026-08-17T03:11:39.000Z",
+      "indexedAt": "2026-08-19T09:41:49.286Z",
+      "category": "general"
+    },
+    {
+      "path": "src/lib/secure-crypto.ts",
+      "purpose": "src/lib/secure-crypto.ts — AES-256-GCM + PBKDF2 + bcrypt helpers.",
+      "keyFunctions": [
+        "encrypt",
+        "decrypt",
+        "sha512",
+        "pbkdf2Hash",
+        "randomSalt",
+        "maskSecret"
+      ],
+      "dependencies": [
+        "node:crypto",
+        "./logger"
+      ],
+      "lineCount": 131,
+      "lastModified": "2026-08-17T03:11:39.000Z",
+      "indexedAt": "2026-08-19T09:41:49.311Z",
+      "category": "general"
+    },
+    {
+      "path": "src/lib/self-evolution/refactor-engine.ts",
+      "purpose": "src/lib/self-evolution/refactor-engine.ts — v73 Phase 23 (RULE-72)",
+      "keyFunctions": [
+        "detectFailingModules",
+        "draftAndProposeRefactor",
+        "executeMerge",
+        "runWeeklyAudit",
+        "runPreFlightAudit",
+        "handleReviewCommand",
+        "handleSuggestCommand",
+        "rollbackIfCrashed",
+        "generateCoverageMatrix"
+      ],
+      "dependencies": [
+        "../db",
+        "../logger",
+        "../event-bus",
+        "../llm-client",
+        "../context-manager",
+        "../constitution",
+        "fs",
+        "path",
+        "child_process",
+        "../telegram-notifier"
+      ],
+      "lineCount": 967,
+      "lastModified": "2026-08-19T06:54:17.000Z",
+      "indexedAt": "2026-08-19T09:41:49.308Z",
+      "category": "general"
+    },
+    {
+      "path": "src/lib/self-heal.ts",
+      "purpose": "src/lib/self-heal.ts — Continuous background-loop supervisor.",
+      "keyFunctions": [
+        "startSelfHeal",
+        "stopSelfHeal",
+        "getSelfHealStatus"
+      ],
+      "dependencies": [
+        "./logger",
+        "./db",
+        "./env-loader",
+        "./approval-decision",
+        "./monitor",
+        "fs",
+        "path",
+        "child_process",
+        "./simulation",
+        "./skill-loader",
+        "./ollama-client"
+      ],
+      "lineCount": 352,
+      "lastModified": "2026-08-17T11:40:49.000Z",
+      "indexedAt": "2026-08-19T09:41:49.262Z",
+      "category": "general"
+    },
+    {
+      "path": "src/lib/services/builder.ts",
+      "purpose": "src/lib/services/builder.ts — Service Builder Engine.",
+      "keyFunctions": [
+        "buildService",
+        "parseMultiFileResponse",
+        "getOrderDir",
+        "getOrderZip",
+        "runQualityGate"
+      ],
+      "dependencies": [
+        "fs",
+        "path",
+        "child_process",
+        "@/lib/db",
+        "@/lib/llm-router",
+        "./catalog",
+        "@/lib/logger",
+        "@/lib/supervisors/quality-supervisor"
+      ],
+      "lineCount": 688,
+      "lastModified": "2026-08-17T13:00:29.000Z",
+      "indexedAt": "2026-08-19T09:41:49.298Z",
+      "category": "services"
+    },
+    {
+      "path": "src/lib/services/catalog.ts",
+      "purpose": "src/lib/services/catalog.ts — ARIA Service Catalog.",
+      "keyFunctions": [
+        "getService",
+        "getServicesByCategory",
+        "getCategories"
+      ],
+      "dependencies": [],
+      "lineCount": 269,
+      "lastModified": "2026-08-17T03:11:39.000Z",
+      "indexedAt": "2026-08-19T09:41:49.298Z",
+      "category": "services"
+    },
+    {
+      "path": "src/lib/services/crypto-checkout.ts",
+      "purpose": "src/lib/services/crypto-checkout.ts — Crypto Payment Gateway.",
+      "keyFunctions": [
+        "createCryptoOrder",
+        "approveOrder",
+        "rejectOrder",
+        "getPendingPayments"
+      ],
+      "dependencies": [
+        "@/lib/db",
+        "@/lib/logger",
+        "./catalog",
+        "./builder",
+        "@/lib/email-service"
+      ],
+      "lineCount": 386,
+      "lastModified": "2026-08-17T04:53:43.000Z",
+      "indexedAt": "2026-08-19T09:41:49.299Z",
+      "category": "services"
+    },
+    {
+      "path": "src/lib/simulation-engine.ts",
+      "purpose": "src/lib/simulation-engine.ts — v63 Phase 13 (Built-In Simulation Engine)",
+      "keyFunctions": [
+        "runSimulation",
+        "runSimulationSuite",
+        "generateSimulationReport",
+        "getSimulationMetrics"
+      ],
+      "dependencies": [
+        "./db",
+        "./logger",
+        "./event-bus",
+        "./simulation-scenarios"
+      ],
+      "lineCount": 391,
+      "lastModified": "2026-08-19T04:14:03.000Z",
+      "indexedAt": "2026-08-19T09:41:49.292Z",
+      "category": "general"
+    },
+    {
+      "path": "src/lib/simulation-scenarios/comm-quality.ts",
+      "purpose": "src/lib/simulation-scenarios/comm-quality.ts — v67 Phase 17",
+      "keyFunctions": [],
+      "dependencies": [
+        "./index",
+        "../constitution",
+        "../db",
+        "../context-manager",
+        "../approval-brief",
+        "../telegram-notifier",
+        "../kpi-engine",
+        "../simulation-engine",
+        "../expansion/service-researcher",
+        "../oral-confirmation",
+        "../simulation/fleet"
+      ],
+      "lineCount": 534,
+      "lastModified": "2026-08-19T04:14:39.000Z",
+      "indexedAt": "2026-08-19T09:41:49.315Z",
+      "category": "general"
+    },
+    {
+      "path": "src/lib/simulation-scenarios/customer-purchase.ts",
+      "purpose": "src/lib/simulation-scenarios/customer-purchase.ts — v63 Phase 13",
+      "keyFunctions": [],
+      "dependencies": [
+        "./index",
+        "../db",
+        "../crypto-verifier",
+        "../upi-payments",
+        "../services/catalog",
+        "../notifications",
+        "../business-hours",
+        "../services/builder"
+      ],
+      "lineCount": 257,
+      "lastModified": "2026-08-17T21:25:09.000Z",
+      "indexedAt": "2026-08-19T09:41:49.316Z",
+      "category": "general"
+    },
+    {
+      "path": "src/lib/simulation-scenarios/edge-cases.ts",
+      "purpose": "src/lib/simulation-scenarios/edge-cases.ts — v63 Phase 13",
+      "keyFunctions": [],
+      "dependencies": [
+        "./index",
+        "../agent-blackboard",
+        "../production-gate",
+        "../zero-assumption-guard",
+        "../autonomy-control",
+        "../conductor/router",
+        "../business-hours",
+        "../vector-memory",
+        "../skill-patterns",
+        "../cron-scheduler",
+        "../conductor/council"
+      ],
+      "lineCount": 261,
+      "lastModified": "2026-08-17T21:21:23.000Z",
+      "indexedAt": "2026-08-19T09:41:49.317Z",
+      "category": "general"
+    },
+    {
+      "path": "src/lib/simulation-scenarios/index.ts",
+      "purpose": "src/lib/simulation-scenarios/index.ts — v63 Phase 13",
+      "keyFunctions": [],
+      "dependencies": [
+        "./customer-purchase",
+        "./owner-commands",
+        "./edge-cases",
+        "./tough-questions",
+        "./comm-quality",
+        "./revenue-interaction"
+      ],
+      "lineCount": 60,
+      "lastModified": "2026-08-17T22:51:13.000Z",
+      "indexedAt": "2026-08-19T09:41:49.314Z",
+      "category": "general"
+    },
+    {
+      "path": "src/lib/simulation-scenarios/owner-commands.ts",
+      "purpose": "src/lib/simulation-scenarios/owner-commands.ts — v63 Phase 13",
+      "keyFunctions": [],
+      "dependencies": [
+        "./index",
+        "../conductor/council",
+        "../constitution",
+        "../execution-trace",
+        "../db",
+        "../kpi-engine",
+        "../autonomy-control",
+        "../conductor/router",
+        "../simulation/fleet",
+        "../cron-scheduler",
+        "../credential-vault",
+        "../failure-alchemy",
+        "../cash-claw",
+        "fs",
+        "path",
+        "../simulation-engine"
+      ],
+      "lineCount": 267,
+      "lastModified": "2026-08-19T04:08:19.000Z",
+      "indexedAt": "2026-08-19T09:41:49.315Z",
+      "category": "general"
+    },
+    {
+      "path": "src/lib/simulation-scenarios/revenue-interaction.ts",
+      "purpose": "src/lib/simulation-scenarios/revenue-interaction.ts — v67 Phase 17",
+      "keyFunctions": [],
+      "dependencies": [
+        "./index",
+        "../hook-engine",
+        "../preview-generator",
+        "../protected-preview"
+      ],
+      "lineCount": 603,
+      "lastModified": "2026-08-17T22:51:00.000Z",
+      "indexedAt": "2026-08-19T09:41:49.316Z",
+      "category": "general"
+    },
+    {
+      "path": "src/lib/simulation-scenarios/tough-questions.ts",
+      "purpose": "src/lib/simulation-scenarios/tough-questions.ts — v63 Phase 13",
+      "keyFunctions": [],
+      "dependencies": [
+        "./index",
+        "../constitution",
+        "../kpi-engine",
+        "../execution-trace",
+        "../simulation-engine",
+        "../conductor/router",
+        "../autonomy-control",
+        "../simulation/fleet",
+        "../agent-blackboard"
+      ],
+      "lineCount": 245,
+      "lastModified": "2026-08-19T04:08:19.000Z",
+      "indexedAt": "2026-08-19T09:41:49.315Z",
+      "category": "general"
+    },
+    {
+      "path": "src/lib/simulation.ts",
+      "purpose": "src/lib/simulation.ts — re-export barrel for the simulation modules.",
+      "keyFunctions": [],
+      "dependencies": [],
+      "lineCount": 45,
+      "lastModified": "2026-08-17T03:11:39.000Z",
+      "indexedAt": "2026-08-19T09:41:49.267Z",
+      "category": "general"
+    },
+    {
+      "path": "src/lib/simulation/engine.ts",
+      "purpose": "src/lib/simulation/engine.ts — autonomous tick loop.",
+      "keyFunctions": [
+        "startEngine",
+        "stopEngine"
+      ],
+      "dependencies": [
+        "../db",
+        "../event-bus",
+        "../types",
+        "./fleet",
+        "./seed-templates",
+        "./seed",
+        "../llm-client",
+        "../telegram-notifier",
+        "../autonomy-control"
+      ],
+      "lineCount": 959,
+      "lastModified": "2026-08-17T15:36:16.000Z",
+      "indexedAt": "2026-08-19T09:41:49.317Z",
+      "category": "simulation"
+    },
+    {
+      "path": "src/lib/simulation/fleet.ts",
+      "purpose": "src/lib/simulation/fleet.ts — 37-agent roster + serializer.",
+      "keyFunctions": [
+        "serializeAgent"
+      ],
+      "dependencies": [
+        "../types"
+      ],
+      "lineCount": 200,
+      "lastModified": "2026-08-17T03:11:39.000Z",
+      "indexedAt": "2026-08-19T09:41:49.318Z",
+      "category": "simulation"
+    },
+    {
+      "path": "src/lib/simulation/seed-templates.ts",
+      "purpose": "src/lib/simulation/seed-templates.ts — static seed/mutation data.",
+      "keyFunctions": [
+        "pick",
+        "chance"
+      ],
+      "dependencies": [],
+      "lineCount": 168,
+      "lastModified": "2026-08-17T03:11:39.000Z",
+      "indexedAt": "2026-08-19T09:41:49.318Z",
+      "category": "simulation"
+    },
+    {
+      "path": "src/lib/simulation/seed.ts",
+      "purpose": "src/lib/simulation/seed.ts — DB hydration on first boot.",
+      "keyFunctions": [
+        "seedIfEmpty"
+      ],
+      "dependencies": [
+        "../db",
+        "../types",
+        "./fleet",
+        "./seed-templates"
+      ],
+      "lineCount": 359,
+      "lastModified": "2026-08-19T06:29:36.000Z",
+      "indexedAt": "2026-08-19T09:41:49.317Z",
+      "category": "simulation"
+    },
+    {
+      "path": "src/lib/simulator.ts",
+      "purpose": "ARIA Mission Control — 100x Simulator with Result Injection.",
+      "keyFunctions": [
+        "scoreOutcome",
+        "runSimulation",
+        "getSimulationResults",
+        "listSimulationRuns",
+        "injectPreviousResults"
+      ],
+      "dependencies": [
+        "./db",
+        "./logger",
+        "./llm-client"
+      ],
+      "lineCount": 964,
+      "lastModified": "2026-08-17T03:11:39.000Z",
+      "indexedAt": "2026-08-19T09:41:49.291Z",
+      "category": "general"
+    },
+    {
+      "path": "src/lib/skill-loader.ts",
+      "purpose": "src/lib/skill-loader.ts — ClawHub Skill Loader.",
+      "keyFunctions": [
+        "loadSkillsFromDisk"
+      ],
+      "dependencies": [
+        "fs",
+        "path",
+        "./db",
+        "./logger"
+      ],
+      "lineCount": 205,
+      "lastModified": "2026-08-17T03:11:39.000Z",
+      "indexedAt": "2026-08-19T09:41:49.285Z",
+      "category": "memory"
+    },
+    {
+      "path": "src/lib/skill-patterns.ts",
+      "purpose": "src/lib/skill-patterns.ts — v61 Phase 3 (Skills as Patterns, Not Bloat)",
+      "keyFunctions": [
+        "loadFullSkillContext",
+        "queryKnowledgeBase",
+        "listAllSkillSlugs",
+        "getSkillPattern",
+        "listSkillPatternSlugs",
+        "isSkillPatternFree"
+      ],
+      "dependencies": [
+        "server-only",
+        "./embedded-skills",
+        "./db"
+      ],
+      "lineCount": 421,
+      "lastModified": "2026-08-19T09:24:09.000Z",
+      "indexedAt": "2026-08-19T09:41:49.320Z",
+      "category": "memory"
+    },
+    {
+      "path": "src/lib/smart-routing.ts",
+      "purpose": "ARIA Mission Control — Smart Chat Routing.",
+      "keyFunctions": [
+        "routeQuery",
+        "processQuery"
+      ],
+      "dependencies": [
+        "./llm-client"
+      ],
+      "lineCount": 173,
+      "lastModified": "2026-08-17T03:11:39.000Z",
+      "indexedAt": "2026-08-19T09:41:49.320Z",
+      "category": "general"
+    },
+    {
+      "path": "src/lib/social-media-manager/index.ts",
+      "purpose": "src/lib/social-media-manager/index.ts — v72 Phase 22 (RULE-70 + RULE-71)",
+      "keyFunctions": [
+        "generateAwarenessContent",
+        "schedulePost",
+        "publishPost",
+        "connectSocialAccount",
+        "listConnectedAccounts",
+        "listScheduledPosts"
+      ],
+      "dependencies": [
+        "../db",
+        "../logger",
+        "../event-bus",
+        "../llm-client",
+        "../approval-patterns",
+        "./platforms/instagram",
+        "../credential-vault"
+      ],
+      "lineCount": 305,
+      "lastModified": "2026-08-19T06:03:28.000Z",
+      "indexedAt": "2026-08-19T09:41:49.303Z",
+      "category": "general"
+    },
+    {
+      "path": "src/lib/state-bus.ts",
+      "purpose": "src/lib/state-bus.ts — in-process KV + pub/sub on globalThis.",
+      "keyFunctions": [
+        "getState",
+        "setState",
+        "deleteState",
+        "listState",
+        "subscribe",
+        "publish",
+        "getStateBusStatus"
+      ],
+      "dependencies": [],
+      "lineCount": 119,
+      "lastModified": "2026-08-17T03:11:39.000Z",
+      "indexedAt": "2026-08-19T09:41:49.308Z",
+      "category": "general"
+    },
+    {
+      "path": "src/lib/step-debate.ts",
+      "purpose": "src/lib/step-debate.ts — v61 Phase 5 (Step-by-Step Multi-Model Debate)",
+      "keyFunctions": [
+        "runStepDebate"
+      ],
+      "dependencies": [
+        "./llm-client",
+        "./logger",
+        "./global-logics",
+        "./constitution",
+        "./internet-research",
+        "./production-gate",
+        "./context-manager"
+      ],
+      "lineCount": 280,
+      "lastModified": "2026-08-19T04:08:11.000Z",
+      "indexedAt": "2026-08-19T09:41:49.297Z",
+      "category": "workflow"
+    },
+    {
+      "path": "src/lib/stripe-checkout/index.ts",
+      "purpose": "(no purpose documented — add a JSDoc header)",
+      "keyFunctions": [
+        "createStripeCheckoutSession",
+        "handleStripeWebhook",
+        "isStripeConfigured",
+        "getStripeConfig"
+      ],
+      "dependencies": [
+        "../db",
+        "../logger",
+        "../event-bus",
+        "stripe",
+        "../services/crypto-checkout"
+      ],
+      "lineCount": 38,
+      "lastModified": "2026-08-17T04:53:27.000Z",
+      "indexedAt": "2026-08-19T09:41:49.307Z",
+      "category": "integration"
+    },
+    {
+      "path": "src/lib/supervisors/index.ts",
+      "purpose": "(no purpose documented — add a JSDoc header)",
+      "keyFunctions": [
+        "logReview",
+        "createEscalation",
+        "salesSupervisorReview",
+        "qualitySupervisorReview",
+        "financeSupervisorReview",
+        "complianceSupervisorReview",
+        "executiveSupervisorReview",
+        "reviewWithRetryCap"
+      ],
+      "dependencies": [
+        "../db",
+        "../logger",
+        "../email-service",
+        "../services/builder",
+        "../intelligence/sandbox",
+        "../outreach-executor"
+      ],
+      "lineCount": 103,
+      "lastModified": "2026-08-17T04:52:47.000Z",
+      "indexedAt": "2026-08-19T09:41:49.321Z",
+      "category": "safety"
+    },
+    {
+      "path": "src/lib/supervisors/quality-supervisor.ts",
+      "purpose": "src/lib/supervisors/quality-supervisor.ts — v59 Strategic Upgrade",
+      "keyFunctions": [
+        "runTrajectoryValidation",
+        "qualitySupervisorReviewV59",
+        "reviewWithTrajectoryCap"
+      ],
+      "dependencies": [
+        "child_process",
+        "fs",
+        "os",
+        "path",
+        "../logger",
+        "../db",
+        "../event-bus",
+        "./index"
+      ],
+      "lineCount": 429,
+      "lastModified": "2026-08-17T05:29:13.000Z",
+      "indexedAt": "2026-08-19T09:41:49.321Z",
+      "category": "safety"
+    },
+    {
+      "path": "src/lib/support-agent.ts",
+      "purpose": "(no purpose documented — add a JSDoc header)",
+      "keyFunctions": [
+        "handleSupportMessage"
+      ],
+      "dependencies": [
+        "./db",
+        "./logger",
+        "./event-bus",
+        "./llm-client",
+        "./email-service"
+      ],
+      "lineCount": 62,
+      "lastModified": "2026-08-17T03:20:29.000Z",
+      "indexedAt": "2026-08-19T09:41:49.265Z",
+      "category": "general"
+    },
+    {
+      "path": "src/lib/telegram-bot.ts",
+      "purpose": "src/lib/telegram-bot.ts — Inbound Telegram command handler (v58 Phase 2)",
+      "keyFunctions": [
+        "handleTelegramUpdate"
+      ],
+      "dependencies": [
+        "./logger",
+        "./autonomy-control",
+        "./telegram-notifier",
+        "./db",
+        "./event-bus",
+        "./approval-brief",
+        "./approval-executor"
+      ],
+      "lineCount": 709,
+      "lastModified": "2026-08-17T15:08:04.000Z",
+      "indexedAt": "2026-08-19T09:41:49.267Z",
+      "category": "integration"
+    },
+    {
+      "path": "src/lib/telegram-notifier.ts",
+      "purpose": "ARIA Mission Control — Telegram Notification Service.",
+      "keyFunctions": [
+        "sendTelegramMessage",
+        "sendAlertNotification",
+        "sendApprovalNotification",
+        "sendRevenueNotification",
+        "sendTelegramPhoto",
+        "isTelegramConfigured"
+      ],
+      "dependencies": [
+        "./logger"
+      ],
+      "lineCount": 155,
+      "lastModified": "2026-08-19T04:13:32.000Z",
+      "indexedAt": "2026-08-19T09:41:49.293Z",
+      "category": "general"
+    },
+    {
+      "path": "src/lib/telephony.ts",
+      "purpose": "src/lib/telephony.ts — Unified Telephony Integration",
+      "keyFunctions": [
+        "makeFreeswitchCall",
+        "makeDograhCall",
+        "sendDograhSms",
+        "makeTwilioCall",
+        "sendTwilioSms",
+        "makeCall",
+        "sendSms",
+        "getTelephonyStatus"
+      ],
+      "dependencies": [
+        "net",
+        "./logger",
+        "./event-bus"
+      ],
+      "lineCount": 538,
+      "lastModified": "2026-08-17T03:40:51.000Z",
+      "indexedAt": "2026-08-19T09:41:49.314Z",
+      "category": "integration"
+    },
+    {
+      "path": "src/lib/tracing.ts",
+      "purpose": "src/lib/tracing.ts — Lightweight span-based tracing (server-only).",
+      "keyFunctions": [
+        "traceAsync",
+        "startSpan",
+        "getTraceStats",
+        "getRecentSpans"
+      ],
+      "dependencies": [
+        "./logger"
+      ],
+      "lineCount": 244,
+      "lastModified": "2026-08-17T03:11:39.000Z",
+      "indexedAt": "2026-08-19T09:41:49.313Z",
+      "category": "general"
+    },
+    {
+      "path": "src/lib/tts.ts",
+      "purpose": "src/lib/tts.ts — Embedded Text-to-Speech Engine",
+      "keyFunctions": [
+        "speakServer",
+        "speak",
+        "isBrowserTTSAvailable",
+        "listBrowserVoices",
+        "speakBrowser",
+        "stopBrowserSpeech",
+        "getTTSStatus"
+      ],
+      "dependencies": [
+        "z-ai-web-dev-sdk"
+      ],
+      "lineCount": 221,
+      "lastModified": "2026-08-17T03:11:39.000Z",
+      "indexedAt": "2026-08-19T09:41:49.301Z",
+      "category": "general"
+    },
+    {
+      "path": "src/lib/two-factor.ts",
+      "purpose": "src/lib/two-factor.ts — TOTP (Time-based One-Time Password) (server-only).",
+      "keyFunctions": [
+        "hashBackupCodes",
+        "verifyBackupCode",
+        "generateSecret",
+        "generateTOTP",
+        "verifyTOTP",
+        "generateQRCodeURI",
+        "generateBackupCodes"
+      ],
+      "dependencies": [
+        "node:crypto",
+        "./logger",
+        "@/lib/two-factor",
+        "bcryptjs"
+      ],
+      "lineCount": 296,
+      "lastModified": "2026-08-17T03:11:39.000Z",
+      "indexedAt": "2026-08-19T09:41:49.263Z",
+      "category": "general"
+    },
+    {
+      "path": "src/lib/types.ts",
+      "purpose": "ARIA Mission Control — strict domain contracts.",
+      "keyFunctions": [
+        "toIso",
+        "parseJsonArray",
+        "parseJsonObject"
+      ],
+      "dependencies": [
+        "zod"
+      ],
+      "lineCount": 752,
+      "lastModified": "2026-08-17T03:11:39.000Z",
+      "indexedAt": "2026-08-19T09:41:49.300Z",
+      "category": "infra"
+    },
+    {
+      "path": "src/lib/upi-payments.ts",
+      "purpose": "src/lib/upi-payments.ts — UPI/QR Payment Integration (v44)",
+      "keyFunctions": [
+        "getUpiSettings",
+        "saveUpiSettings",
+        "createUpiOrder",
+        "claimUpiPayment",
+        "approveUpiOrder",
+        "rejectUpiOrder",
+        "getPendingUpiVerifications"
+      ],
+      "dependencies": [
+        "./db",
+        "./logger",
+        "./event-bus",
+        "./services/catalog",
+        "./email-service",
+        "./services/crypto-checkout"
+      ],
+      "lineCount": 485,
+      "lastModified": "2026-08-17T04:54:53.000Z",
+      "indexedAt": "2026-08-19T09:41:49.262Z",
+      "category": "integration"
+    },
+    {
+      "path": "src/lib/utils.ts",
+      "purpose": "(no purpose documented — add a JSDoc header)",
+      "keyFunctions": [
+        "cn"
+      ],
+      "dependencies": [
+        "clsx",
+        "tailwind-merge"
+      ],
+      "lineCount": 7,
+      "lastModified": "2026-08-17T03:11:39.000Z",
+      "indexedAt": "2026-08-19T09:41:49.294Z",
+      "category": "general"
+    },
+    {
+      "path": "src/lib/vector-memory.ts",
+      "purpose": "src/lib/vector-memory.ts — v61.4 Phase 9 (REAL Vector Memory)",
+      "keyFunctions": [
+        "storeMemoryWithEmbedding",
+        "searchBySimilarity"
+      ],
+      "dependencies": [
+        "./db",
+        "./logger",
+        "./ollama-client"
+      ],
+      "lineCount": 232,
+      "lastModified": "2026-08-17T20:01:52.000Z",
+      "indexedAt": "2026-08-19T09:41:49.291Z",
+      "category": "memory"
+    },
+    {
+      "path": "src/lib/whatsapp/business.ts",
+      "purpose": "src/lib/whatsapp/business.ts — v67 Phase 17 (Open-Source WhatsApp via Baileys)",
+      "keyFunctions": [
+        "sendWhatsAppMessage",
+        "notifyOwnerUpiClaim",
+        "isWhatsAppConfigured",
+        "verifyWhatsAppWebhookSignature"
+      ],
+      "dependencies": [
+        "crypto",
+        "../logger",
+        "../event-bus",
+        "@whiskeysockets/baileys",
+        "@hapi/boom",
+        "qrcode",
+        "fs",
+        "path",
+        "../telegram-notifier"
+      ],
+      "lineCount": 269,
+      "lastModified": "2026-08-19T04:17:59.000Z",
+      "indexedAt": "2026-08-19T09:41:49.286Z",
+      "category": "integration"
+    },
+    {
+      "path": "src/lib/workflow-engine.ts",
+      "purpose": "ARIA Mission Control — n8n-style Step-by-Step Automation Workflow Engine.",
+      "keyFunctions": [
+        "executeWorkflow",
+        "getWorkflowTemplates",
+        "getActiveRuns"
+      ],
+      "dependencies": [
+        "./db",
+        "./event-bus",
+        "./types",
+        "./logger",
+        "./conductor/router",
+        "./autonomy-control",
+        "./execution-trace",
+        "./llm-client",
+        "./context-manager",
+        "./constitution",
+        "./global-logics",
+        "./step-debate",
+        "./production-gate",
+        "./telegram-notifier",
+        "./zero-assumption-guard"
+      ],
+      "lineCount": 899,
+      "lastModified": "2026-08-19T04:14:28.000Z",
+      "indexedAt": "2026-08-19T09:41:49.296Z",
+      "category": "workflow"
+    },
+    {
+      "path": "src/lib/workflow-templates.ts",
+      "purpose": "src/lib/workflow-templates.ts — Cross-functional Workflow Templates.",
+      "keyFunctions": [
+        "getAllWorkflowTemplates"
+      ],
+      "dependencies": [
+        "./workflow-engine"
+      ],
+      "lineCount": 505,
+      "lastModified": "2026-08-17T03:11:39.000Z",
+      "indexedAt": "2026-08-19T09:41:49.260Z",
+      "category": "workflow"
+    },
+    {
+      "path": "src/lib/zero-assumption-guard.ts",
+      "purpose": "src/lib/zero-assumption-guard.ts — v61 Phase 3 (ZERO ASSUMPTIONS)",
+      "keyFunctions": [
+        "checkContextCompleteness"
+      ],
+      "dependencies": [
+        "./skill-patterns"
+      ],
+      "lineCount": 157,
+      "lastModified": "2026-08-17T15:06:53.000Z",
+      "indexedAt": "2026-08-19T09:41:49.296Z",
+      "category": "safety"
+    },
+    {
+      "path": "src/proxy.ts",
+      "purpose": "(no purpose documented — add a JSDoc header)",
+      "keyFunctions": [
+        "proxy"
+      ],
+      "dependencies": [
+        "next/server",
+        "next-auth/jwt",
+        "@/lib/rate-limiter"
+      ],
+      "lineCount": 220,
+      "lastModified": "2026-08-17T04:08:42.000Z",
+      "indexedAt": "2026-08-19T09:41:49.322Z",
+      "category": "infra"
+    },
+    {
+      "path": "src/stores/mission-store.ts",
+      "purpose": "(no purpose documented — add a JSDoc header)",
+      "keyFunctions": [],
+      "dependencies": [
+        "zustand",
+        "@/lib/types"
+      ],
+      "lineCount": 248,
+      "lastModified": "2026-08-17T03:11:39.000Z",
+      "indexedAt": "2026-08-19T09:41:49.338Z",
+      "category": "general"
+    },
+    {
+      "path": "src/styles/theme.ts",
+      "purpose": "src/styles/theme.ts — ARIA Mission Control Design System (v48)",
+      "keyFunctions": [],
+      "dependencies": [
+        "@/styles/theme"
+      ],
+      "lineCount": 299,
+      "lastModified": "2026-08-17T03:11:39.000Z",
+      "indexedAt": "2026-08-19T09:41:49.322Z",
+      "category": "general"
+    }
+  ]
+}
