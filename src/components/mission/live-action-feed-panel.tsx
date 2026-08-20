@@ -57,6 +57,7 @@ export function LiveActionFeedPanel() {
   const pausedRef = useRef(paused);
   pausedRef.current = paused;
 
+  // 1. Define connect FIRST so it can be safely referenced below
   const connect = useCallback(() => {
     if (eventSourceRef.current) {
       eventSourceRef.current.close();
@@ -77,7 +78,6 @@ export function LiveActionFeedPanel() {
       if (pausedRef.current) return;
       try {
         const envelope = JSON.parse(e.data);
-        // Map SSE event types to feed event types
         const evt = mapSseToFeedEvent(envelope);
         if (evt) {
           setEvents((prev) => [evt, ...prev].slice(0, 200));
@@ -88,6 +88,7 @@ export function LiveActionFeedPanel() {
     };
   }, []);
 
+  // 2. Use connect inside useEffect AFTER its declaration
   useEffect(() => {
     connect();
     return () => {
@@ -95,8 +96,7 @@ export function LiveActionFeedPanel() {
     };
   }, [connect]);
 
-  // Also poll the recent system alerts + notification log for events that happened
-  // before the SSE connection opened (last 50 events from the last hour)
+  // Also poll historical events
   useEffect(() => {
     void (async () => {
       try {
@@ -257,11 +257,6 @@ export function LiveActionFeedPanel() {
   );
 }
 
-/**
- * Map the various SSE event envelope shapes from event-bus.ts into a unified FeedEvent.
- * The SSE bus emits events with `type` field: "system" | "agent.status" | "log" | "metric" |
- * "llm" | "agent.message" | "cron.update" | "alert".
- */
 function mapSseToFeedEvent(envelope: any): FeedEvent | null {
   if (!envelope || !envelope.type || !envelope.ts) return null;
   const ts = envelope.ts;
