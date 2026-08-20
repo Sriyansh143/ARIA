@@ -224,7 +224,7 @@ describe("BUG-10 FIX — gate rejects (error: ...) fallback strings", () => {
   });
 
   it("rejects output containing (error: rate limit exceeded)", () => {
-    const { verifyProductionReadiness } = require("../src/lib/production-gate");
+    import { verifyProductionReadiness } from "../src/lib/production-gate";
     const result = verifyProductionReadiness("(error: rate limit exceeded)", "general", 0);
     expect(result.passed).toBe(false);
   });
