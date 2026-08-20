@@ -6,7 +6,7 @@
  * handling — and that the gate is now WIRED into step-debate.ts so rejected
  * outputs are halted (NEEDS_CONTEXT) instead of shipped to production.
  */
-
+import { verifyProductionReadiness } from "../src/lib/production-gate";
 import { describe, it, expect, mock, beforeEach, afterEach } from "bun:test";
 import { db } from "../src/lib/db";
 import { verifyProductionReadiness } from "../src/lib/production-gate";
@@ -217,14 +217,14 @@ describe("BUG-1 FIX — debate path 3 gate failures → NEEDS_CONTEXT halt", () 
 
 describe("BUG-10 FIX — gate rejects (error: ...) fallback strings", () => {
   it("rejects output containing an (error: ...) LLM-fallback string", () => {
-    import { verifyProductionReadiness } from "../src/lib/production-gate";
+  
     const result = verifyProductionReadiness("(error: request timed out after 10000ms)", "code", 0);
     expect(result.passed).toBe(false);
     expect(result.issues.some((i: string) => /error:/i.test(i))).toBe(true);
   });
 
   it("rejects output containing (error: rate limit exceeded)", () => {
-    import { verifyProductionReadiness } from "../src/lib/production-gate";
+    
     const result = verifyProductionReadiness("(error: rate limit exceeded)", "general", 0);
     expect(result.passed).toBe(false);
   });
