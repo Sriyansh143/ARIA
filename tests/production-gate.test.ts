@@ -217,7 +217,7 @@ describe("BUG-1 FIX — debate path 3 gate failures → NEEDS_CONTEXT halt", () 
 
 describe("BUG-10 FIX — gate rejects (error: ...) fallback strings", () => {
   it("rejects output containing an (error: ...) LLM-fallback string", () => {
-    const { verifyProductionReadiness } = require("../src/lib/production-gate");
+    import { verifyProductionReadiness } from "../src/lib/production-gate";
     const result = verifyProductionReadiness("(error: request timed out after 10000ms)", "code", 0);
     expect(result.passed).toBe(false);
     expect(result.issues.some((i: string) => /error:/i.test(i))).toBe(true);
